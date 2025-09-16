@@ -343,8 +343,8 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 
 **Tu Nombre**
 - Email: tu.email@example.com
-- LinkedIn: [tu-perfil](https://linkedin.com/in/tu-perfil)
-- GitHub: [@tu-usuario](https://github.com/tu-usuario)
+- LinkedIn: [Pau López Núñez](https://www.linkedin.com/in/paulopnun)
+- GitHub: [@PauLopNun](https://github.com/PauLopNun)
 
 ## 🙏 Agradecimientos
 
