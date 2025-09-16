@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "Bash(.gradlew build --no-daemon)",
+      "Bash(gradle build:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
