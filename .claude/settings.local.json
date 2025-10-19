@@ -1,10 +1,27 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)",
-      "Bash(find:*)",
-      "Bash(.gradlew build --no-daemon)",
-      "Bash(gradle build:*)"
+      "Bash(powershell -Command \"Remove-Item -Path ''C:\\Users\\paulo\\Desktop\\programacion\\proyectos\\FlowBoard\\android\\app\\src\\main\\java\\com\\flowboard'' -Recurse -Force; Copy-Item -Path ''C:\\Users\\paulo\\Desktop\\programacion\\proyectos\\FlowBoard\\android\\app\\src\\main\\java\\com\\taskhive'' -Destination ''C:\\Users\\paulo\\Desktop\\programacion\\proyectos\\FlowBoard\\android\\app\\src\\main\\java\\com\\flowboard'' -Recurse -Force\")",
+      "Bash(dir \"C:\\Users\\paulo\\Desktop\\programacion\\proyectos\\FlowBoard\\android\\app\\src\\main\\java\\com\\flowboard\")",
+      "Bash(powershell -Command \"Remove-Item -Path ''C:\\Users\\paulo\\Desktop\\programacion\\proyectos\\FlowBoard\\android\\app\\src\\main\\java\\com\\taskhive'' -Recurse -Force\")",
+      "Bash(gradlew.bat assembleDebug --no-daemon)",
+      "Bash(.gradlew.bat assembleDebug --no-daemon)",
+      "Bash(cmd /c \"cd C:\\Users\\paulo\\Desktop\\programacion\\proyectos\\FlowBoard\\android && gradlew.bat assembleDebug --no-daemon\")",
+      "Bash(dir \"C:\\Users\\paulo\\Desktop\\programacion\\proyectos\\FlowBoard\\android\")",
+      "Bash(findstr gradle)",
+      "Bash(cmd.exe /c gradlew.bat assembleDebug --no-daemon)",
+      "Bash(dir)",
+      "Bash(dir \"C:\\Users\\paulo\\Desktop\\programacion\\proyectos\\FlowBoard\\android\\app\\src\\main\\java\\com\\flowboard\" /B)",
+      "Bash(del \"C:\\Users\\paulo\\Desktop\\programacion\\proyectos\\FlowBoard\\android\\app\\src\\main\\java\\com\\flowboard\\TaskHiveApplication.kt\")",
+      "Bash(dir android)",
+      "Bash(powershell -Command \"if (-not (Test-Path ''gradle\\wrapper'')) { New-Item -ItemType Directory -Path ''gradle\\wrapper'' -Force | Out-Null }; Copy-Item ''android\\gradle\\wrapper\\*'' ''gradle\\wrapper\\'' -Recurse -Force; Copy-Item ''android\\gradlew'' ''.\\'' -Force; Copy-Item ''android\\gradlew.bat'' ''.\\'' -Force\")",
+      "Bash(gradlew.bat -p android tasks --group=\"build\")",
+      "Bash(findstr /C:\"assembleDebug\" /C:\"assembleRelease\" /C:\"build\")",
+      "Bash(cmd /c \"gradlew.bat tasks --all 2>nul | findstr build\")",
+      "Bash(git add flow.bat flow.sh)",
+      "Bash(if not exist .github mkdir .github)",
+      "Bash(dir /B)",
+      "Bash(cmd /c \"dir /B\")"
     ],
     "deny": [],
     "ask": []

@@ -70,6 +70,7 @@ pids
 *.temp
 .tmp/
 .temp/
+nul
 
 # OS generated files
 .DS_Store

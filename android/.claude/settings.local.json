@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew clean)",
+      "Bash(gradlew.bat clean --no-daemon)",
+      "Bash(curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.3.0/gradle/wrapper/gradle-wrapper.jar)",
+      "Bash(./gradlew --stop)",
+      "Bash(java -version)",
+      "Bash(java -jar gradle/wrapper/gradle-wrapper.jar --stop)",
+      "Bash(cmd.exe /c \"cd && echo. && dir gradle\\wrapper\")",
+      "Bash(cmd.exe /c \"gradlew.bat --stop\")",
+      "Bash(curl -L https://services.gradle.org/distributions/gradle-8.3-bin.zip -o /tmp/gradle-8.3-bin.zip)",
+      "Bash(unzip -q /tmp/gradle-8.3-bin.zip -d /tmp/)",
+      "Bash(/tmp/gradle-8.3/bin/gradle wrapper --gradle-version 8.3)",
+      "Bash(taskkill //F //IM java.exe)",
+      "Bash(/tmp/gradle-8.3/bin/gradle wrapper --gradle-version 8.3 --no-daemon)",
+      "Bash(./gradlew clean --no-daemon)",
+      "Bash(./gradlew assembleDebug --no-daemon)",
+      "Bash(./gradlew clean assembleDebug --no-daemon)",
+      "Read(//c/Users/paulo/Desktop/programacion/proyectos/FlowBoard/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -7,6 +7,8 @@
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
 [![Ktor](https://img.shields.io/badge/Backend-Ktor-orange.svg)](https://ktor.io)
 
+> **⚡ Quick Start:** ¿Primera vez? Lee la [Guía de Inicio Rápido](QUICK_START.md) | 🛠️ Desarrollador? Consulta [DEVELOPMENT.md](DEVELOPMENT.md) | 📂 Estructura? Ver [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+
 ## 📋 Descripción
 
 FlowBoard es una aplicación móvil de gestión colaborativa de tareas y eventos diseñada especialmente para estudiantes y equipos pequeños. Combina funcionalidades de organización personal con herramientas colaborativas, permitiendo una gestión eficiente tanto offline como online con sincronización automática.
@@ -202,7 +204,19 @@ git clone https://github.com/tu-usuario/flowboard.git
 cd flowboard
 ```
 
-#### 2. Configurar Backend
+#### 2. Abrir el Proyecto en Android Studio
+
+**Opción A: Abrir el módulo Android directamente (✅ Recomendado)**
+```
+Android Studio → File → Open → .../FlowBoard/android
+```
+
+**Opción B: Abrir desde la raíz (Composite Build)**
+```
+Android Studio → File → Open → .../FlowBoard
+```
+
+#### 3. Configurar Backend (Opcional)
 ```bash
 cd backend
 
@@ -219,27 +233,50 @@ export JWT_SECRET="tu_secreto_jwt"
 ./gradlew run
 ```
 
-#### 3. Configurar Android App
-```bash
-cd android
+#### 4. Compilar y Ejecutar Android App
 
-# Abrir en Android Studio
-# o compilar desde línea de comandos
-./gradlew assembleDebug
+**Desde Android Studio:**
+- Click en Run ▶️ (Shift+F10)
+
+**Desde línea de comandos:**
+```bash
+# Usando el script de utilidades (✅ Recomendado)
+./flow.sh build      # Linux/Mac
+flow.bat build       # Windows
+
+# O directamente con Gradle
+./gradlew -p android assembleDebug   # Desde raíz
+cd android && ./gradlew assembleDebug # Desde android/
 ```
 
-#### 4. Configurar Base de Datos Local
+**💡 Script de Utilidades:**
+```bash
+# Ver todos los comandos disponibles
+./flow.sh help      # Linux/Mac
+flow.bat help       # Windows
+
+# Comandos útiles:
+./flow.sh build     # Compilar app
+./flow.sh run       # Instalar y ejecutar
+./flow.sh test      # Ejecutar tests
+./flow.sh backend   # Iniciar backend
+./flow.sh clean     # Limpiar builds
+```
+
+#### 5. Configurar Base de Datos Local
 La app creará automáticamente la base de datos SQLite local en el primer arranque.
 
 ### 🧪 Ejecutar Tests
 ```bash
-# Tests de Android
-cd android
-./gradlew test
+# Tests de Android (desde raíz)
+./gradlew -p android test
 
-# Tests de Backend
-cd backend
-./gradlew test
+# Tests de Backend (desde raíz)
+./gradlew -p backend test
+
+# O desde cada carpeta directamente
+cd android && ./gradlew test
+cd backend && ./gradlew test
 ```
 
 ### 📱 Usar la Aplicación
@@ -342,7 +379,7 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 ## 👨‍💻 Desarrollador
 
 **Tu Nombre**
-- Email: tu.email@example.com
+- Email: paulopeznunez@gmail.com
 - LinkedIn: [Pau López Núñez](https://www.linkedin.com/in/paulopnun)
 - GitHub: [@PauLopNun](https://github.com/PauLopNun)
 

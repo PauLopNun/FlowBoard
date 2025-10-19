@@ -40,9 +40,39 @@ FlowBoard centraliza la gestión de tareas académicas y proyectos colaborativos
 
 ---
 
-## 🔧 3. Integración de Módulos DAM
+## ✅ 3. Cumplimiento de Requisitos del Proyecto Intermodular
 
-### 3.1 Acceso a Datos ✅
+A continuación se detalla cómo FlowBoard cumple **exhaustivamente** todos los requisitos mínimos establecidos para el proyecto intermodular:
+
+### 📊 Tabla Resumen de Cumplimiento
+
+| **Módulo** | **Requisito** | **Cumplimiento** | **Evidencia** |
+|-----------|---------------|------------------|---------------|
+| **Acceso a Datos** | Base de datos con 3-4 tablas relacionadas | ✅ Cumple | 4 tablas: Users, Projects, Tasks, Incidents |
+| | Operaciones CRUD completas | ✅ Cumple | CRUD para todas las entidades |
+| | Import/Export JSON o XML | ✅ Cumple | JSON, XML y CSV |
+| **Desarrollo de Interfaces** | GUI clara, usable y accesible | ✅ Cumple | Material 3 + WCAG 2.1 |
+| | Formularios y menús con validación | ✅ Cumple | Validación en tiempo real |
+| | Informe con gráficos | ✅ Cumple | Dashboard con charts |
+| **Programación Multimedia** | Ejecutable en PC y móvil | ✅ Cumple | Android + Desktop (Compose MP) |
+| | Funcionalidades multimedia | ✅ Cumple | Imágenes, PDF, mapas |
+| | Soporte HTTPS | ✅ Cumple | API REST con SSL/TLS |
+| **Servicios y Procesos** | Servicio en red (API REST) | ✅ Cumple | API REST completa |
+| | Gestión de hilos/procesos | ✅ Cumple | Coroutines + WorkManager |
+| | Seguridad (roles, cifrado) | ✅ Cumple | JWT + BCrypt + HTTPS |
+| **Gestión Empresarial** | Control de usuarios/clientes | ✅ Cumple | Sistema de usuarios completo |
+| | Gestión de incidencias | ✅ Cumple | Sistema de tickets |
+| | Informes de actividad | ✅ Cumple | Analytics y reportes |
+| | Panel de control (dashboard) | ✅ Cumple | Dashboard administrativo |
+| **Sostenibilidad** | Vinculado a ODS | ✅ Cumple | ODS 4, 8, 12, 13 |
+| | Principios de sostenibilidad | ✅ Cumple | Eficiencia, accesibilidad |
+| | Medidas sostenibles | ✅ Cumple | Reducción papel, optimización |
+
+---
+
+## 🔧 4. Integración de Módulos DAM
+
+### 4.1 Acceso a Datos ✅
 
 #### **Base de Datos Relacional**
 ```sql
@@ -50,7 +80,7 @@ FlowBoard centraliza la gestión de tareas académicas y proyectos colaborativos
 Users (id, email, username, fullName, role, createdAt)
 Projects (id, name, description, ownerId, members, deadline)
 Tasks (id, title, description, projectId, assignedTo, dueDate, priority)
-Events (id, title, startTime, endTime, location, projectId)
+Incidents (id, title, category, status, userId, assignedTo, createdAt)
 ```
 
 #### **Operaciones CRUD Completas**
@@ -67,13 +97,15 @@ Events (id, title, startTime, endTime, location, projectId)
 
 **Tecnologías:** Room/SQLite (local), PostgreSQL (remoto), Exposed ORM
 
-### 3.2 Desarrollo de Interfaces ✅
+### 4.2 Desarrollo de Interfaces ✅
 
 #### **GUI Clara y Accesible**
-- **Material Design 3**: Siguiendo guidelines de accesibilidad
+- **Material Design 3**: Siguiendo guidelines de accesibilidad WCAG 2.1
 - **Jetpack Compose**: UI declarativa y moderna
 - **Responsive Design**: Adaptable a tablets y móviles
 - **Dark/Light Theme**: Soporte completo de temas
+- **Contraste y tipografía**: Optimizado para legibilidad
+- **Navegación intuitiva**: Menús coherentes y flujos claros
 
 #### **Formularios y Validación**
 - **Validación en tiempo real** de campos obligatorios
@@ -89,12 +121,14 @@ Events (id, title, startTime, endTime, location, projectId)
 
 **Tecnologías:** Jetpack Compose, Material 3, Canvas API, PDF Generation
 
-### 3.3 Programación Multimedia y Móviles ✅
+### 4.3 Programación Multimedia y Móviles ✅
 
 #### **Multiplataforma**
-- **Android nativo** con Kotlin
+- **Android nativo** con Kotlin (versión móvil principal)
+- **Versión desktop (PC)** con Compose Multiplatform para Windows/Linux/macOS
 - **Versión web responsive** (futura expansión)
 - **Sincronización cross-platform** mediante API REST
+- **Diseño adaptable** que funciona en tablets, móviles y ordenadores
 
 #### **Funcionalidades Multimedia**
 - **Adjuntos de imágenes** en tareas y eventos
@@ -109,7 +143,7 @@ Events (id, title, startTime, endTime, location, projectId)
 
 **Tecnologías:** Kotlin Android, Ktor Client, Coil (imágenes), Maps SDK
 
-### 3.4 Programación de Servicios y Procesos ✅
+### 4.4 Programación de Servicios y Procesos ✅
 
 #### **API REST Completa**
 ```kotlin
@@ -136,7 +170,7 @@ GET  /api/v1/events?startDate&endDate
 
 **Tecnologías:** Ktor Server, JWT, BCrypt, WorkManager, Firebase Messaging
 
-### 3.5 Sistemas de Gestión Empresarial ✅
+### 4.5 Sistemas de Gestión Empresarial ✅
 
 #### **Control de Usuarios/Clientes**
 - **Registro y autenticación** de usuarios
@@ -145,24 +179,39 @@ GET  /api/v1/events?startDate&endDate
 - **Roles y permisos** granulares por proyecto
 
 #### **Gestión de Incidencias**
-- **Sistema de logging** de errores y eventos
-- **Reportes de bugs** integrados en la app
-- **Métricas de uso** y rendimiento
-- **Soporte técnico** mediante tickets
+- **Sistema completo de tickets** para reportar problemas técnicos
+- **Categorización de incidencias** (Bug, Mejora, Consulta, Soporte)
+- **Estados de seguimiento** (Abierto, En Progreso, Resuelto, Cerrado)
+- **Asignación automática** a administradores
+- **Sistema de logging** de errores y eventos del sistema
+- **Métricas de resolución** y tiempos de respuesta
+- **Historial de incidencias** por usuario y proyecto
+- **Notificaciones** de actualización de estado
+
+#### **Panel de Control (Dashboard)**
+- **Dashboard administrativo** con métricas en tiempo real
+- **Widgets configurables** para diferentes roles
+- **Indicadores clave de rendimiento** (KPIs) visuales
+- **Resumen de actividad organizacional** por proyecto
+- **Alertas y notificaciones** de eventos críticos
+- **Métricas de uso** de la plataforma
+- **Gestión centralizada** de usuarios y proyectos
 
 #### **Análisis y Reportes**
 - **KPIs de productividad** por usuario y equipo
 - **Análisis de tendencias** temporales
 - **Reportes ejecutivos** para coordinadores
-- **Exportación profesional** de datos
+- **Exportación profesional** de datos (PDF, Excel, JSON)
+- **Gráficos comparativos** de rendimiento
+- **Informes de actividad** personalizados
 
-**Tecnologías:** PostgreSQL, Exposed, Analytics, Reporting APIs
+**Tecnologías:** PostgreSQL, Exposed, Analytics, Reporting APIs, Charts Libraries
 
 ---
 
-## 💻 4. Especificaciones Técnicas
+## 💻 5. Especificaciones Técnicas
 
-### 4.1 Arquitectura del Sistema
+### 5.1 Arquitectura del Sistema
 
 ```
 ┌─────────────────────────────────────────┐
@@ -182,7 +231,7 @@ GET  /api/v1/events?startDate&endDate
 └─────────────────────────────────────────┘
 ```
 
-### 4.2 Stack Tecnológico
+### 5.2 Stack Tecnológico
 
 #### **Frontend**
 - **Lenguaje:** Kotlin 1.9.22
@@ -206,7 +255,7 @@ GET  /api/v1/events?startDate&endDate
 - **Deploy:** Docker + Kubernetes
 - **Monitoring:** Prometheus + Grafana
 
-### 4.3 Base de Datos - Modelo de Datos
+### 5.3 Base de Datos - Modelo de Datos
 
 ```sql
 -- Tabla de usuarios
@@ -261,13 +310,30 @@ CREATE TABLE tasks (
     FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
+
+-- Tabla de incidencias (gestión empresarial)
+CREATE TABLE incidents (
+    id UUID PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(50) NOT NULL, -- Bug, Mejora, Consulta, Soporte
+    status VARCHAR(50) DEFAULT 'OPEN', -- Open, InProgress, Resolved, Closed
+    priority VARCHAR(20) DEFAULT 'MEDIUM',
+    user_id UUID NOT NULL,
+    assigned_to UUID,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    resolved_at TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (assigned_to) REFERENCES users(id)
+);
 ```
 
 ---
 
-## 📱 5. Pantallas y Funcionalidades
+## 📱 6. Pantallas y Funcionalidades
 
-### 5.1 Pantallas Principales
+### 6.1 Pantallas Principales
 
 1. **Autenticación**
    - Login/Registro con validación
@@ -310,7 +376,7 @@ CREATE TABLE tasks (
    - Gestión de notificaciones
    - Sincronización
 
-### 5.2 Flujos de Usuario Principales
+### 6.2 Flujos de Usuario Principales
 
 ```mermaid
 graph TD
@@ -328,9 +394,9 @@ graph TD
 
 ---
 
-## 📊 6. Previsión de Datos
+## 📊 7. Previsión de Datos
 
-### 6.1 Volumen de Datos Estimado
+### 7.1 Volumen de Datos Estimado
 
 - **Usuarios registrados:** 1,000-5,000 usuarios (primer año)
 - **Tareas por usuario:** 50-200 tareas mensuales
@@ -338,7 +404,7 @@ graph TD
 - **Eventos mensuales:** 5,000-15,000 eventos
 - **Attachments storage:** 10GB-50GB
 
-### 6.2 Tipos de Datos Gestionados
+### 7.2 Tipos de Datos Gestionados
 
 - **Datos de usuario:** Perfiles, preferencias, métricas
 - **Contenido:** Tareas, eventos, proyectos, notas
@@ -348,9 +414,9 @@ graph TD
 
 ---
 
-## 🚀 7. Plan de Desarrollo
+## 🚀 8. Plan de Desarrollo
 
-### 7.1 Fases del Proyecto
+### 8.1 Fases del Proyecto
 
 #### **Fase 1: MVP (8 semanas)**
 - ✅ Arquitectura base y configuración
@@ -379,7 +445,7 @@ graph TD
 - ⏳ Documentación final
 - ⏳ Deployment a producción
 
-### 7.2 Hitos de Entrega
+### 8.2 Hitos de Entrega
 
 1. **Semana 4:** Prototipo funcional básico
 2. **Semana 8:** MVP completo con todas las funcionalidades mínimas
@@ -388,9 +454,9 @@ graph TD
 
 ---
 
-## 🧪 8. Plan de Testing
+## 🧪 9. Plan de Testing
 
-### 8.1 Estrategia de Testing
+### 9.1 Estrategia de Testing
 
 - **Unit Tests:** 80% cobertura mínima
 - **Integration Tests:** API endpoints y base de datos
@@ -398,7 +464,7 @@ graph TD
 - **Performance Tests:** Carga y stress testing
 - **Security Tests:** Vulnerabilidades y autenticación
 
-### 8.2 Herramientas de Testing
+### 9.2 Herramientas de Testing
 
 - **Android:** JUnit, Espresso, Mockito
 - **Backend:** Ktor Testing, Testcontainers
@@ -408,15 +474,15 @@ graph TD
 
 ---
 
-## 📈 9. Métricas de Éxito
+## 📈 10. Métricas de Éxito
 
-### 9.1 KPIs Técnicos
+### 10.1 KPIs Técnicos
 - **Performance:** Tiempo de carga < 2 segundos
 - **Disponibilidad:** 99.5% uptime
 - **Bugs:** < 1 bug crítico por 1000 usuarios
 - **Cobertura de tests:** > 80%
 
-### 9.2 KPIs de Usuario
+### 10.2 KPIs de Usuario
 - **Adopción:** 70% usuarios activos semanalmente
 - **Retención:** 60% usuarios activos después de 30 días
 - **Productividad:** 25% mejora en organización auto-reportada
@@ -424,55 +490,109 @@ graph TD
 
 ---
 
-## 💰 10. Viabilidad y Sostenibilidad
+## 💰 11. Viabilidad y Sostenibilidad
 
-### 10.1 Modelo de Negocio
+### 11.1 Modelo de Negocio
 - **Freemium:** Funcionalidades básicas gratuitas
 - **Premium:** Proyectos ilimitados, analytics avanzados
 - **Enterprise:** Gestión de organizaciones, SSO
 - **Marketplace:** Plantillas y plugins de terceros
 
-### 10.2 Costes Estimados
+### 11.2 Costes Estimados
 - **Desarrollo:** Proyecto académico (sin coste)
 - **Infraestructura:** $50-200/mes (escalable)
 - **Mantenimiento:** 20% tiempo desarrollo inicial
 - **Marketing:** Orgánico + comunidades estudiantiles
 
-### 10.3 Impacto Sostenible
-- **Reducción de papel:** Digitalización de planificadores
-- **Eficiencia energética:** Arquitectura optimizada
-- **Accesibilidad:** Diseño inclusivo y universal
-- **Código abierto:** Contribución a la comunidad
+### 11.3 Impacto Sostenible (ODS)
+
+#### **ODS 4 - Educación de Calidad**
+- **Mejora del rendimiento académico** mediante organización efectiva
+- **Acceso gratuito** para estudiantes universitarios
+- **Herramientas colaborativas** para proyectos grupales
+- **Reducción de estrés** por mejor gestión del tiempo
+
+#### **ODS 8 - Trabajo Decente y Crecimiento Económico**
+- **Productividad de equipos** pequeños y startups
+- **Gestión profesional** de proyectos sin costes iniciales
+- **Herramientas de análisis** para optimización laboral
+- **Flexibilidad laboral** con trabajo remoto
+
+#### **ODS 12 - Producción y Consumo Responsables**
+- **Reducción de papel:** Digitalización completa de planificadores y agendas
+- **Minimización de residuos:** Eliminación de post-its y notas físicas
+- **Reutilización de datos:** Sistema de plantillas y duplicación de proyectos
+- **Ciclo de vida eficiente:** Arquitectura optimizada para bajo consumo energético
+
+#### **ODS 13 - Acción por el Clima**
+- **Eficiencia energética:** Código optimizado para reducir consumo de batería
+- **Infraestructura verde:** Servidores con energías renovables (cuando sea posible)
+- **Reducción de huella de carbono:** Menos desplazamientos por mejor coordinación
+
+#### **Principios de Sostenibilidad Aplicados**
+- **Accesibilidad universal:** Diseño inclusivo WCAG 2.1
+- **Optimización de recursos:** Caché inteligente y compresión de datos
+- **Código abierto:** Contribución a la comunidad de desarrollo
+- **Longevidad del software:** Arquitectura modular y mantenible
 
 ---
 
-## 🔧 11. Riesgos y Mitigaciones
+## 🔧 12. Riesgos y Mitigaciones
 
-### 11.1 Riesgos Técnicos
+### 12.1 Riesgos Técnicos
 - **Complejidad de sincronización:** Implementación gradual con fallbacks
 - **Performance en móviles:** Optimización continua y profiling
 - **Seguridad de datos:** Auditorías regulares y best practices
 
-### 11.2 Riesgos de Proyecto
+### 12.2 Riesgos de Proyecto
 - **Tiempo limitado:** MVP bien definido y features escalonadas
 - **Recursos académicos:** Documentación exhaustiva y código limpio
 - **Adopción inicial:** Focus en universidades y beta testing
 
 ---
 
-## 📚 12. Conclusiones
+## 📚 13. Conclusiones
 
-FlowBoard representa una solución integral que cumple con todos los requisitos del proyecto intermodular, integrando de manera efectiva los cinco módulos del segundo curso de DAM:
+FlowBoard representa una solución integral que **cumple exhaustivamente** todos los requisitos mínimos del proyecto intermodular, integrando de manera efectiva los cinco módulos del segundo curso de DAM:
 
-1. **Acceso a Datos:** Base de datos robusta con operaciones CRUD completas
-2. **Desarrollo de Interfaces:** GUI moderna y accesible con reportes gráficos
-3. **Programación Multimedia y Móviles:** App multiplataforma con funcionalidades multimedia
-4. **Servicios y Procesos:** API REST segura con procesos en background
-5. **Gestión Empresarial:** Control de usuarios y análisis organizacional
+### ✅ Cumplimiento de Requisitos Mínimos
 
-El proyecto no solo cumple los requisitos técnicos, sino que aporta un **valor social real** mejorando la productividad académica y contribuyendo a los Objetivos de Desarrollo Sostenible.
+1. **Acceso a Datos (100% cumplido)**
+   - ✅ Base de datos relacional con 4 tablas relacionadas (Users, Projects, Tasks, Incidents)
+   - ✅ Operaciones CRUD completas para todas las entidades
+   - ✅ Import/Export en JSON, XML y CSV
 
-La **viabilidad técnica** está garantizada por el uso de tecnologías modernas y probadas, mientras que la **sostenibilidad** se asegura mediante un diseño eficiente y un modelo de negocio escalable.
+2. **Desarrollo de Interfaces (100% cumplido)**
+   - ✅ GUI clara, usable y accesible (Material 3 + WCAG 2.1)
+   - ✅ Formularios y menús coherentes con validación en tiempo real
+   - ✅ Generación de informes con gráficos (Dashboard de productividad)
+
+3. **Programación Multimedia y Móviles (100% cumplido)**
+   - ✅ Ejecutable en PC (Compose Multiplatform) y móvil (Android nativo)
+   - ✅ Funcionalidades multimedia (imágenes, PDF, mapas interactivos)
+   - ✅ Soporte de conexión HTTPS con API REST segura
+
+4. **Programación de Servicios y Procesos (100% cumplido)**
+   - ✅ Servicio en red con API REST completa
+   - ✅ Gestión de procesos en segundo plano (WorkManager, Coroutines)
+   - ✅ Seguridad implementada (JWT, BCrypt, HTTPS, roles de usuario)
+
+5. **Sistemas de Gestión Empresarial (100% cumplido)**
+   - ✅ Control de usuarios/clientes con roles y permisos
+   - ✅ Gestión de incidencias con sistema de tickets
+   - ✅ Generación de informes de actividad y análisis
+   - ✅ Panel de control básico (dashboard administrativo)
+
+6. **Sostenibilidad Aplicada (100% cumplido)**
+   - ✅ Vinculación con ODS 4, 8, 12 y 13
+   - ✅ Principios de eficiencia y reutilización implementados
+   - ✅ Medidas de sostenibilidad (reducción papel, eficiencia energética)
+
+### 🌟 Valor Añadido
+
+El proyecto no solo cumple los requisitos técnicos, sino que aporta un **valor social real** mejorando la productividad académica y contribuyendo activamente a los Objetivos de Desarrollo Sostenible.
+
+La **viabilidad técnica** está garantizada por el uso de tecnologías modernas y probadas (Kotlin, Jetpack Compose, Ktor, PostgreSQL), mientras que la **sostenibilidad a largo plazo** se asegura mediante un diseño arquitectónico eficiente y un modelo de negocio escalable.
 
 ---
 
