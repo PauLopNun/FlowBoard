@@ -4,6 +4,10 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.flowboard.data.remote.api.AuthApiService
+import com.flowboard.data.remote.api.AuthResponse
+import com.flowboard.data.remote.api.LoginRequest
+import com.flowboard.data.remote.api.RegisterRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -18,7 +22,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class AuthRepository @Inject constructor(
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val authApiService: AuthApiService
 ) {
     companion object {
         private val TOKEN_KEY = stringPreferencesKey("jwt_token")
@@ -113,5 +118,51 @@ class AuthRepository @Inject constructor(
         return dataStore.data.map { preferences ->
             preferences[TOKEN_KEY] != null && preferences[USER_ID_KEY] != null
         }
+    }
+
+    /**
+     * Login with email and password
+     */
+    suspend fun login(email: String, password: String): Result<AuthResponse> {
+        val result = authApiService.login(LoginRequest(email, password))
+
+        result.onSuccess { authResponse ->
+            saveAuth(authResponse.token, authResponse.userId, authResponse.username)
+            authResponse.defaultBoardId?.let { saveBoardId(it) }
+        }
+
+        return result
+    }
+
+    /**
+     * Register new user
+     */
+    suspend fun register(
+        email: String,
+        password: String,
+        username: String,
+        fullName: String
+    ): Result<AuthResponse> {
+        val result = authApiService.register(
+            RegisterRequest(email, password, username, fullName)
+        )
+
+        result.onSuccess { authResponse ->
+            saveAuth(authResponse.token, authResponse.userId, authResponse.username)
+            authResponse.defaultBoardId?.let { saveBoardId(it) }
+        }
+
+        return result
+    }
+
+    /**
+     * Logout user
+     */
+    suspend fun logout() {
+        clearAuth()
+    }
+
+    suspend fun searchUserByEmail(email: String): Result<com.flowboard.data.remote.api.UserData> {
+        return authApiService.searchUserByEmail(email)
     }
 }

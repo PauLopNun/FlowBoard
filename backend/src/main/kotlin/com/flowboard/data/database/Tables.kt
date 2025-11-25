@@ -37,13 +37,33 @@ object Tasks : UUIDTable("tasks") {
 }
 
 object Projects : UUIDTable("projects") {
+
     val name = varchar("name", 255)
+
     val description = text("description")
+
     val color = varchar("color", 7).default("#2196F3")
+
     val ownerId = uuid("owner_id")
+
     val members = json<List<String>>("members", Json.Default).default(emptyList())
+
     val isActive = bool("is_active").default(true)
+
     val createdAt = datetime("created_at")
+
     val updatedAt = datetime("updated_at")
+
     val deadline = datetime("deadline").nullable()
+
+}
+
+
+
+object BoardPermissions : UUIDTable("board_permissions") {
+
+    val boardId = uuid("board_id")
+
+    val userId = uuid("user_id")
+
 }

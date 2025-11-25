@@ -114,6 +114,9 @@ dependencies {
     // DataStore
     implementation 'androidx.datastore:datastore-preferences:1.0.0'
     
+    // CRDT
+    implementation 'com.github.CharlieTap:synk:0.3.0'
+
     // Testing
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-core:5.7.0'

@@ -1,6 +1,7 @@
 package com.flowboard.routes
 
 import com.flowboard.data.models.*
+import com.flowboard.data.models.crdt.*
 import com.flowboard.plugins.JwtConfig
 import com.flowboard.services.WebSocketManager
 import io.ktor.http.*
@@ -21,7 +22,10 @@ import org.slf4j.LoggerFactory
 /**
  * Configura las rutas WebSocket para colaboración en tiempo real
  */
-fun Route.webSocketRoutes(webSocketManager: WebSocketManager) {
+fun Route.webSocketRoutes(
+    webSocketManager: WebSocketManager,
+    documentService: com.flowboard.domain.DocumentService
+) {
     val logger = LoggerFactory.getLogger("WebSocketRoutes")
 
     val json = Json {
@@ -112,6 +116,16 @@ fun Route.webSocketRoutes(webSocketManager: WebSocketManager) {
                                         user = userPresence!!
                                     )
 
+                                    // Send the current document state to the user
+                                    val document = documentService.getDocument(message.boardId)
+                                    val documentStateMessage = DocumentStateMessage(
+                                        timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()),
+                                        boardId = message.boardId,
+                                        document = document
+                                    )
+                                    send(Frame.Text(json.encodeToString(documentStateMessage)))
+
+
                                     logger.info("User $userId joined board ${message.boardId}")
                                 }
 
@@ -150,6 +164,31 @@ fun Route.webSocketRoutes(webSocketManager: WebSocketManager) {
                                     send(Frame.Text(json.encodeToString(
                                         PongMessage(timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()))
                                     )))
+                                }
+
+                                "DOCUMENT_OPERATION" -> {
+                                    val message = json.decodeFromString<DocumentOperationMessage>(receivedText)
+                                    if (currentBoardId == message.operation.boardId) {
+                                        // Apply the operation to the document
+                                        documentService.applyOperation(message.operation)
+                                        // Broadcast the operation to other users
+                                        webSocketManager.broadcastToRoomExcept(
+                                            boardId = message.operation.boardId,
+                                            exceptSession = this,
+                                            message = message
+                                        )
+                                    }
+                                }
+
+                                "CURSOR_UPDATE" -> {
+                                    val message = json.decodeFromString<CursorUpdateMessage>(receivedText)
+                                    if (currentBoardId == message.boardId) {
+                                        webSocketManager.broadcastToRoomExcept(
+                                            boardId = message.boardId,
+                                            exceptSession = this,
+                                            message = message
+                                        )
+                                    }
                                 }
 
                                 else -> {

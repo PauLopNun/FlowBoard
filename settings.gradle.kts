@@ -2,6 +2,22 @@
 // This file allows opening the entire monorepo in Android Studio
 // while keeping android and backend as independent modules
 
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
+    }
+}
+
 rootProject.name = "FlowBoard"
 
 // Include Android app module

@@ -1,6 +1,9 @@
 package com.flowboard.plugins
 
+import com.flowboard.routes.permissionRoutes
+import com.flowboard.domain.PermissionService
 import com.flowboard.domain.TaskService
+import com.flowboard.domain.InMemoryDocumentService
 import com.flowboard.routes.authRoutes
 import com.flowboard.routes.taskRoutes
 import com.flowboard.routes.userRoutes
@@ -14,6 +17,8 @@ import io.ktor.server.routing.*
 fun Application.configureRouting() {
     // Singleton WebSocketManager para toda la aplicación
     val webSocketManager = WebSocketManager()
+    val documentService = InMemoryDocumentService(webSocketManager)
+    val permissionService = PermissionService()
 
     // TaskService con WebSocketManager para eventos en tiempo real
     val taskService = TaskService(webSocketManager)
@@ -28,9 +33,10 @@ fun Application.configureRouting() {
             taskRoutes(taskService)
             userRoutes()
             projectRoutes()
+            permissionRoutes(permissionService)
         }
 
         // Rutas WebSocket (sin prefijo /api/v1)
-        webSocketRoutes(webSocketManager)
+        webSocketRoutes(webSocketManager, documentService)
     }
 }

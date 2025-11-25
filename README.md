@@ -1,37 +1,69 @@
-# FlowBoard 📋
+# FlowBoard 📋✨
 
-**Gestión colaborativa de tareas en tiempo real con WebSockets**
+**Editor Colaborativo en Tiempo Real + Gestión Avanzada de Tareas**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
 [![Ktor](https://img.shields.io/badge/Backend-Ktor-orange.svg)](https://ktor.io)
 [![WebSockets](https://img.shields.io/badge/Real--Time-WebSockets-brightgreen.svg)](https://ktor.io/docs/websocket.html)
+[![Material3](https://img.shields.io/badge/UI-Material%203-purple.svg)](https://m3.material.io)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-success.svg)]()
 
-> **⚡ Nuevo:** 🎉 **Colaboración en Tiempo Real Implementada!** Lee la [Guía Completa](FINAL_IMPLEMENTATION_SUMMARY.md)
+> **🎉 NUEVO:** **Editor Colaborativo Completo Implementado!** Documentos en tiempo real tipo Google Docs
 >
-> **🚀 Quick Links:** [Resumen Final](FINAL_IMPLEMENTATION_SUMMARY.md) | [Deploy en Render](docs/deployment-guide-render.md) | [Publicar en Play Store](docs/play-store-publishing-guide.md) | [Arquitectura WebSocket](docs/websocket-architecture.md)
+> **📚 Documentación Completa:**
+> - 📖 [Índice de Documentación](INDICE_DOCUMENTACION.md) - Encuentra todo aquí
+> - 🚀 [Proyecto Finalizado](PROYECTO_FINALIZADO.md) - Resumen completo
+> - ⚡ [Guía Rápida](QUICK_GUIDE.md) - Aprende a usar la app
+> - ✅ [Checklist Presentación](CHECKLIST_PRESENTACION.md) - Prepara tu demo
+> - 🔧 [Implementación Técnica](COLLABORATIVE_EDITOR_IMPLEMENTATION.md) - Detalles técnicos
 
 ## 📋 Descripción
 
-FlowBoard es una aplicación móvil de gestión colaborativa de tareas y eventos diseñada especialmente para estudiantes y equipos pequeños. Combina funcionalidades de organización personal con herramientas colaborativas, permitiendo una gestión eficiente tanto offline como online con sincronización automática.
+**FlowBoard** es una plataforma colaborativa revolucionaria que combina:
 
-## ✨ Colaboración en Tiempo Real (NUEVO)
+🎯 **Gestión Avanzada de Tareas** - CRUD completo con sincronización en tiempo real  
+📝 **Editor Colaborativo de Documentos** - Similar a Google Docs, con formato rico  
+👥 **Colaboración en Tiempo Real** - WebSockets para sincronización instantánea  
+✨ **Material Design 3** - Interfaz moderna y profesional  
+🔐 **Autenticación Segura** - Sistema completo de login/registro con JWT  
 
-FlowBoard ahora incluye **colaboración en tiempo real** mediante WebSockets, permitiendo:
+Diseñada para estudiantes, equipos y profesionales que necesitan colaborar eficientemente.
 
-- 🔄 **Sincronización instantánea** - Los cambios se reflejan en tiempo real en todos los dispositivos
-- 👥 **Presencia de usuarios** - Ve quién está conectado y activo en cada board
-- 🔔 **Notificaciones en vivo** - Recibe actualizaciones al instante cuando otros miembros hacen cambios
-- 🌐 **Offline-first** - Funciona sin conexión y sincroniza automáticamente al reconectar
-- 🔌 **Reconexión automática** - Manejo robusto de desconexiones con backoff exponencial
+## ✨ Editor Colaborativo en Tiempo Real (NUEVO) ⭐
+
+### 📝 Documentos Colaborativos
+
+FlowBoard ahora incluye un **editor colaborativo completo** similar a Google Docs:
+
+#### Características del Editor:
+- ✍️ **Editor de Texto Rico** - Negrita, cursiva, subrayado, listas
+- 👥 **Colaboración en Vivo** - Ver quién está editando en tiempo real
+- 💾 **Auto-guardado Inteligente** - Guardado automático cada 500ms con debouncing
+- 🎨 **Toolbar de Formato** - Barra de herramientas completa y expandible
+- 📜 **Historial de Versiones** - Sidebar con todos los cambios
+- 🔗 **Sistema de Compartir** - Permisos granulares (Viewer/Editor)
+- 👤 **Avatares de Usuarios** - Ver quién está conectado con indicadores visuales
+- 🔄 **Sincronización Real** - Cambios instantáneos vía WebSockets
+
+### 🚀 Gestión de Tareas Mejorada
+
+- 🔄 **Sincronización instantánea** - Los cambios se reflejan en tiempo real
+- 👥 **Presencia de usuarios** - Ve quién está viendo cada tarea
+- 🎯 **Prioridades Visuales** - LOW, MEDIUM, HIGH, URGENT con colores
+- 📅 **Modo Evento** - Tareas que se integran con calendario
+- 📍 **Ubicaciones** - Para eventos con lugar físico
+- 🔔 **Notificaciones en vivo** - Actualizaciones instantáneas
+- 🌐 **Offline-first** - Funciona sin conexión
+- 🔌 **Reconexión automática** - Manejo robusto de desconexiones
 - 🔐 **Seguro** - Autenticación JWT sobre WebSocket
 
 **Ver documentación completa:**
 - 📖 [Arquitectura WebSocket](docs/websocket-architecture.md)
 - 🔧 [Guía de Implementación](docs/websocket-implementation-guide.md)
 - 📝 [Schema de Eventos](docs/websocket-events-schema.kt)
+- 🎯 [Implementación Completa](COLLABORATIVE_EDITOR_IMPLEMENTATION.md)
 
 ### 🎯 Objetivo
 
@@ -468,6 +500,78 @@ FlowBoard está preparado para publicación en Play Store con:
 
 ### Código
 Ver comentarios inline en el código para detalles de implementación.
+
+## 🔧 Solución de Problemas
+
+### Error: "SDK location not found"
+
+Si encuentras el error `SDK location not found. Define a valid SDK location with an ANDROID_HOME environment variable...`:
+
+📖 **[Ver Guía Completa de Configuración del SDK](SETUP_ANDROID_SDK.md)**
+
+**Solución Rápida (Automática):**
+```bash
+# Ejecutar el script de configuración automática
+chmod +x setup-android-sdk.sh
+./setup-android-sdk.sh
+```
+
+**Solución Manual:**
+
+1. **Verificar que Android Studio está instalado**
+   - Android Studio incluye el SDK en: `~/Android/Sdk` (Linux/Mac) o `C:\Users\<usuario>\AppData\Local\Android\Sdk` (Windows)
+
+2. **Crear/Editar el archivo `android/local.properties`:**
+   ```properties
+   sdk.dir=/home/tu-usuario/Android/Sdk
+   ```
+   
+   En Windows:
+   ```properties
+   sdk.dir=C\:\\Users\\tu-usuario\\AppData\\Local\\Android\\Sdk
+   ```
+
+3. **Configurar variables de entorno (opcional pero recomendado):**
+   
+   Linux/Mac (`~/.bashrc` o `~/.zshrc`):
+   ```bash
+   export ANDROID_HOME=$HOME/Android/Sdk
+   export ANDROID_SDK_ROOT=$ANDROID_HOME
+   export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools
+   ```
+   
+   Windows (Variables de Sistema):
+   - `ANDROID_HOME`: `C:\Users\<usuario>\AppData\Local\Android\Sdk`
+   - Agregar a PATH: `%ANDROID_HOME%\platform-tools`
+
+4. **Verificar la instalación:**
+   ```bash
+   # Debe mostrar la versión de adb
+   adb --version
+   ```
+
+### Otros Problemas Comunes
+
+**Gradle build failed:**
+```bash
+# Limpiar y reconstruir
+./flow.sh clean
+./flow.sh build
+
+# O manualmente:
+cd android && ./gradlew clean build
+```
+
+**Backend no conecta:**
+- Verificar que el backend esté ejecutándose en el puerto correcto
+- Revisar la URL en la configuración de la app
+- Comprobar firewall y reglas de red
+
+**Base de datos local corrupta:**
+```bash
+# Limpiar datos de la app desde ajustes del dispositivo
+# O desinstalar y reinstalar la app
+```
 
 ---
 

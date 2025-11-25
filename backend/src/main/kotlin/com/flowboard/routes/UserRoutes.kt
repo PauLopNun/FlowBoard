@@ -25,6 +25,20 @@ fun Route.userRoutes() {
                 }
             }
             
+            get("/search") {
+                val email = call.request.queryParameters["email"] ?: return@get call.respond(
+                    HttpStatusCode.BadRequest,
+                    "Missing email query parameter"
+                )
+                
+                val user = AuthService.getUserByEmail(email)
+                if (user != null) {
+                    call.respond(HttpStatusCode.OK, user)
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "User not found")
+                }
+            }
+
             get("/{id}") {
                 val userId = call.parameters["id"] ?: return@get call.respond(
                     HttpStatusCode.BadRequest,

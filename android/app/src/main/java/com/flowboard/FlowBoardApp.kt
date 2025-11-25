@@ -10,9 +10,19 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.flowboard.presentation.ui.screens.auth.LoginScreen
+import com.flowboard.presentation.ui.screens.auth.RegisterScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
+import com.flowboard.presentation.ui.screens.tasks.CreateTaskScreen
+import com.flowboard.presentation.ui.screens.tasks.TaskDetailScreen
+import com.flowboard.presentation.ui.screens.documents.DocumentListScreen
+import com.flowboard.presentation.ui.screens.documents.DocumentInfo
+import com.flowboard.presentation.ui.screens.documents.CollaborativeDocumentScreen
 import com.flowboard.presentation.viewmodel.LoginState
 import com.flowboard.presentation.viewmodel.LoginViewModel
+import com.flowboard.presentation.viewmodel.RegisterState
+import com.flowboard.presentation.viewmodel.RegisterViewModel
+import com.flowboard.presentation.viewmodel.TaskViewModel
+import com.flowboard.presentation.viewmodel.DocumentViewModel
 
 @Composable
 fun FlowBoardApp(
@@ -53,27 +63,202 @@ fun FlowBoardApp(
                     loginViewModel.login(email, password)
                 },
                 onRegisterClick = {
-                    // TODO: Navigate to register screen when implemented
+                    navController.navigate("register")
                 },
                 isLoading = loginState is LoginState.Loading,
                 error = (loginState as? LoginState.Error)?.message
             )
         }
 
+        composable("register") {
+            val registerViewModel: RegisterViewModel = hiltViewModel()
+            val registerState by registerViewModel.registerState.collectAsStateWithLifecycle()
+
+            // Navigate to tasks when registration successful
+            LaunchedEffect(registerState) {
+                if (registerState is RegisterState.Success) {
+                    navController.navigate("tasks") {
+                        popUpTo("register") { inclusive = true }
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            }
+
+            RegisterScreen(
+                onRegisterClick = { email, password, username, fullName ->
+                    registerViewModel.register(email, password, username, fullName)
+                },
+                onLoginClick = {
+                    navController.popBackStack()
+                },
+                isLoading = registerState is RegisterState.Loading,
+                error = (registerState as? RegisterState.Error)?.message
+            )
+        }
+
         composable("tasks") {
+            val taskViewModel: TaskViewModel = hiltViewModel()
+
             TaskListScreen(
                 onTaskClick = { taskId ->
-                    // TODO: Navigate to task detail when implemented
+                    navController.navigate("task_detail/$taskId")
                 },
                 onCreateTaskClick = {
-                    // TODO: Navigate to create task when implemented
+                    navController.navigate("create_task")
+                },
+                onDocumentsClick = {
+                    navController.navigate("documents")
                 },
                 onLogout = {
-                    // Navigate to login screen
+                    loginViewModel.logout()
                     navController.navigate("login") {
                         popUpTo("tasks") { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable("documents") {
+            val documentViewModel: DocumentViewModel = hiltViewModel()
+            val activeUsers by documentViewModel.activeUsers.collectAsStateWithLifecycle()
+
+            // Sample documents for demo
+            val sampleDocuments = remember {
+                listOf(
+                    DocumentInfo(
+                        id = "doc1",
+                        title = "Project Proposal",
+                        preview = "This document outlines the key objectives and timeline for our upcoming project...",
+                        owner = "John Doe",
+                        lastModified = "2 hours ago",
+                        isShared = true,
+                        activeEditors = 2
+                    ),
+                    DocumentInfo(
+                        id = "doc2",
+                        title = "Meeting Notes",
+                        preview = "Team meeting on November 25, 2025. Discussed sprint planning and deliverables...",
+                        owner = "Jane Smith",
+                        lastModified = "1 day ago",
+                        isShared = true,
+                        activeEditors = 0
+                    ),
+                    DocumentInfo(
+                        id = "doc3",
+                        title = "Technical Specification",
+                        preview = "Detailed technical specifications for the FlowBoard collaborative editor feature...",
+                        owner = "You",
+                        lastModified = "3 days ago",
+                        isShared = false,
+                        activeEditors = 0
+                    )
+                )
+            }
+
+            DocumentListScreen(
+                documents = sampleDocuments,
+                activeUsers = activeUsers,
+                onDocumentClick = { documentId ->
+                    navController.navigate("document_edit/$documentId")
+                },
+                onCreateDocument = {
+                    navController.navigate("document_create")
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable("document_create") {
+            val documentViewModel: DocumentViewModel = hiltViewModel()
+            val documentState by documentViewModel.documentState.collectAsStateWithLifecycle()
+            val activeUsers by documentViewModel.activeUsers.collectAsStateWithLifecycle()
+
+            LaunchedEffect(Unit) {
+                documentViewModel.createDocument("Untitled Document", "")
+            }
+
+            CollaborativeDocumentScreen(
+                viewModel = documentViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onShareDocument = {
+                    // Handle sharing
+                }
+            )
+        }
+
+        composable("document_edit/{documentId}") { backStackEntry ->
+            val documentViewModel: DocumentViewModel = hiltViewModel()
+            val documentId = backStackEntry.arguments?.getString("documentId") ?: return@composable
+            val documentState by documentViewModel.documentState.collectAsStateWithLifecycle()
+            val activeUsers by documentViewModel.activeUsers.collectAsStateWithLifecycle()
+
+            LaunchedEffect(documentId) {
+                documentViewModel.loadDocument(documentId)
+            }
+
+            CollaborativeDocumentScreen(
+                viewModel = documentViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onShareDocument = {
+                    // Handle sharing
+                }
+            )
+        }
+
+        composable("create_task") {
+            val taskViewModel: TaskViewModel = hiltViewModel()
+            val uiState by taskViewModel.uiState.collectAsStateWithLifecycle()
+
+            CreateTaskScreen(
+                onCreateTask = { title, description, priority, dueDate, isEvent, eventStartTime, eventEndTime, location ->
+                    taskViewModel.createTask(
+                        title = title,
+                        description = description,
+                        priority = priority,
+                        dueDate = dueDate,
+                        isEvent = isEvent,
+                        eventStartTime = eventStartTime,
+                        eventEndTime = eventEndTime,
+                        location = location
+                    )
+                    navController.popBackStack()
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                isLoading = uiState.isLoading
+            )
+        }
+
+        composable("task_detail/{taskId}") { backStackEntry ->
+            val taskViewModel: TaskViewModel = hiltViewModel()
+            val taskId = backStackEntry.arguments?.getString("taskId") ?: return@composable
+            val uiState by taskViewModel.uiState.collectAsStateWithLifecycle()
+            val activeUsers by taskViewModel.activeUsers.collectAsStateWithLifecycle()
+
+            LaunchedEffect(taskId) {
+                taskViewModel.loadTaskById(taskId)
+            }
+
+            TaskDetailScreen(
+                task = uiState.selectedTask,
+                activeUsers = activeUsers,
+                onUpdateTask = { task ->
+                    taskViewModel.updateTask(task)
+                },
+                onDeleteTask = { id ->
+                    taskViewModel.deleteTask(id)
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                isLoading = uiState.isLoading
             )
         }
     }

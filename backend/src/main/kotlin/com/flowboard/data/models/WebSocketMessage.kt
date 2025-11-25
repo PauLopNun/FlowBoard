@@ -1,7 +1,7 @@
-package com.flowboard.data.models
-
-import kotlinx.serialization.Serializable
+import com.flowboard.data.models.crdt.CollaborativeDocument
+import com.flowboard.data.models.crdt.DocumentOperation
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.Serializable
 
 /**
  * Mensajes WebSocket para comunicación en tiempo real
@@ -139,6 +139,57 @@ data class ErrorMessage(
     val message: String,
     val details: String? = null
 ) : WebSocketMessage()
+
+
+// ============================================================================
+// CRDT / COLLABORATIVE EDITING MESSAGES
+// ============================================================================
+
+@Serializable
+sealed class CrdtMessage : WebSocketMessage()
+
+/**
+ * Enviado por un cliente para aplicar un cambio en el documento.
+ * También se transmite a otros clientes.
+ */
+@Serializable
+data class DocumentOperationMessage(
+    override val type: String = "DOCUMENT_OPERATION",
+    override val timestamp: LocalDateTime,
+    val operation: DocumentOperation
+) : CrdtMessage()
+
+/**
+ * Enviado por el servidor a un nuevo cliente con el estado completo del documento.
+ */
+@Serializable
+data class DocumentStateMessage(
+    override val type: String = "DOCUMENT_STATE",
+    override val timestamp: LocalDateTime,
+    val boardId: String,
+    val document: CollaborativeDocument
+) : CrdtMessage()
+
+/**
+ * Enviado por un cliente (y transmitido) para actualizar la posición de su cursor/selección.
+ */
+@Serializable
+data class CursorUpdateMessage(
+    override val type: String = "CURSOR_UPDATE",
+    override val timestamp: LocalDateTime,
+    val boardId: String,
+    val userId: String,
+    val blockId: String?,
+    val position: Int,
+    val selectionEnd: Int? = null
+) : CrdtMessage()
+
+@Serializable
+data class SynkMessage(
+    override val type: String = "SYNK_MESSAGE",
+    override val timestamp: LocalDateTime,
+    val message: com.tap.synk.models.Message
+) : CrdtMessage()
 
 // ============================================================================
 // DATA CLASSES AUXILIARES

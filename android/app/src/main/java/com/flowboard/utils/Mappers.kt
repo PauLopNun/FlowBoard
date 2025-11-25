@@ -51,6 +51,27 @@ fun Task.toEntity(): TaskEntity {
     )
 }
 
+fun com.flowboard.data.models.crdt.CollaborativeDocument.toDomain(): com.flowboard.domain.model.CollaborativeDocument {
+    return com.flowboard.domain.model.CollaborativeDocument(
+        id = id,
+        blocks = blocks.map { it.toDomain() }
+    )
+}
+
+fun com.flowboard.data.models.crdt.ContentBlock.toDomain(): com.flowboard.domain.model.ContentBlock {
+    return com.flowboard.domain.model.ContentBlock(
+        id = id,
+        type = type,
+        content = content,
+        fontWeight = fontWeight,
+        fontStyle = fontStyle,
+        textDecoration = textDecoration,
+        fontSize = fontSize,
+        color = color,
+        textAlign = textAlign
+    )
+}
+
 fun UserEntity.toDomain(): User {
     return User(
         id = id,

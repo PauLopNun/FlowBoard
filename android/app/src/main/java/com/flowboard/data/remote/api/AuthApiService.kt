@@ -115,6 +115,17 @@ class AuthApiService @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun searchUserByEmail(email: String): Result<UserData> {
+        return try {
+            val response: UserData = httpClient.get("${ApiConfig.API_BASE_URL}/users/search") {
+                parameter("email", email)
+            }.body()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
 
 // ============================================================================

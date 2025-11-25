@@ -109,4 +109,10 @@ object NetworkModule {
     fun provideAuthApiService(@HttpClientQualifier httpClient: HttpClient): AuthApiService {
         return AuthApiService(httpClient)
     }
+
+    @Provides
+    @Singleton
+    fun providePermissionApiService(@HttpClientQualifier httpClient: HttpClient): com.flowboard.data.remote.api.PermissionApiService {
+        return com.flowboard.data.remote.api.PermissionApiServiceImpl(httpClient)
+    }
 }

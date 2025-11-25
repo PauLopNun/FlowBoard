@@ -1,0 +1,128 @@
+package com.flowboard.domain
+
+import com.flowboard.data.database.BoardPermissions
+import com.flowboard.data.database.DatabaseFactory.dbQuery
+import com.flowboard.data.models.crdt.*
+import com.tap.synk.Synk
+import com.tap.synk.adapter.SynkAdapter
+import com.tap.synk.encode
+import com.tap.synk.encodeToString
+import com.tap.synk.models.Message
+import com.tap.synk.models.Syncable
+import com.tap.synk.serialize
+import kotlinx.serialization.json.Json
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.select
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+
+interface DocumentService {
+    suspend fun getDocument(boardId: String): CollaborativeDocument
+    suspend fun applyOperation(operation: DocumentOperation): CollaborativeDocument
+}
+
+class InMemoryDocumentService(
+    private val webSocketManager: com.flowboard.services.WebSocketManager
+) : DocumentService {
+    private val documents = ConcurrentHashMap<String, CollaborativeDocument>()
+    private val synkInstances = ConcurrentHashMap<String, Synk>()
+
+    private fun getSynk(boardId: String): Synk {
+        return synkInstances.getOrPut(boardId) {
+            val adapter = object : SynkAdapter<ContentBlock> {
+                override fun resolveId(syncable: ContentBlock): String {
+                    return syncable.id
+                }
+
+                override fun serialize(syncable: ContentBlock): String {
+                    return Json.encodeToString(syncable)
+                }
+
+                override fun deserialize(id: String, syncable: String): ContentBlock? {
+                    return Json.decodeFromString<ContentBlock>(syncable)
+                }
+            }
+            Synk.Builder(adapter).build()
+        }
+    }
+
+
+    override suspend fun getDocument(boardId: String): CollaborativeDocument {
+        return documents.getOrPut(boardId) {
+            CollaborativeDocument(
+                id = boardId,
+                blocks = listOf(
+                    ContentBlock("1", "h1", "Welcome to the collaborative editor!"),
+                    ContentBlock("2", "p", "This is a collaborative document.")
+                )
+            )
+        }
+    }
+
+    override suspend fun applyOperation(operation: DocumentOperation): CollaborativeDocument {
+        val document = getDocument(operation.boardId)
+        val synk = getSynk(operation.boardId)
+        val updatedDocument = when (operation) {
+            is AddBlockOperation -> {
+                val newBlocks = document.blocks.toMutableList()
+                val index = if (operation.afterBlockId == null) 0 else newBlocks.indexOfFirst { it.id == operation.afterBlockId } + 1
+                newBlocks.add(index, operation.block)
+                document.copy(blocks = newBlocks)
+            }
+            is DeleteBlockOperation -> {
+                val newBlocks = document.blocks.filter { it.id != operation.blockId }
+                document.copy(blocks = newBlocks)
+            }
+            is UpdateBlockContentOperation -> {
+                val newBlocks = document.blocks.map {
+                    if (it.id == operation.blockId) {
+                        it.copy(content = operation.content)
+                    } else {
+                        it
+                    }
+                }
+                document.copy(blocks = newBlocks)
+            }
+            is UpdateBlockFormattingOperation -> {
+                val newBlocks = document.blocks.map {
+                    if (it.id == operation.blockId) {
+                        val updatedBlock = it.copy(
+                            fontWeight = operation.fontWeight ?: it.fontWeight,
+                            fontStyle = operation.fontStyle ?: it.fontStyle,
+                            textDecoration = operation.textDecoration ?: it.textDecoration,
+                            fontSize = operation.fontSize ?: it.fontSize,
+                            color = operation.color ?: it.color,
+                            textAlign = operation.textAlign ?: it.textAlign
+                        )
+                        val message = synk.asMessage(updatedBlock)
+                        webSocketManager.broadcastToRoom(
+                            boardId = operation.boardId,
+                            message = com.flowboard.data.models.SynkMessage(
+                                timestamp = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC),
+                                message = message
+                            )
+                        )
+                        updatedBlock
+                    } else {
+                        it
+                    }
+                }
+                document.copy(blocks = newBlocks)
+            }
+            is UpdateBlockTypeOperation -> {
+                val newBlocks = document.blocks.map {
+                    if (it.id == operation.blockId) {
+                        it.copy(type = operation.newType)
+                    } else {
+                        it
+                    }
+                }
+                document.copy(blocks = newBlocks)
+            }
+            else -> document // Ignore other operations for now
+        }
+        documents[operation.boardId] = updatedDocument
+        return updatedDocument
+    }
+}

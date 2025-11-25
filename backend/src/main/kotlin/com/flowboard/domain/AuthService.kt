@@ -102,4 +102,22 @@ object AuthService {
             }
             .singleOrNull()
     }
+    
+    suspend fun getUserByEmail(email: String): User? = dbQuery {
+        Users.select { Users.email eq email }
+            .map { row ->
+                User(
+                    id = row[Users.id].toString(),
+                    email = row[Users.email],
+                    username = row[Users.username],
+                    fullName = row[Users.fullName],
+                    role = row[Users.role],
+                    profileImageUrl = row[Users.profileImageUrl],
+                    isActive = row[Users.isActive],
+                    createdAt = row[Users.createdAt],
+                    lastLoginAt = row[Users.lastLoginAt]
+                )
+            }
+            .singleOrNull()
+    }
 }

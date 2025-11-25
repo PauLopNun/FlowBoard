@@ -23,8 +23,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
-    private val authApiService: com.flowboard.data.remote.api.AuthApiService
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     companion object {
@@ -48,60 +47,22 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Hace login con el backend y guarda el token
-     *
-     * @param email Email del usuario
-     * @param password Password del usuario
-     */
     fun login(email: String, password: String) {
         viewModelScope.launch {
             Log.d(TAG, "Login initiated for email: $email")
             _loginState.value = LoginState.Loading
 
             try {
-                Log.d(TAG, "Calling authApiService.login...")
-                // Llamada real al backend
-                val result = authApiService.login(
-                    com.flowboard.data.remote.api.LoginRequest(
-                        email = email,
-                        password = password
-                    )
-                )
+                val result = authRepository.login(email, password)
 
-                Log.d(TAG, "API call completed, processing result...")
                 result.fold(
                     onSuccess = { response ->
-                        Log.d(TAG, "Login response received - success: ${response.success}")
-                        if (response.success) {
-                            Log.d(TAG, "Saving auth data...")
-                            // Guardar datos de auth
-                            authRepository.saveAuth(
-                                token = response.token,
-                                userId = response.userId,
-                                username = response.username
-                            )
-
-                            // Guardar board ID por defecto si el backend lo devuelve
-                            response.defaultBoardId?.let { boardId ->
-                                Log.d(TAG, "Saving default board ID: $boardId")
-                                authRepository.saveBoardId(boardId)
-                            } ?: run {
-                                Log.d(TAG, "No default board ID, using 'default-board'")
-                                // Si no hay board por defecto, usar uno genérico
-                                authRepository.saveBoardId("default-board")
-                            }
-
-                            _loginState.value = LoginState.Success
-                            _isLoggedIn.value = true
-                            Log.d(TAG, "Login completed successfully")
-                        } else {
-                            Log.w(TAG, "Login failed: response.success = false")
-                            _loginState.value = LoginState.Error("Login failed")
-                        }
+                        Log.d(TAG, "Login successful for user: ${response.username}")
+                        _loginState.value = LoginState.Success
+                        _isLoggedIn.value = true
                     },
                     onFailure = { exception ->
-                        Log.e(TAG, "Login failed with exception: ${exception.message}", exception)
+                        Log.e(TAG, "Login failed: ${exception.message}", exception)
                         _loginState.value = LoginState.Error(
                             exception.message ?: "Network error occurred"
                         )
@@ -114,13 +75,10 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Logout - limpia todos los datos de auth
-     */
     fun logout() {
         viewModelScope.launch {
             Log.d(TAG, "Logout initiated")
-            authRepository.clearAuth()
+            authRepository.logout()
             _isLoggedIn.value = false
             _loginState.value = LoginState.Idle
             Log.d(TAG, "Logout completed")

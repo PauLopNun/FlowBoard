@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Sync
@@ -26,6 +27,7 @@ import com.flowboard.presentation.viewmodel.TaskViewModel
 fun TaskListScreen(
     onTaskClick: (String) -> Unit,
     onCreateTaskClick: () -> Unit,
+    onDocumentsClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     viewModel: TaskViewModel = hiltViewModel()
 ) {
@@ -109,6 +111,16 @@ fun TaskListScreen(
                                 expanded = showMenu,
                                 onDismissRequest = { showMenu = false }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text("Collaborative Documents") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Description, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onDocumentsClick()
+                                    }
+                                )
                                 DropdownMenuItem(
                                     text = { Text("Logout") },
                                     leadingIcon = {
