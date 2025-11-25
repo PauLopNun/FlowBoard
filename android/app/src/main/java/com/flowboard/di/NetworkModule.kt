@@ -1,5 +1,6 @@
 package com.flowboard.di
 
+import com.flowboard.data.remote.api.AuthApiService
 import com.flowboard.data.remote.api.TaskApiService
 import com.flowboard.data.remote.websocket.TaskWebSocketClient
 import dagger.Module
@@ -70,5 +71,11 @@ object NetworkModule {
     @Singleton
     fun provideTaskWebSocketClient(httpClient: HttpClient): TaskWebSocketClient {
         return TaskWebSocketClient(httpClient)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthApiService(httpClient: HttpClient): AuthApiService {
+        return AuthApiService(httpClient)
     }
 }

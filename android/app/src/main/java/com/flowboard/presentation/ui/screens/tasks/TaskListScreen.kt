@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +27,7 @@ import com.flowboard.presentation.viewmodel.TaskViewModel
 fun TaskListScreen(
     onTaskClick: (String) -> Unit,
     onCreateTaskClick: () -> Unit,
+    onLogout: () -> Unit = {},
     viewModel: TaskViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -43,6 +46,7 @@ fun TaskListScreen(
     val boardId by viewModel.boardId.collectAsStateWithLifecycle()
 
     var selectedFilter by remember { mutableStateOf(TaskFilter.ALL) }
+    var showMenu by remember { mutableStateOf(false) }
 
     // Connect to WebSocket when screen mounts (only if auth data is available)
     LaunchedEffect(boardId, token, userId) {
@@ -92,6 +96,29 @@ fun TaskListScreen(
 
                         IconButton(onClick = { viewModel.syncTasks() }) {
                             Icon(Icons.Default.Sync, contentDescription = "Sync")
+                        }
+
+                        // More options menu
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Logout") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Logout, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.logout()
+                                        onLogout()
+                                    }
+                                )
+                            }
                         }
                     }
                 )

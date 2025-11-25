@@ -367,6 +367,23 @@ class TaskViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Logout - disconnect from WebSocket and clear auth data
+     */
+    fun logout() {
+        viewModelScope.launch {
+            try {
+                // Disconnect from WebSocket
+                taskRepository.disconnectFromBoard()
+
+                // Clear auth data
+                authRepository.clearAuth()
+            } catch (e: Exception) {
+                // Log error
+            }
+        }
+    }
 }
 
 data class TaskUiState(

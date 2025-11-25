@@ -22,9 +22,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val authRepository: AuthRepository
-    // TODO: Inject your API service to call backend login endpoint
-    // private val authApiService: AuthApiService
+    private val authRepository: AuthRepository,
+    private val authApiService: com.flowboard.data.remote.api.AuthApiService
 ) : ViewModel() {
 
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
@@ -54,29 +53,44 @@ class LoginViewModel @Inject constructor(
             _loginState.value = LoginState.Loading
 
             try {
-                // TODO: Replace with actual backend API call
-                // Example:
-                // val response = authApiService.login(LoginRequest(email, password))
-
-                // SIMULACIÓN - Reemplaza con llamada real al backend
-                val simulatedResponse = simulateBackendLogin(email, password)
-
-                if (simulatedResponse.success) {
-                    // Guardar datos de auth
-                    authRepository.saveAuth(
-                        token = simulatedResponse.token,
-                        userId = simulatedResponse.userId,
-                        username = simulatedResponse.username
+                // Llamada real al backend
+                val result = authApiService.login(
+                    com.flowboard.data.remote.api.LoginRequest(
+                        email = email,
+                        password = password
                     )
+                )
 
-                    // Guardar board ID por defecto (opcional)
-                    authRepository.saveBoardId("default-board")
+                result.fold(
+                    onSuccess = { response ->
+                        if (response.success) {
+                            // Guardar datos de auth
+                            authRepository.saveAuth(
+                                token = response.token,
+                                userId = response.userId,
+                                username = response.username
+                            )
 
-                    _loginState.value = LoginState.Success
-                    _isLoggedIn.value = true
-                } else {
-                    _loginState.value = LoginState.Error(simulatedResponse.errorMessage ?: "Login failed")
-                }
+                            // Guardar board ID por defecto si el backend lo devuelve
+                            response.defaultBoardId?.let { boardId ->
+                                authRepository.saveBoardId(boardId)
+                            } ?: run {
+                                // Si no hay board por defecto, usar uno genérico
+                                authRepository.saveBoardId("default-board")
+                            }
+
+                            _loginState.value = LoginState.Success
+                            _isLoggedIn.value = true
+                        } else {
+                            _loginState.value = LoginState.Error(response.message ?: "Login failed")
+                        }
+                    },
+                    onFailure = { exception ->
+                        _loginState.value = LoginState.Error(
+                            exception.message ?: "Network error occurred"
+                        )
+                    }
+                )
             } catch (e: Exception) {
                 _loginState.value = LoginState.Error(e.message ?: "Unknown error occurred")
             }
@@ -94,40 +108,6 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    /**
-     * SIMULACIÓN de llamada al backend
-     *
-     * REEMPLAZA ESTO CON TU LLAMADA REAL AL BACKEND:
-     *
-     * suspend fun realBackendLogin(email: String, password: String): LoginResponse {
-     *     val response = authApiService.login(LoginRequest(email, password))
-     *     return LoginResponse(
-     *         success = true,
-     *         token = response.token,
-     *         userId = response.userId,
-     *         username = response.username
-     *     )
-     * }
-     */
-    private suspend fun simulateBackendLogin(email: String, password: String): LoginResponse {
-        // Simulación de delay de red
-        kotlinx.coroutines.delay(1000)
-
-        // Simulación de validación simple
-        return if (email.isNotEmpty() && password.length >= 6) {
-            LoginResponse(
-                success = true,
-                token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ0ZXN0LXVzZXItMDAxIiwidXNlcm5hbWUiOiJ0ZXN0dXNlciIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjoxNzAwMDg2NDAwfQ.test-signature",
-                userId = "test-user-001",
-                username = email.substringBefore("@")
-            )
-        } else {
-            LoginResponse(
-                success = false,
-                errorMessage = "Invalid credentials"
-            )
-        }
-    }
 }
 
 /**
@@ -139,14 +119,3 @@ sealed class LoginState {
     object Success : LoginState()
     data class Error(val message: String) : LoginState()
 }
-
-/**
- * Response del backend (ejemplo)
- */
-data class LoginResponse(
-    val success: Boolean,
-    val token: String = "",
-    val userId: String = "",
-    val username: String = "",
-    val errorMessage: String? = null
-)

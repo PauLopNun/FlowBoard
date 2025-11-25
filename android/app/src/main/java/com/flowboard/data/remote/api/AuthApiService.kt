@@ -104,6 +104,7 @@ class AuthApiService @Inject constructor(
 /**
  * Login request body
  */
+@kotlinx.serialization.Serializable
 data class LoginRequest(
     val email: String,
     val password: String
@@ -112,6 +113,7 @@ data class LoginRequest(
 /**
  * Register request body
  */
+@kotlinx.serialization.Serializable
 data class RegisterRequest(
     val email: String,
     val password: String,
@@ -124,23 +126,40 @@ data class RegisterRequest(
 // ============================================================================
 
 /**
- * Auth response (login/register/refresh)
+ * Auth response from backend (login/register)
  */
+@kotlinx.serialization.Serializable
 data class AuthResponse(
-    val success: Boolean,
     val token: String,
-    val userId: String,
-    val username: String,
+    val user: UserData
+) {
+    // Computed properties for compatibility
+    val success: Boolean get() = token.isNotEmpty()
+    val userId: String get() = user.id
+    val username: String get() = user.username
+    val email: String get() = user.email
+    val fullName: String? get() = user.fullName
+    val defaultBoardId: String? get() = "default-board" // Default board for all users
+}
+
+/**
+ * User data from backend
+ */
+@kotlinx.serialization.Serializable
+data class UserData(
+    val id: String,
     val email: String,
-    val fullName: String? = null,
-    val defaultBoardId: String? = null,
-    val expiresAt: Long? = null,
-    val message: String? = null
+    val username: String,
+    val fullName: String,
+    val role: String = "USER",
+    val profileImageUrl: String? = null,
+    val isActive: Boolean = true
 )
 
 /**
  * Token verification response
  */
+@kotlinx.serialization.Serializable
 data class VerifyTokenResponse(
     val valid: Boolean,
     val userId: String? = null,
@@ -151,6 +170,7 @@ data class VerifyTokenResponse(
 /**
  * Logout response
  */
+@kotlinx.serialization.Serializable
 data class LogoutResponse(
     val success: Boolean,
     val message: String? = null
