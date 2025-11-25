@@ -19,11 +19,31 @@ object DatabaseFactory {
     }
     
     private fun createHikariDataSource(): HikariDataSource {
+        val databaseUrl = System.getenv("DATABASE_URL")
+
         val config = HikariConfig().apply {
             driverClassName = "org.postgresql.Driver"
-            jdbcUrl = System.getenv("DATABASE_URL") ?: "jdbc:postgresql://localhost:5432/flowboard"
-            username = System.getenv("DATABASE_USER") ?: "flowboard"
-            password = System.getenv("DATABASE_PASSWORD") ?: "flowboard"
+
+            if (databaseUrl != null && databaseUrl.startsWith("postgresql://")) {
+                // Render/Heroku format: postgresql://user:password@host:port/database
+                // Convert to JDBC format: jdbc:postgresql://host:port/database
+                val jdbcUrl = databaseUrl.replace("postgresql://", "jdbc:postgresql://")
+                    .replaceFirst(Regex("([^:]+):([^@]+)@"), "")
+
+                // Extract username and password
+                val credentialsRegex = Regex("postgresql://([^:]+):([^@]+)@")
+                val match = credentialsRegex.find(databaseUrl)
+
+                this.jdbcUrl = jdbcUrl
+                this.username = match?.groupValues?.get(1) ?: "flowboard"
+                this.password = match?.groupValues?.get(2) ?: "flowboard"
+            } else {
+                // Local development format
+                this.jdbcUrl = databaseUrl ?: "jdbc:postgresql://localhost:5432/flowboard"
+                this.username = System.getenv("DATABASE_USER") ?: "flowboard"
+                this.password = System.getenv("DATABASE_PASSWORD") ?: "flowboard"
+            }
+
             maximumPoolSize = 10
             isAutoCommit = false
             transactionIsolation = "TRANSACTION_REPEATABLE_READ"
