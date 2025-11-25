@@ -27,16 +27,20 @@ object DatabaseFactory {
             if (databaseUrl != null && databaseUrl.startsWith("postgresql://")) {
                 // Render/Heroku format: postgresql://user:password@host:port/database
                 // Convert to JDBC format: jdbc:postgresql://host:port/database
-                val jdbcUrl = databaseUrl.replace("postgresql://", "jdbc:postgresql://")
-                    .replaceFirst(Regex("([^:]+):([^@]+)@"), "")
+                val regex = Regex("postgresql://([^:]+):([^@]+)@(.+)")
+                val match = regex.find(databaseUrl)
 
-                // Extract username and password
-                val credentialsRegex = Regex("postgresql://([^:]+):([^@]+)@")
-                val match = credentialsRegex.find(databaseUrl)
+                if (match != null) {
+                    val username = match.groupValues[1]
+                    val password = match.groupValues[2]
+                    val hostAndDb = match.groupValues[3]
 
-                this.jdbcUrl = jdbcUrl
-                this.username = match?.groupValues?.get(1) ?: "flowboard"
-                this.password = match?.groupValues?.get(2) ?: "flowboard"
+                    this.jdbcUrl = "jdbc:postgresql://$hostAndDb"
+                    this.username = username
+                    this.password = password
+                } else {
+                    throw IllegalArgumentException("Invalid DATABASE_URL format: $databaseUrl")
+                }
             } else {
                 // Local development format
                 this.jdbcUrl = databaseUrl ?: "jdbc:postgresql://localhost:5432/flowboard"
