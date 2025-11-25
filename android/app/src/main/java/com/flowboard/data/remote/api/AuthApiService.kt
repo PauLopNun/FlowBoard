@@ -1,5 +1,6 @@
 package com.flowboard.data.remote.api
 
+import android.util.Log
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -15,6 +16,7 @@ class AuthApiService @Inject constructor(
     private val httpClient: HttpClient
 ) {
     companion object {
+        private const val TAG = "AuthApiService"
         private const val BASE_URL = "http://10.0.2.2:8080/api/v1"
         private const val AUTH_ENDPOINT = "$BASE_URL/auth"
     }
@@ -25,12 +27,19 @@ class AuthApiService @Inject constructor(
      */
     suspend fun login(request: LoginRequest): Result<AuthResponse> {
         return try {
+            Log.d(TAG, "Attempting login for email: ${request.email}")
+            Log.d(TAG, "Login URL: $AUTH_ENDPOINT/login")
+
             val response: AuthResponse = httpClient.post("$AUTH_ENDPOINT/login") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }.body()
+
+            Log.d(TAG, "Login successful: ${response.success}")
             Result.success(response)
         } catch (e: Exception) {
+            Log.e(TAG, "Login failed with exception: ${e.message}", e)
+            Log.e(TAG, "Exception type: ${e.javaClass.simpleName}")
             Result.failure(e)
         }
     }

@@ -1,5 +1,6 @@
 package com.flowboard.presentation.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.flowboard.data.repository.AuthRepository
@@ -26,6 +27,10 @@ class LoginViewModel @Inject constructor(
     private val authApiService: com.flowboard.data.remote.api.AuthApiService
 ) : ViewModel() {
 
+    companion object {
+        private const val TAG = "LoginViewModel"
+    }
+
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState.asStateFlow()
 
@@ -39,6 +44,7 @@ class LoginViewModel @Inject constructor(
     private fun checkLoginStatus() {
         viewModelScope.launch {
             _isLoggedIn.value = authRepository.isLoggedIn()
+            Log.d(TAG, "Initial login status: ${_isLoggedIn.value}")
         }
     }
 
@@ -50,9 +56,11 @@ class LoginViewModel @Inject constructor(
      */
     fun login(email: String, password: String) {
         viewModelScope.launch {
+            Log.d(TAG, "Login initiated for email: $email")
             _loginState.value = LoginState.Loading
 
             try {
+                Log.d(TAG, "Calling authApiService.login...")
                 // Llamada real al backend
                 val result = authApiService.login(
                     com.flowboard.data.remote.api.LoginRequest(
@@ -61,9 +69,12 @@ class LoginViewModel @Inject constructor(
                     )
                 )
 
+                Log.d(TAG, "API call completed, processing result...")
                 result.fold(
                     onSuccess = { response ->
+                        Log.d(TAG, "Login response received - success: ${response.success}")
                         if (response.success) {
+                            Log.d(TAG, "Saving auth data...")
                             // Guardar datos de auth
                             authRepository.saveAuth(
                                 token = response.token,
@@ -73,25 +84,31 @@ class LoginViewModel @Inject constructor(
 
                             // Guardar board ID por defecto si el backend lo devuelve
                             response.defaultBoardId?.let { boardId ->
+                                Log.d(TAG, "Saving default board ID: $boardId")
                                 authRepository.saveBoardId(boardId)
                             } ?: run {
+                                Log.d(TAG, "No default board ID, using 'default-board'")
                                 // Si no hay board por defecto, usar uno genérico
                                 authRepository.saveBoardId("default-board")
                             }
 
                             _loginState.value = LoginState.Success
                             _isLoggedIn.value = true
+                            Log.d(TAG, "Login completed successfully")
                         } else {
-                            _loginState.value = LoginState.Error(response.message ?: "Login failed")
+                            Log.w(TAG, "Login failed: response.success = false")
+                            _loginState.value = LoginState.Error("Login failed")
                         }
                     },
                     onFailure = { exception ->
+                        Log.e(TAG, "Login failed with exception: ${exception.message}", exception)
                         _loginState.value = LoginState.Error(
                             exception.message ?: "Network error occurred"
                         )
                     }
                 )
             } catch (e: Exception) {
+                Log.e(TAG, "Unexpected error during login: ${e.message}", e)
                 _loginState.value = LoginState.Error(e.message ?: "Unknown error occurred")
             }
         }
@@ -102,9 +119,11 @@ class LoginViewModel @Inject constructor(
      */
     fun logout() {
         viewModelScope.launch {
+            Log.d(TAG, "Logout initiated")
             authRepository.clearAuth()
             _isLoggedIn.value = false
             _loginState.value = LoginState.Idle
+            Log.d(TAG, "Logout completed")
         }
     }
 

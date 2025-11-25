@@ -2,6 +2,7 @@ package com.flowboard.di
 
 import com.flowboard.data.local.dao.TaskDao
 import com.flowboard.data.remote.api.TaskApiService
+import com.flowboard.data.remote.websocket.TaskWebSocketClient
 import com.flowboard.data.repository.TaskRepositoryImpl
 import com.flowboard.domain.repository.TaskRepository
 import dagger.Module
@@ -18,8 +19,9 @@ object RepositoryModule {
     @Singleton
     fun provideTaskRepository(
         taskDao: TaskDao,
-        taskApiService: TaskApiService
+        taskApiService: TaskApiService,
+        webSocketClient: TaskWebSocketClient
     ): TaskRepository {
-        return TaskRepositoryImpl(taskDao, taskApiService)
+        return TaskRepositoryImpl(taskDao, taskApiService, webSocketClient)
     }
 }

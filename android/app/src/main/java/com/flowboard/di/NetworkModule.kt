@@ -56,7 +56,6 @@ object NetworkModule {
             install(WebSockets) {
                 pingInterval = 30_000 // 30 segundos
                 maxFrameSize = Long.MAX_VALUE
-                masking = false
             }
         }
     }

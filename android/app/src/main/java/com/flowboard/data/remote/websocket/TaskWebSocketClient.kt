@@ -10,6 +10,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.flow.*
 import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -226,7 +228,7 @@ class TaskWebSocketClient @Inject constructor(
      */
     private suspend fun sendJoinRoom(boardId: String, userIdParam: String) {
         val message = JoinRoomMessage(
-            timestamp = Clock.System.now(),
+            timestamp = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
             boardId = boardId,
             userId = userIdParam
         )
@@ -254,7 +256,7 @@ class TaskWebSocketClient @Inject constructor(
         if (userId == null) return
 
         val message = TypingIndicatorMessage(
-            timestamp = Clock.System.now(),
+            timestamp = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
             boardId = boardId,
             taskId = taskId,
             userId = userId!!,
@@ -270,7 +272,7 @@ class TaskWebSocketClient @Inject constructor(
         while (webSocketSession?.isActive == true) {
             delay(PING_INTERVAL_MS)
             try {
-                val ping = PingMessage(timestamp = Clock.System.now())
+                val ping = PingMessage(timestamp = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()))
                 send(ping)
                 Log.d(TAG, "Sent PING")
             } catch (e: Exception) {
@@ -287,7 +289,7 @@ class TaskWebSocketClient @Inject constructor(
         try {
             currentBoardId?.let { boardId ->
                 val leaveMessage = LeaveRoomMessage(
-                    timestamp = Clock.System.now(),
+                    timestamp = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
                     boardId = boardId
                 )
                 send(leaveMessage)

@@ -14,7 +14,7 @@ class TaskApiService @Inject constructor(
     private val httpClient: HttpClient
 ) {
     companion object {
-        private const val BASE_URL = "http://localhost:8080/api/v1"
+        private const val BASE_URL = "http://10.0.2.2:8080/api/v1"
         private const val TASKS_ENDPOINT = "$BASE_URL/tasks"
     }
     

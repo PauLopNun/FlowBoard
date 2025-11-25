@@ -16,7 +16,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.flowboard.domain.model.Task
 import com.flowboard.presentation.ui.components.TaskCard
 import com.flowboard.presentation.ui.components.ActiveUsersList
 import com.flowboard.presentation.ui.components.ConnectionStatusBanner
@@ -50,8 +49,11 @@ fun TaskListScreen(
 
     // Connect to WebSocket when screen mounts (only if auth data is available)
     LaunchedEffect(boardId, token, userId) {
-        if (boardId != null && token != null && userId != null) {
-            viewModel.connectToBoard(boardId, token, userId)
+        val currentBoardId = boardId
+        val currentToken = token
+        val currentUserId = userId
+        if (currentBoardId != null && currentToken != null && currentUserId != null) {
+            viewModel.connectToBoard(currentBoardId, currentToken, currentUserId)
         }
     }
 
@@ -126,8 +128,11 @@ fun TaskListScreen(
                 ConnectionStatusBanner(
                     connectionState = connectionState,
                     onReconnect = {
-                        if (boardId != null && token != null && userId != null) {
-                            viewModel.reconnect(boardId, token, userId)
+                        val currentBoardId = boardId
+                        val currentToken = token
+                        val currentUserId = userId
+                        if (currentBoardId != null && currentToken != null && currentUserId != null) {
+                            viewModel.reconnect(currentBoardId, currentToken, currentUserId)
                         }
                     }
                 )

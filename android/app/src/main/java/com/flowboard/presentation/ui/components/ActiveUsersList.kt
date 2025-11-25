@@ -15,6 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.flowboard.data.remote.dto.UserPresenceInfo
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * Lista horizontal de avatares de usuarios activos
@@ -138,7 +141,7 @@ private fun ActiveUsersListPreview() {
                         fullName = "John Doe",
                         profileImageUrl = null,
                         isOnline = true,
-                        lastActivity = kotlinx.datetime.Clock.System.now()
+                        lastActivity = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
                     ),
                     UserPresenceInfo(
                         userId = "2",
@@ -146,7 +149,7 @@ private fun ActiveUsersListPreview() {
                         fullName = "Jane Smith",
                         profileImageUrl = null,
                         isOnline = true,
-                        lastActivity = kotlinx.datetime.Clock.System.now()
+                        lastActivity = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
                     )
                 )
             )
@@ -160,7 +163,7 @@ private fun ActiveUsersListPreview() {
                         fullName = "User $index",
                         profileImageUrl = null,
                         isOnline = index % 2 == 0,
-                        lastActivity = kotlinx.datetime.Clock.System.now()
+                        lastActivity = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
                     )
                 }
             )
