@@ -16,6 +16,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.domain.model.Task
 import com.flowboard.presentation.ui.components.TaskCard
+import com.flowboard.presentation.ui.components.ActiveUsersList
+import com.flowboard.presentation.ui.components.ConnectionStatusBanner
 import com.flowboard.presentation.viewmodel.TaskViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,7 +33,30 @@ fun TaskListScreen(
     val completedTasks by viewModel.completedTasks.collectAsStateWithLifecycle()
     val overdueTasks by viewModel.overdueTasks.collectAsStateWithLifecycle()
 
+    // WebSocket state
+    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+    val activeUsers by viewModel.activeUsers.collectAsStateWithLifecycle()
+
+    // Auth data from ViewModel
+    val token by viewModel.authToken.collectAsStateWithLifecycle()
+    val userId by viewModel.userId.collectAsStateWithLifecycle()
+    val boardId by viewModel.boardId.collectAsStateWithLifecycle()
+
     var selectedFilter by remember { mutableStateOf(TaskFilter.ALL) }
+
+    // Connect to WebSocket when screen mounts (only if auth data is available)
+    LaunchedEffect(boardId, token, userId) {
+        if (boardId != null && token != null && userId != null) {
+            viewModel.connectToBoard(boardId, token, userId)
+        }
+    }
+
+    // Disconnect when screen unmounts
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.disconnectFromBoard()
+        }
+    }
 
     val filteredTasks = when (selectedFilter) {
         TaskFilter.ALL -> allTasks
@@ -56,14 +81,30 @@ fun TaskListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Tasks") },
-                actions = {
-                    IconButton(onClick = { viewModel.syncTasks() }) {
-                        Icon(Icons.Default.Sync, contentDescription = "Sync")
+            Column {
+                TopAppBar(
+                    title = { Text("Tasks") },
+                    actions = {
+                        // Show active users
+                        ActiveUsersList(users = activeUsers)
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        IconButton(onClick = { viewModel.syncTasks() }) {
+                            Icon(Icons.Default.Sync, contentDescription = "Sync")
+                        }
                     }
-                }
-            )
+                )
+                // Show connection status banner
+                ConnectionStatusBanner(
+                    connectionState = connectionState,
+                    onReconnect = {
+                        if (boardId != null && token != null && userId != null) {
+                            viewModel.reconnect(boardId, token, userId)
+                        }
+                    }
+                )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(

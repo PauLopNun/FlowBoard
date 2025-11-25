@@ -2,9 +2,11 @@ package com.flowboard.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.flowboard.domain.model.Task
-import com.flowboard.domain.repository.TaskRepository
 import com.flowboard.data.local.entities.TaskPriority
+import com.flowboard.data.remote.dto.UserPresenceInfo
+import com.flowboard.data.remote.websocket.WebSocketState
+import com.flowboard.data.repository.TaskRepositoryImpl
+import com.flowboard.domain.model.Task
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -17,11 +19,46 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TaskViewModel @Inject constructor(
-    private val taskRepository: TaskRepository
+    private val taskRepository: TaskRepositoryImpl,
+    private val authRepository: com.flowboard.data.repository.AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TaskUiState())
     val uiState: StateFlow<TaskUiState> = _uiState.asStateFlow()
+
+    // Estado de conexión WebSocket
+    val connectionState: StateFlow<WebSocketState> = taskRepository.getConnectionState()
+
+    // Usuarios activos en el board
+    val activeUsers: StateFlow<List<UserPresenceInfo>> = taskRepository.activeUsers
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    // Auth data from AuthRepository
+    private val _authToken = MutableStateFlow<String?>(null)
+    val authToken: StateFlow<String?> = _authToken.asStateFlow()
+
+    private val _userId = MutableStateFlow<String?>(null)
+    val userId: StateFlow<String?> = _userId.asStateFlow()
+
+    private val _boardId = MutableStateFlow<String?>(null)
+    val boardId: StateFlow<String?> = _boardId.asStateFlow()
+
+    init {
+        // Load auth data when ViewModel is created
+        loadAuthData()
+    }
+
+    private fun loadAuthData() {
+        viewModelScope.launch {
+            _authToken.value = authRepository.getToken()
+            _userId.value = authRepository.getUserId()
+            _boardId.value = authRepository.getBoardId()
+        }
+    }
 
     val allTasks = taskRepository.getAllTasks()
         .stateIn(
@@ -263,6 +300,72 @@ class TaskViewModel @Inject constructor(
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    // ============================================================================
+    // WEBSOCKET METHODS
+    // ============================================================================
+
+    /**
+     * Conecta al WebSocket para un board específico
+     * Debe llamarse cuando el usuario entra a un board
+     */
+    fun connectToBoard(boardId: String, token: String, userId: String) {
+        viewModelScope.launch {
+            try {
+                taskRepository.connectToBoard(boardId, token, userId)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(error = "Failed to connect to board: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Desconecta del WebSocket
+     * Debe llamarse cuando el usuario sale del board
+     */
+    fun disconnectFromBoard() {
+        viewModelScope.launch {
+            try {
+                taskRepository.disconnectFromBoard()
+            } catch (e: Exception) {
+                // Log error but don't show to user
+            }
+        }
+    }
+
+    /**
+     * Reconecta manualmente al WebSocket
+     */
+    fun reconnect(boardId: String, token: String, userId: String) {
+        viewModelScope.launch {
+            try {
+                taskRepository.disconnectFromBoard()
+                taskRepository.connectToBoard(boardId, token, userId)
+                _uiState.update {
+                    it.copy(message = "Reconnected successfully")
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(error = "Failed to reconnect: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Envía indicador de escritura
+     */
+    fun sendTypingIndicator(boardId: String, taskId: String?, isTyping: Boolean) {
+        viewModelScope.launch {
+            try {
+                taskRepository.sendTypingIndicator(boardId, taskId, isTyping)
+            } catch (e: Exception) {
+                // Silent fail for typing indicators
+            }
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 package com.flowboard.di
 
 import com.flowboard.data.remote.api.TaskApiService
+import com.flowboard.data.remote.websocket.TaskWebSocketClient
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -11,6 +12,7 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.plugins.auth.*
 import io.ktor.client.plugins.auth.providers.*
+import io.ktor.client.plugins.websocket.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import javax.inject.Singleton
@@ -48,6 +50,13 @@ object NetworkModule {
                     }
                 }
             }
+
+            // WebSocket support
+            install(WebSockets) {
+                pingInterval = 30_000 // 30 segundos
+                maxFrameSize = Long.MAX_VALUE
+                masking = false
+            }
         }
     }
 
@@ -55,5 +64,11 @@ object NetworkModule {
     @Singleton
     fun provideTaskApiService(httpClient: HttpClient): TaskApiService {
         return TaskApiService(httpClient)
+    }
+
+    @Provides
+    @Singleton
+    fun provideTaskWebSocketClient(httpClient: HttpClient): TaskWebSocketClient {
+        return TaskWebSocketClient(httpClient)
     }
 }

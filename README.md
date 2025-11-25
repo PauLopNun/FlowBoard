@@ -1,17 +1,37 @@
 # FlowBoard 📋
 
-**Gestión colaborativa de tareas y eventos para estudiantes y equipos pequeños**
+**Gestión colaborativa de tareas en tiempo real con WebSockets**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org)
 [![Ktor](https://img.shields.io/badge/Backend-Ktor-orange.svg)](https://ktor.io)
+[![WebSockets](https://img.shields.io/badge/Real--Time-WebSockets-brightgreen.svg)](https://ktor.io/docs/websocket.html)
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-success.svg)]()
 
-> **⚡ Quick Start:** ¿Primera vez? Lee la [Guía de Inicio Rápido](QUICK_START.md) | 🛠️ Desarrollador? Consulta [DEVELOPMENT.md](DEVELOPMENT.md) | 📂 Estructura? Ver [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+> **⚡ Nuevo:** 🎉 **Colaboración en Tiempo Real Implementada!** Lee la [Guía Completa](FINAL_IMPLEMENTATION_SUMMARY.md)
+>
+> **🚀 Quick Links:** [Resumen Final](FINAL_IMPLEMENTATION_SUMMARY.md) | [Deploy en Render](docs/deployment-guide-render.md) | [Publicar en Play Store](docs/play-store-publishing-guide.md) | [Arquitectura WebSocket](docs/websocket-architecture.md)
 
 ## 📋 Descripción
 
 FlowBoard es una aplicación móvil de gestión colaborativa de tareas y eventos diseñada especialmente para estudiantes y equipos pequeños. Combina funcionalidades de organización personal con herramientas colaborativas, permitiendo una gestión eficiente tanto offline como online con sincronización automática.
+
+## ✨ Colaboración en Tiempo Real (NUEVO)
+
+FlowBoard ahora incluye **colaboración en tiempo real** mediante WebSockets, permitiendo:
+
+- 🔄 **Sincronización instantánea** - Los cambios se reflejan en tiempo real en todos los dispositivos
+- 👥 **Presencia de usuarios** - Ve quién está conectado y activo en cada board
+- 🔔 **Notificaciones en vivo** - Recibe actualizaciones al instante cuando otros miembros hacen cambios
+- 🌐 **Offline-first** - Funciona sin conexión y sincroniza automáticamente al reconectar
+- 🔌 **Reconexión automática** - Manejo robusto de desconexiones con backoff exponencial
+- 🔐 **Seguro** - Autenticación JWT sobre WebSocket
+
+**Ver documentación completa:**
+- 📖 [Arquitectura WebSocket](docs/websocket-architecture.md)
+- 🔧 [Guía de Implementación](docs/websocket-implementation-guide.md)
+- 📝 [Schema de Eventos](docs/websocket-events-schema.kt)
 
 ### 🎯 Objetivo
 
@@ -168,8 +188,12 @@ FlowBoard contribuye directamente a los Objetivos de Desarrollo Sostenible:
 
 ## 🔮 Roadmap - Ampliación Profesional
 
-### Fase 2: Colaboración Avanzada
-- [ ] Sincronización bidireccional en tiempo real
+### Fase 2: Colaboración Avanzada ✅ (COMPLETADO)
+- [x] **Sincronización bidireccional en tiempo real con WebSockets** ✨
+- [x] **Presencia de usuarios en tiempo real** ✨
+- [x] **Broadcasting de eventos (crear/actualizar/eliminar)** ✨
+- [x] **Reconexión automática robusta** ✨
+- [x] **Arquitectura offline-first** ✨
 - [ ] Roles y permisos granulares por proyecto
 - [ ] Chat integrado en proyectos
 - [ ] Plantillas de tareas/eventos
@@ -392,13 +416,61 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 
 ## 📧 Soporte
 
-¿Tienes preguntas o problemas? 
+¿Tienes preguntas o problemas?
 
-- 🐛 **Bugs**: [GitHub Issues](https://github.com/tu-usuario/flowboard/issues)
-- 💡 **Features**: [Feature Requests](https://github.com/tu-usuario/flowboard/discussions)
-- 📧 **Email**: soporte@flowboard.com
-- 📱 **Telegram**: @flowboard_support
+- 🐛 **Bugs**: [GitHub Issues](https://github.com/PauLopNun/FlowBoard/issues)
+- 💡 **Features**: [Feature Requests](https://github.com/PauLopNun/FlowBoard/discussions)
+- 📧 **Email**: paulopeznunez@gmail.com
+- 💼 **LinkedIn**: [Pau López Núñez](https://www.linkedin.com/in/paulopnun)
+
+## 🚀 Deployment y Publicación
+
+### Deploy del Backend en Render
+
+FlowBoard backend puede desplegarse fácilmente en Render (plan gratuito disponible):
+
+**Ver guía completa:** [docs/deployment-guide-render.md](docs/deployment-guide-render.md)
+
+**Características:**
+- ✅ Plan gratuito disponible
+- ✅ PostgreSQL incluida
+- ✅ Deploy automático desde Git
+- ✅ HTTPS y WSS configurados
+- ✅ Variables de entorno seguras
+
+### Publicación en Google Play Store
+
+FlowBoard está preparado para publicación en Play Store con:
+
+**Ver guía completa:** [docs/play-store-publishing-guide.md](docs/play-store-publishing-guide.md)
+
+**Incluye:**
+- ✅ Configuración de keystore
+- ✅ Build de release firmado
+- ✅ Assets y screenshots
+- ✅ Proceso completo paso a paso
+- ✅ Políticas y privacidad
+- ✅ Post-publicación y actualizaciones
+
+**Costo:** $25 USD (pago único)
+
+## 📚 Documentación Completa
+
+### Implementación WebSocket
+- [Resumen Final](FINAL_IMPLEMENTATION_SUMMARY.md) - Todo lo implementado
+- [Arquitectura](docs/websocket-architecture.md) - Diseño completo del sistema
+- [Guía de Implementación](docs/websocket-implementation-guide.md) - Paso a paso
+- [Schema de Eventos](docs/websocket-events-schema.kt) - Modelos de mensajes
+
+### Deployment
+- [Guía Render](docs/deployment-guide-render.md) - Deploy del backend
+- [Guía Play Store](docs/play-store-publishing-guide.md) - Publicación Android
+
+### Código
+Ver comentarios inline en el código para detalles de implementación.
 
 ---
 
 **FlowBoard** - *Organizando el futuro, una tarea a la vez* 🚀✨
+
+**Status:** Production Ready | **Versión:** 1.0.0 | **WebSockets:** ✅ Implementado
