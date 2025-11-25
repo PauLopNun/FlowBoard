@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 fun LoginScreen(
     onLoginClick: (String, String) -> Unit,
     onRegisterClick: () -> Unit,
+    onForgotPasswordClick: () -> Unit,
     isLoading: Boolean = false,
     error: String? = null,
     modifier: Modifier = Modifier
@@ -104,7 +105,13 @@ fun LoginScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isLoading,
-                    singleLine = true
+                    singleLine = true,
+                    isError = error != null || (email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()),
+                    supportingText = {
+                        if (email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                            Text("Invalid email format")
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -129,8 +136,23 @@ fun LoginScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isLoading,
-                    singleLine = true
+                    singleLine = true,
+                    isError = error != null || (password.isNotBlank() && password.length < 6),
+                    supportingText = {
+                        if (password.isNotBlank() && password.length < 6) {
+                            Text("Password must be at least 6 characters long")
+                        }
+                    }
                 )
+
+                // Forgot Password link
+                TextButton(
+                    onClick = onForgotPasswordClick,
+                    modifier = Modifier.align(Alignment.End),
+                    enabled = !isLoading
+                ) {
+                    Text("Forgot Password?")
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -138,7 +160,7 @@ fun LoginScreen(
                 Button(
                     onClick = { onLoginClick(email, password) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading && email.isNotBlank() && password.isNotBlank()
+                    enabled = !isLoading && email.isNotBlank() && android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() && password.isNotBlank() && password.length >= 6
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(

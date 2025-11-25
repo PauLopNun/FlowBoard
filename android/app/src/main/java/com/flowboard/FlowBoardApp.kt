@@ -3,12 +3,14 @@ package com.flowboard
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import android.util.Log
 import com.flowboard.presentation.ui.screens.auth.LoginScreen
 import com.flowboard.presentation.ui.screens.auth.RegisterScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
@@ -64,6 +66,10 @@ fun FlowBoardApp(
                 },
                 onRegisterClick = {
                     navController.navigate("register")
+                },
+                onForgotPasswordClick = {
+                    Log.d("FlowBoardApp", "Forgot Password clicked!")
+                    // navController.navigate("forgot_password") // Uncomment when screen is implemented
                 },
                 isLoading = loginState is LoginState.Loading,
                 error = (loginState as? LoginState.Error)?.message

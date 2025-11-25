@@ -1,18 +1,20 @@
 package com.flowboard.data.remote.websocket
 
-import com.flowboard.data.models.crdt.CrdtMessage
+import com.flowboard.data.models.crdt.CollaborativeDocument
 import com.flowboard.data.models.crdt.DocumentOperation
 import com.flowboard.data.remote.dto.UserPresenceInfo
-import com.tap.synk.Synk
-import com.tap.synk.adapter.SynkAdapter
-import com.tap.synk.models.Syncable
+// import com.tap.synk.Synk
+// import com.tap.synk.adapter.SynkAdapter
+// import com.tap.synk.models.Syncable
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
+import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.websocket.*
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
-import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,8 +30,8 @@ class DocumentWebSocketClient @Inject constructor(
     private val _operations = MutableSharedFlow<DocumentOperation>()
     val operations: SharedFlow<DocumentOperation> = _operations.asSharedFlow()
 
-    private val _documentState = MutableSharedFlow<com.flowboard.data.models.crdt.CollaborativeDocument>()
-    val documentState: SharedFlow<com.flowboard.data.models.crdt.CollaborativeDocument> = _documentState.asSharedFlow()
+    private val _documentState = MutableSharedFlow<CollaborativeDocument>()
+    val documentState: SharedFlow<CollaborativeDocument> = _documentState.asSharedFlow()
 
 
     private val _activeUsers = MutableStateFlow<List<UserPresenceInfo>>(emptyList())
@@ -39,8 +41,9 @@ class DocumentWebSocketClient @Inject constructor(
     val updatedBlock: SharedFlow<com.flowboard.domain.model.ContentBlock> = _updatedBlock.asSharedFlow()
 
     private var session: DefaultClientWebSocketSession? = null
-    private var synk: Synk? = null
+    // private var synk: Synk? = null
 
+    /*
     private fun getSynk(): Synk {
         if (synk == null) {
             val adapter = object : SynkAdapter<com.flowboard.domain.model.ContentBlock> {
@@ -60,6 +63,7 @@ class DocumentWebSocketClient @Inject constructor(
         }
         return synk!!
     }
+    */
 
     suspend fun connect(boardId: String, token: String) {
         if (session != null && session?.isActive == true) {
@@ -77,20 +81,23 @@ class DocumentWebSocketClient @Inject constructor(
                 }
             ) {
                 session = this
-                _webSocketState.value = WebSocketState.Connected(this)
+                _webSocketState.value = WebSocketState.Connected(boardId) // Modified to match WebSocketState.Connected(boardId: String)
 
                 // Join room
+                /*
                 val joinMessage = com.flowboard.data.models.JoinRoomMessage(
                     timestamp = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC),
                     boardId = boardId,
                     userId = "" // TODO: get real user id
                 )
                 send(Frame.Text(json.encodeToString(joinMessage)))
+                */
 
                 for (frame in incoming) {
                     if (frame is Frame.Text) {
                         val text = frame.readText()
-                        val message = json.decodeFromString<CrdtMessage>(text)
+                        // val message = json.decodeFromString<CrdtMessage>(text)
+                        /*
                         when (message) {
                             is com.flowboard.data.models.crdt.DocumentStateMessage -> {
                                 _documentState.emit(message.document)
@@ -109,6 +116,7 @@ class DocumentWebSocketClient @Inject constructor(
                                 }
                             }
                         }
+                        */
                     }
                 }
             }
@@ -121,11 +129,13 @@ class DocumentWebSocketClient @Inject constructor(
     }
 
     suspend fun sendOperation(operation: DocumentOperation) {
+        /*
         val message = com.flowboard.data.models.crdt.DocumentOperationMessage(
             timestamp = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC),
             operation = operation
         )
         session?.send(Frame.Text(json.encodeToString(message)))
+        */
     }
 
     fun disconnect() {

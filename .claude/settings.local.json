@@ -25,7 +25,17 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(gradlew.bat build:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(gradlew.bat tasks:*)",
+      "Bash(./gradlew.bat assembleDebug:*)",
+      "Bash(find:*)",
+      "Bash(./gradlew.bat:*)",
+      "Bash(cat:*)",
+      "Bash(cmd /c:*)",
+      "Bash(android\\gradlew.bat assembleDebug:*)"
     ],
     "deny": [],
     "ask": []

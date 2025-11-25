@@ -1,7 +1,11 @@
-import com.flowboard.domain.model.CollaborativeDocument
-import com.flowboard.domain.model.ContentBlock
+package com.flowboard.presentation.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.flowboard.data.remote.dto.UserPresenceInfo
 import com.flowboard.data.remote.websocket.WebSocketState
+import com.flowboard.domain.model.CollaborativeDocument
+import com.flowboard.domain.model.ContentBlock
 import com.flowboard.utils.toDomain
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -218,23 +222,33 @@ class DocumentViewModel @Inject constructor(
     /**
      * Share document with another user
      */
-    fun shareDocument(email: String, permission: String) {
+    fun shareDocument(email: String, permissionLevel: com.flowboard.domain.model.PermissionLevel) {
         viewModelScope.launch {
             try {
-                val result = authRepository.searchUserByEmail(email)
-                result.onSuccess { user ->
-                    _documentState.value.document?.id?.let { boardId ->
-                        permissionRepository.inviteUser(boardId, user.id)
-                    }
-                    _documentState.update {
-                        it.copy(
-                            sharedWith = it.sharedWith + DocumentPermission(email, permission)
-                        )
-                    }
-                }.onFailure {
-                    _documentState.update {
-                        it.copy(error = "User not found")
-                    }
+                _documentState.value.document?.id?.let { documentId ->
+                    val request = com.flowboard.domain.model.GrantPermissionRequest(
+                        resourceId = documentId,
+                        resourceType = com.flowboard.domain.model.ResourceType.DOCUMENT,
+                        userEmail = email,
+                        level = permissionLevel
+                    )
+
+                    permissionRepository.grantPermission(request)
+                        .onSuccess { permission ->
+                            _documentState.update {
+                                it.copy(
+                                    sharedWith = it.sharedWith + DocumentPermission(
+                                        email,
+                                        permissionLevel.name
+                                    )
+                                )
+                            }
+                        }
+                        .onFailure { error ->
+                            _documentState.update {
+                                it.copy(error = error.message ?: "Failed to share document")
+                            }
+                        }
                 }
             } catch (e: Exception) {
                 _documentState.update {

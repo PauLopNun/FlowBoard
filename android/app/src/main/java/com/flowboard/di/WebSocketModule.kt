@@ -15,7 +15,10 @@ object WebSocketModule {
 
     @Provides
     @Singleton
-    fun provideDocumentWebSocketClient(client: HttpClient, json: Json): DocumentWebSocketClient {
+    fun provideDocumentWebSocketClient(
+        @WebSocketClientQualifier client: HttpClient,
+        json: Json
+    ): DocumentWebSocketClient {
         return DocumentWebSocketClient(client, json)
     }
 }

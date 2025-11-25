@@ -60,7 +60,8 @@ fun CollaborativeRichTextEditor(
     var isItalic by remember { mutableStateOf(false) }
     var isUnderline by remember { mutableStateOf(false) }
     var showFormattingBar by remember { mutableStateOf(true) }
-    var fontSize by remember { mutableStateOf(MaterialTheme.typography.bodyLarge.fontSize) }
+    val defaultFontSize = MaterialTheme.typography.bodyLarge.fontSize
+    var fontSize by remember { mutableStateOf(defaultFontSize) }
     var fontColor by remember { mutableStateOf(Color.Black) }
     var textAlign by remember { mutableStateOf(androidx.compose.ui.text.style.TextAlign.Start) }
     var lastFocusedBlockId by remember { mutableStateOf<String?>(null) }
@@ -445,7 +446,7 @@ fun CollaborativeRichTextEditor(
             Column {
                 blocks.forEach { block ->
                     var textFieldValue by remember(block.content) { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(block.content)) }
-                    var textLayoutResult by remember<androidx.compose.ui.text.TextLayoutResult?> { mutableStateOf(null) }
+                    var textLayoutResult by remember { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
 
                     Box(modifier = Modifier.fillMaxWidth()) {
                         Row {
@@ -521,11 +522,11 @@ fun CollaborativeRichTextEditor(
                                                                         )
                                                                     }
                                                                     innerTextField()
+                                                                    // Render user cursors
                                                                     userCursors.filter { it.blockId == block.id }.forEach { cursor ->
                                                                         textLayoutResult?.let { layoutResult ->
                                                                             val cursorRect = layoutResult.getCursorRect(cursor.position)
-                                                                            val user = activeUsers.find { it.userId == cursor.userId }
-                                                                            if (user != null) {
+                                                                            activeUsers.find { it.userId == cursor.userId }?.let { user ->
                                                                                 Cursor(
                                                                                     user = user.username,
                                                                                     color = stringToColor(user.username),

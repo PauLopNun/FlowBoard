@@ -115,4 +115,14 @@ object NetworkModule {
     fun providePermissionApiService(@HttpClientQualifier httpClient: HttpClient): com.flowboard.data.remote.api.PermissionApiService {
         return com.flowboard.data.remote.api.PermissionApiServiceImpl(httpClient)
     }
+
+    @Provides
+    @Singleton
+    fun provideJson(): Json {
+        return Json {
+            prettyPrint = true
+            isLenient = true
+            ignoreUnknownKeys = true
+        }
+    }
 }
