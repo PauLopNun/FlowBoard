@@ -82,7 +82,7 @@ class TaskService(private val webSocketManager: WebSocketManager? = null) {
                 webSocketManager.broadcastToRoom(
                     boardId = task.projectId!!,
                     message = TaskCreatedMessage(
-                        timestamp = Clock.System.now(),
+                        timestamp = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
                         boardId = task.projectId!!,
                         task = task.toSnapshot(),
                         createdBy = userInfo
@@ -137,7 +137,7 @@ class TaskService(private val webSocketManager: WebSocketManager? = null) {
                 webSocketManager.broadcastToRoom(
                     boardId = updatedTask.projectId!!,
                     message = TaskUpdatedMessage(
-                        timestamp = Clock.System.now(),
+                        timestamp = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
                         boardId = updatedTask.projectId!!,
                         taskId = updatedTask.id,
                         changes = changes,
@@ -171,7 +171,7 @@ class TaskService(private val webSocketManager: WebSocketManager? = null) {
                 webSocketManager.broadcastToRoom(
                     boardId = task.projectId!!,
                     message = TaskDeletedMessage(
-                        timestamp = Clock.System.now(),
+                        timestamp = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()),
                         boardId = task.projectId!!,
                         taskId = id,
                         deletedBy = userInfo

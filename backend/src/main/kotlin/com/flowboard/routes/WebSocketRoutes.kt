@@ -100,7 +100,7 @@ fun Route.webSocketRoutes(webSocketManager: WebSocketManager) {
                                         fullName = email.substringBefore("@"), // TODO: nombre real
                                         profileImageUrl = null,
                                         isOnline = true,
-                                        lastActivity = Clock.System.now()
+                                        lastActivity = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
                                     )
 
                                     // Unir al room
@@ -133,7 +133,7 @@ fun Route.webSocketRoutes(webSocketManager: WebSocketManager) {
                                             boardId = message.boardId,
                                             exceptSession = this,
                                             message = UserTypingMessage(
-                                                timestamp = Clock.System.now(),
+                                                timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()),
                                                 boardId = message.boardId,
                                                 taskId = message.taskId,
                                                 user = userPresence!!,
@@ -146,7 +146,7 @@ fun Route.webSocketRoutes(webSocketManager: WebSocketManager) {
                                 // Ping para keep-alive
                                 "PING" -> {
                                     send(Frame.Text(json.encodeToString(
-                                        PongMessage(timestamp = Clock.System.now())
+                                        PongMessage(timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()))
                                     )))
                                 }
 
@@ -154,7 +154,7 @@ fun Route.webSocketRoutes(webSocketManager: WebSocketManager) {
                                     logger.warn("Unknown message type: $messageType from user $userId")
                                     send(Frame.Text(json.encodeToString(
                                         ErrorMessage(
-                                            timestamp = Clock.System.now(),
+                                            timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()),
                                             code = WebSocketErrorCodes.INVALID_MESSAGE,
                                             message = "Unknown message type: $messageType"
                                         )
@@ -165,7 +165,7 @@ fun Route.webSocketRoutes(webSocketManager: WebSocketManager) {
                             logger.error("Error processing message from $userId: ${e.message}", e)
                             send(Frame.Text(json.encodeToString(
                                 ErrorMessage(
-                                    timestamp = Clock.System.now(),
+                                    timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()),
                                     code = WebSocketErrorCodes.INTERNAL_ERROR,
                                     message = "Error processing message",
                                     details = e.message

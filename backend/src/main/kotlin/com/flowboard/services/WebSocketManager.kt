@@ -64,7 +64,7 @@ class WebSocketManager {
             boardId = boardId,
             exceptSession = session,
             message = UserJoinedMessage(
-                timestamp = Clock.System.now(),
+                timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()),
                 boardId = boardId,
                 user = user
             )
@@ -74,7 +74,7 @@ class WebSocketManager {
         sendToSession(
             session = session,
             message = RoomJoinedMessage(
-                timestamp = Clock.System.now(),
+                timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()),
                 boardId = boardId,
                 activeUsers = getActiveUsersInRoom(boardId)
             )
@@ -105,7 +105,7 @@ class WebSocketManager {
         broadcastToRoom(
             boardId = info.boardId,
             message = UserLeftMessage(
-                timestamp = Clock.System.now(),
+                timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()),
                 boardId = info.boardId,
                 userId = info.userId
             )
@@ -222,7 +222,13 @@ class WebSocketManager {
      * Limpia sesiones huérfanas (por seguridad)
      */
     fun cleanup() {
-        val closedSessions = sessionInfo.keys.filter { it.isActive.not() }
+        val closedSessions = sessionInfo.keys.filter { session ->
+            try {
+                session.outgoing.isClosedForSend
+            } catch (e: Exception) {
+                true
+            }
+        }
         closedSessions.forEach { session ->
             sessionInfo.remove(session)
             rooms.values.forEach { it.remove(session) }
