@@ -9,6 +9,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.*
 import io.ktor.client.engine.android.*
+import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.plugins.auth.*
@@ -16,7 +17,16 @@ import io.ktor.client.plugins.auth.providers.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class HttpClientQualifier
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class WebSocketClientQualifier
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -24,6 +34,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @HttpClientQualifier
     fun provideHttpClient(): HttpClient {
         return HttpClient(Android) {
             install(ContentNegotiation) {
@@ -53,10 +64,29 @@ object NetworkModule {
                     }
                 }
             }
+        }
+    }
 
-            // WebSocket support
+    @Provides
+    @Singleton
+    @WebSocketClientQualifier
+    fun provideWebSocketClient(): HttpClient {
+        return HttpClient(OkHttp) {
+            install(ContentNegotiation) {
+                json(Json {
+                    prettyPrint = true
+                    isLenient = true
+                    ignoreUnknownKeys = true
+                })
+            }
+
+            install(Logging) {
+                logger = Logger.DEFAULT
+                level = LogLevel.INFO
+            }
+
             install(WebSockets) {
-                pingInterval = 30_000 // 30 segundos
+                pingInterval = 30_000 // 30 seconds
                 maxFrameSize = Long.MAX_VALUE
             }
         }
@@ -64,19 +94,19 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideTaskApiService(httpClient: HttpClient): TaskApiService {
+    fun provideTaskApiService(@HttpClientQualifier httpClient: HttpClient): TaskApiService {
         return TaskApiService(httpClient)
     }
 
     @Provides
     @Singleton
-    fun provideTaskWebSocketClient(httpClient: HttpClient): TaskWebSocketClient {
+    fun provideTaskWebSocketClient(@WebSocketClientQualifier httpClient: HttpClient): TaskWebSocketClient {
         return TaskWebSocketClient(httpClient)
     }
 
     @Provides
     @Singleton
-    fun provideAuthApiService(httpClient: HttpClient): AuthApiService {
+    fun provideAuthApiService(@HttpClientQualifier httpClient: HttpClient): AuthApiService {
         return AuthApiService(httpClient)
     }
 }
