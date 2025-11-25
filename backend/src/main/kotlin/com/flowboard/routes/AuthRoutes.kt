@@ -14,29 +14,41 @@ fun Route.authRoutes() {
         
         post("/register") {
             val request = call.receive<RegisterRequest>()
-            
+
             try {
                 val response = AuthService.register(request)
                 call.respond(HttpStatusCode.Created, response)
             } catch (e: IllegalArgumentException) {
-                call.respond(HttpStatusCode.BadRequest, e.message ?: "Registration failed")
+                call.respond(HttpStatusCode.BadRequest, mapOf(
+                    "error" to "Registration failed",
+                    "message" to (e.message ?: "Invalid request")
+                ))
             } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, "Internal server error")
+                call.respond(HttpStatusCode.InternalServerError, mapOf(
+                    "error" to "Internal server error",
+                    "message" to e.message
+                ))
             }
         }
         
         post("/login") {
             val request = call.receive<LoginRequest>()
-            
+
             try {
                 val response = AuthService.login(request)
                 if (response != null) {
                     call.respond(HttpStatusCode.OK, response)
                 } else {
-                    call.respond(HttpStatusCode.Unauthorized, "Invalid credentials")
+                    call.respond(HttpStatusCode.Unauthorized, mapOf(
+                        "error" to "Invalid credentials",
+                        "message" to "Email or password is incorrect"
+                    ))
                 }
             } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, "Internal server error")
+                call.respond(HttpStatusCode.InternalServerError, mapOf(
+                    "error" to "Internal server error",
+                    "message" to e.message
+                ))
             }
         }
         
