@@ -1,24 +1,25 @@
 package com.flowboard.data.remote
 
-import com.flowboard.BuildConfig
-
 /**
  * Configuración centralizada de URLs de la API
  *
- * En modo DEBUG: usa el emulador local (10.0.2.2:8080)
- * En modo RELEASE: usa el servidor de producción en Render
+ * IMPORTANTE: Actualmente configurado para usar SIEMPRE el servidor de producción en Render.
+ * Para desarrollo local, cambia USE_PRODUCTION a false.
  */
 object ApiConfig {
     private const val PRODUCTION_BASE_URL = "https://flowboard-api-phrk.onrender.com"
     private const val DEVELOPMENT_BASE_URL = "http://10.0.2.2:8080"
 
+    // Cambiar a false para usar backend local (10.0.2.2:8080)
+    private const val USE_PRODUCTION = true
+
     /**
-     * URL base de la API según el tipo de build
+     * URL base de la API según la configuración
      */
-    val BASE_URL: String = if (BuildConfig.DEBUG) {
-        DEVELOPMENT_BASE_URL
-    } else {
+    val BASE_URL: String = if (USE_PRODUCTION) {
         PRODUCTION_BASE_URL
+    } else {
+        DEVELOPMENT_BASE_URL
     }
 
     /**
@@ -29,10 +30,10 @@ object ApiConfig {
     /**
      * URL del WebSocket (WS/WSS)
      */
-    val WS_BASE_URL: String = if (BuildConfig.DEBUG) {
-        "ws://10.0.2.2:8080"
-    } else {
+    val WS_BASE_URL: String = if (USE_PRODUCTION) {
         "wss://flowboard-api-phrk.onrender.com"
+    } else {
+        "ws://10.0.2.2:8080"
     }
 
     /**
