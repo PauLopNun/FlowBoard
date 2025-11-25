@@ -162,7 +162,9 @@ data class UserData(
     val fullName: String,
     val role: String = "USER",
     val profileImageUrl: String? = null,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val createdAt: String? = null,
+    val lastLoginAt: String? = null
 )
 
 /**
