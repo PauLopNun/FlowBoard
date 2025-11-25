@@ -1,6 +1,7 @@
 package com.flowboard.data.remote.websocket
 
 import android.util.Log
+import com.flowboard.data.remote.ApiConfig
 import com.flowboard.data.remote.dto.*
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
@@ -33,7 +34,7 @@ class TaskWebSocketClient @Inject constructor(
 ) {
     companion object {
         private const val TAG = "TaskWebSocketClient"
-        private const val WS_URL = "ws://10.0.2.2:8080/ws/boards" // Android emulator localhost
+        private val WS_URL = "${ApiConfig.WS_BASE_URL}/ws/boards"
         private const val PING_INTERVAL_MS = 30_000L // 30 segundos
         private const val MAX_RECONNECT_ATTEMPTS = 10
         private const val INITIAL_RECONNECT_DELAY_MS = 1000L // 1 segundo

@@ -1,6 +1,7 @@
 package com.flowboard.data.remote.api
 
 import android.util.Log
+import com.flowboard.data.remote.ApiConfig
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -17,8 +18,7 @@ class AuthApiService @Inject constructor(
 ) {
     companion object {
         private const val TAG = "AuthApiService"
-        private const val BASE_URL = "http://10.0.2.2:8080/api/v1"
-        private const val AUTH_ENDPOINT = "$BASE_URL/auth"
+        private val AUTH_ENDPOINT = "${ApiConfig.API_BASE_URL}/auth"
     }
 
     /**

@@ -2,6 +2,7 @@ package com.flowboard.data.remote.api
 
 import com.flowboard.data.local.entities.TaskEntity
 import com.flowboard.data.remote.dto.TaskDto
+import com.flowboard.data.remote.ApiConfig
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -14,8 +15,7 @@ class TaskApiService @Inject constructor(
     private val httpClient: HttpClient
 ) {
     companion object {
-        private const val BASE_URL = "http://10.0.2.2:8080/api/v1"
-        private const val TASKS_ENDPOINT = "$BASE_URL/tasks"
+        private val TASKS_ENDPOINT = "${ApiConfig.API_BASE_URL}/tasks"
     }
     
     suspend fun getAllTasks(): List<TaskEntity> {
