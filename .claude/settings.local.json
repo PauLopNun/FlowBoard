@@ -21,7 +21,10 @@
       "Bash(git add flow.bat flow.sh)",
       "Bash(if not exist .github mkdir .github)",
       "Bash(dir /B)",
-      "Bash(cmd /c \"dir /B\")"
+      "Bash(cmd /c \"dir /B\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
