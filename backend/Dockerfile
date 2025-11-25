@@ -14,7 +14,7 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 # Copy the built application from build stage
-COPY --from=build /app/build/install/backend ./
+COPY --from=build /app/build/install/flowboard-backend ./
 
 # Expose port
 EXPOSE 8080
@@ -24,4 +24,4 @@ ENV PORT=8080
 ENV KTOR_ENV=production
 
 # Run the application
-CMD ["./bin/backend"]
+CMD ["./bin/flowboard-backend"]
