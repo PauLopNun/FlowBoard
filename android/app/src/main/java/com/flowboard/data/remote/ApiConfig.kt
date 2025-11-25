@@ -9,8 +9,7 @@ import com.flowboard.BuildConfig
  * En modo RELEASE: usa el servidor de producción en Render
  */
 object ApiConfig {
-    // TODO: Reemplaza con tu URL de Render después del despliegue
-    private const val PRODUCTION_BASE_URL = "https://flowboard-api.onrender.com"
+    private const val PRODUCTION_BASE_URL = "https://flowboard-api-phrk.onrender.com"
     private const val DEVELOPMENT_BASE_URL = "http://10.0.2.2:8080"
 
     /**
@@ -33,7 +32,7 @@ object ApiConfig {
     val WS_BASE_URL: String = if (BuildConfig.DEBUG) {
         "ws://10.0.2.2:8080"
     } else {
-        "wss://flowboard-api.onrender.com"
+        "wss://flowboard-api-phrk.onrender.com"
     }
 
     /**
