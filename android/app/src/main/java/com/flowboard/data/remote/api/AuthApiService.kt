@@ -30,13 +30,24 @@ class AuthApiService @Inject constructor(
             Log.d(TAG, "Attempting login for email: ${request.email}")
             Log.d(TAG, "Login URL: $AUTH_ENDPOINT/login")
 
-            val response: AuthResponse = httpClient.post("$AUTH_ENDPOINT/login") {
+            val httpResponse = httpClient.post("$AUTH_ENDPOINT/login") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
-            }.body()
+            }
 
-            Log.d(TAG, "Login successful: ${response.success}")
-            Result.success(response)
+            Log.d(TAG, "Response status: ${httpResponse.status}")
+            Log.d(TAG, "Response content type: ${httpResponse.contentType()}")
+
+            if (httpResponse.status.value == 200) {
+                val response: AuthResponse = httpResponse.body()
+                Log.d(TAG, "Login successful: ${response.success}")
+                Result.success(response)
+            } else {
+                val errorBody = httpResponse.body<String>()
+                Log.e(TAG, "Login failed with status ${httpResponse.status.value}")
+                Log.e(TAG, "Error response body: $errorBody")
+                Result.failure(Exception("Login failed: $errorBody"))
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Login failed with exception: ${e.message}", e)
             Log.e(TAG, "Exception type: ${e.javaClass.simpleName}")

@@ -36,8 +36,10 @@ object NetworkModule {
 
             install(Logging) {
                 logger = Logger.DEFAULT
-                level = LogLevel.INFO
+                level = LogLevel.ALL
             }
+
+            expectSuccess = false  // Don't throw on non-2xx responses
 
             install(Auth) {
                 bearer {
