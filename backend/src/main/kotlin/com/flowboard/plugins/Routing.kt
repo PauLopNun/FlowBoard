@@ -1,5 +1,6 @@
 package com.flowboard.plugins
 
+import com.flowboard.domain.TaskService
 import com.flowboard.routes.authRoutes
 import com.flowboard.routes.taskRoutes
 import com.flowboard.routes.userRoutes
@@ -14,6 +15,9 @@ fun Application.configureRouting() {
     // Singleton WebSocketManager para toda la aplicación
     val webSocketManager = WebSocketManager()
 
+    // TaskService con WebSocketManager para eventos en tiempo real
+    val taskService = TaskService(webSocketManager)
+
     routing {
         get("/") {
             call.respondText("FlowBoard API is running!")
@@ -21,7 +25,7 @@ fun Application.configureRouting() {
 
         route("/api/v1") {
             authRoutes()
-            taskRoutes()
+            taskRoutes(taskService)
             userRoutes()
             projectRoutes()
         }

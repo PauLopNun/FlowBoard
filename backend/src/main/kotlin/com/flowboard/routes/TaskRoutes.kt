@@ -12,34 +12,34 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.util.*
 
-fun Route.taskRoutes() {
+fun Route.taskRoutes(taskService: TaskService) {
     authenticate("auth-jwt") {
         route("/tasks") {
-            
+
             get {
                 val principal = call.principal<JWTPrincipal>()
                 val userId = principal?.payload?.getClaim("userId")?.asString()
                     ?: return@get call.respond(HttpStatusCode.Unauthorized)
-                
+
                 val projectId = call.request.queryParameters["projectId"]
                 val isCompleted = call.request.queryParameters["isCompleted"]?.toBoolean()
-                
+
                 val tasks = when {
-                    projectId != null -> TaskService.getTasksByProject(projectId)
-                    isCompleted != null -> TaskService.getTasksByStatus(isCompleted)
-                    else -> TaskService.getAllTasksForUser(userId)
+                    projectId != null -> taskService.getTasksByProject(projectId)
+                    isCompleted != null -> taskService.getTasksByStatus(isCompleted)
+                    else -> taskService.getAllTasksForUser(userId)
                 }
-                
+
                 call.respond(HttpStatusCode.OK, tasks)
             }
-            
+
             get("/{id}") {
                 val taskId = call.parameters["id"] ?: return@get call.respond(
-                    HttpStatusCode.BadRequest, 
+                    HttpStatusCode.BadRequest,
                     "Missing task ID"
                 )
-                
-                val task = TaskService.getTaskById(taskId)
+
+                val task = taskService.getTaskById(taskId)
                 if (task != null) {
                     call.respond(HttpStatusCode.OK, task)
                 } else {
@@ -53,22 +53,22 @@ fun Route.taskRoutes() {
                     ?: return@post call.respond(HttpStatusCode.Unauthorized)
                 
                 val request = call.receive<CreateTaskRequest>()
-                val task = TaskService.createTask(request, userId)
+                val task = taskService.createTask(request, userId)
                 call.respond(HttpStatusCode.Created, task)
             }
-            
+
             put("/{id}") {
                 val taskId = call.parameters["id"] ?: return@put call.respond(
-                    HttpStatusCode.BadRequest, 
+                    HttpStatusCode.BadRequest,
                     "Missing task ID"
                 )
-                
+
                 val principal = call.principal<JWTPrincipal>()
                 val userId = principal?.payload?.getClaim("userId")?.asString()
                     ?: return@put call.respond(HttpStatusCode.Unauthorized)
-                
+
                 val request = call.receive<UpdateTaskRequest>()
-                val task = TaskService.updateTask(taskId, request, userId)
+                val task = taskService.updateTask(taskId, request, userId)
                 
                 if (task != null) {
                     call.respond(HttpStatusCode.OK, task)
@@ -87,25 +87,25 @@ fun Route.taskRoutes() {
                 val userId = principal?.payload?.getClaim("userId")?.asString()
                     ?: return@delete call.respond(HttpStatusCode.Unauthorized)
                 
-                val deleted = TaskService.deleteTask(taskId, userId)
+                val deleted = taskService.deleteTask(taskId, userId)
                 if (deleted) {
                     call.respond(HttpStatusCode.NoContent)
                 } else {
                     call.respond(HttpStatusCode.NotFound, "Task not found")
                 }
             }
-            
+
             patch("/{id}/toggle") {
                 val taskId = call.parameters["id"] ?: return@patch call.respond(
-                    HttpStatusCode.BadRequest, 
+                    HttpStatusCode.BadRequest,
                     "Missing task ID"
                 )
-                
+
                 val principal = call.principal<JWTPrincipal>()
                 val userId = principal?.payload?.getClaim("userId")?.asString()
                     ?: return@patch call.respond(HttpStatusCode.Unauthorized)
-                
-                val task = TaskService.toggleTaskStatus(taskId, userId)
+
+                val task = taskService.toggleTaskStatus(taskId, userId)
                 if (task != null) {
                     call.respond(HttpStatusCode.OK, task)
                 } else {
@@ -128,7 +128,7 @@ fun Route.taskRoutes() {
                     )
                 }
                 
-                val events = TaskService.getEventsBetweenDates(startDate, endDate, userId)
+                val events = taskService.getEventsBetweenDates(startDate, endDate, userId)
                 call.respond(HttpStatusCode.OK, events)
             }
         }
