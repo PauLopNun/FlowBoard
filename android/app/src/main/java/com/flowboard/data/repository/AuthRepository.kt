@@ -11,6 +11,9 @@ import com.flowboard.data.remote.api.RegisterRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -182,7 +185,7 @@ class AuthRepository @Inject constructor(
                 role = com.flowboard.data.local.entities.UserRole.USER,
                 profileImageUrl = userData.profileImageUrl,
                 isActive = userData.isActive,
-                createdAt = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC),
+                createdAt = Clock.System.now().toLocalDateTime(TimeZone.UTC),
                 lastLoginAt = null
             )
         }
@@ -205,7 +208,7 @@ class AuthRepository @Inject constructor(
                 role = com.flowboard.data.local.entities.UserRole.USER,
                 profileImageUrl = userData.profileImageUrl,
                 isActive = userData.isActive,
-                createdAt = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC),
+                createdAt = Clock.System.now().toLocalDateTime(TimeZone.UTC),
                 lastLoginAt = null
             )
         }

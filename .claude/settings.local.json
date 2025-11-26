@@ -41,7 +41,8 @@
       "Bash(./gradlew:*)",
       "Bash(gradlew.bat:*)",
       "Bash(.\\gradlew.bat :backend:build:*)",
-      "Bash(powershell -Command \"cd backend; ../gradlew.bat build --no-daemon\")"
+      "Bash(powershell -Command \"cd backend; ../gradlew.bat build --no-daemon\")",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []

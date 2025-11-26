@@ -290,7 +290,7 @@ fun FlowBoardApp(
         // Notifications screen
         composable("notifications") {
             val notificationViewModel: NotificationViewModel = hiltViewModel()
-            val notifications by notificationViewModel.notifications.collectAsStateWithLifecycle()
+            val notifications by notificationViewModel.allNotifications.collectAsStateWithLifecycle()
             val unreadCount by notificationViewModel.unreadCount.collectAsStateWithLifecycle()
 
             NotificationCenterScreen(
@@ -340,12 +340,12 @@ fun FlowBoardApp(
             val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
 
             LaunchedEffect(chatId) {
-                chatViewModel.loadChat(chatId)
+                chatViewModel.selectChat(chatId)
             }
 
             ChatScreen(
+                chatRoomId = chatId,
                 viewModel = chatViewModel,
-                chatId = chatId,
                 onNavigateBack = {
                     navController.popBackStack()
                 }
