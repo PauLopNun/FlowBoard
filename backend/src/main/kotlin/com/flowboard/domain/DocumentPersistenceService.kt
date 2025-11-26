@@ -290,6 +290,74 @@ class DocumentPersistenceService {
         }
     }
 
+    suspend fun getDocumentPermissions(documentId: String, requesterId: String): List<DocumentPermissionResponse>? {
+        return dbQuery {
+            // Check if requester has access to the document
+            val hasPermission = DocumentPermissions
+                .select {
+                    (DocumentPermissions.documentId eq UUID.fromString(documentId)) and
+                    (DocumentPermissions.userId eq UUID.fromString(requesterId))
+                }
+                .count() > 0
+
+            if (!hasPermission) return@dbQuery null
+
+            // Get all permissions for this document
+            DocumentPermissions
+                .leftJoin(Users, { DocumentPermissions.userId }, { Users.id })
+                .select { DocumentPermissions.documentId eq UUID.fromString(documentId) }
+                .map { row ->
+                    DocumentPermissionResponse(
+                        id = row[DocumentPermissions.id].toString(),
+                        documentId = row[DocumentPermissions.documentId].toString(),
+                        userId = row[DocumentPermissions.userId].toString(),
+                        userName = row[Users.username],
+                        userEmail = row[Users.email],
+                        role = row[DocumentPermissions.role],
+                        grantedBy = row[DocumentPermissions.grantedBy].toString(),
+                        grantedAt = row[DocumentPermissions.grantedAt]
+                    )
+                }
+        }
+    }
+
+    suspend fun updatePermission(documentId: String, ownerId: String, targetUserId: String, newRole: String): Boolean {
+        return dbQuery {
+            // Verify requester is owner
+            val isOwner = Documents
+                .select {
+                    (Documents.id eq UUID.fromString(documentId)) and
+                    (Documents.ownerId eq UUID.fromString(ownerId))
+                }
+                .count() > 0
+
+            if (!isOwner) return@dbQuery false
+
+            // Don't allow changing owner permission
+            val permission = DocumentPermissions
+                .select {
+                    (DocumentPermissions.documentId eq UUID.fromString(documentId)) and
+                    (DocumentPermissions.userId eq UUID.fromString(targetUserId))
+                }
+                .singleOrNull()
+
+            if (permission?.get(DocumentPermissions.role) == "owner") {
+                return@dbQuery false
+            }
+
+            // Update permission
+            val updated = DocumentPermissions.update({
+                (DocumentPermissions.documentId eq UUID.fromString(documentId)) and
+                (DocumentPermissions.userId eq UUID.fromString(targetUserId))
+            }) {
+                it[DocumentPermissions.role] = newRole
+                it[DocumentPermissions.grantedAt] = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+            }
+
+            updated > 0
+        }
+    }
+
     suspend fun removePermission(documentId: String, ownerId: String, targetUserId: String): Boolean {
         return dbQuery {
             // Verify requester is owner

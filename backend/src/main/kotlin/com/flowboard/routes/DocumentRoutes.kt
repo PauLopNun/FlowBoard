@@ -188,6 +188,66 @@ fun Route.documentRoutes(
                 call.respond(HttpStatusCode.OK, response)
             }
 
+            // Get document permissions
+            get("/{id}/permissions") {
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.getClaim("userId")?.asString()
+
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Unauthorized"))
+                    return@get
+                }
+
+                val documentId = call.parameters["id"]
+                if (documentId == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing document ID"))
+                    return@get
+                }
+
+                val permissions = documentService.getDocumentPermissions(documentId, userId)
+                if (permissions == null) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Access denied"))
+                    return@get
+                }
+
+                call.respond(HttpStatusCode.OK, permissions)
+            }
+
+            // Update permission role
+            put("/{id}/permissions/{userId}") {
+                val principal = call.principal<JWTPrincipal>()
+                val ownerId = principal?.payload?.getClaim("userId")?.asString()
+
+                if (ownerId == null) {
+                    call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Unauthorized"))
+                    return@put
+                }
+
+                val documentId = call.parameters["id"]
+                val targetUserId = call.parameters["userId"]
+
+                if (documentId == null || targetUserId == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing parameters"))
+                    return@put
+                }
+
+                val request = call.receive<UpdatePermissionRequest>()
+
+                // Validate role
+                if (request.role !in listOf("viewer", "editor")) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid role. Must be 'viewer' or 'editor'"))
+                    return@put
+                }
+
+                val updated = documentService.updatePermission(documentId, ownerId, targetUserId, request.role)
+                if (!updated) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Cannot update permission"))
+                    return@put
+                }
+
+                call.respond(HttpStatusCode.OK, mapOf("message" to "Permission updated successfully"))
+            }
+
             // Remove permission
             delete("/{id}/permissions/{userId}") {
                 val principal = call.principal<JWTPrincipal>()

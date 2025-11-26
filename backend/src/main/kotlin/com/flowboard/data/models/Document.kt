@@ -51,6 +51,11 @@ data class ShareDocumentRequest(
 )
 
 @Serializable
+data class UpdatePermissionRequest(
+    val role: String // viewer or editor
+)
+
+@Serializable
 data class ShareDocumentResponse(
     val success: Boolean,
     val message: String,

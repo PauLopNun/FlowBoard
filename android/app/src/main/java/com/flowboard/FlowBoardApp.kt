@@ -13,12 +13,14 @@ import androidx.navigation.compose.rememberNavController
 import android.util.Log
 import com.flowboard.presentation.ui.screens.auth.LoginScreen
 import com.flowboard.presentation.ui.screens.auth.RegisterScreen
+import com.flowboard.presentation.ui.screens.dashboard.DashboardScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
 import com.flowboard.presentation.ui.screens.tasks.CreateTaskScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskDetailScreen
 import com.flowboard.presentation.ui.screens.documents.DocumentListScreen
 import com.flowboard.presentation.ui.screens.documents.DocumentInfo
 import com.flowboard.presentation.ui.screens.documents.CollaborativeDocumentScreen
+import com.flowboard.presentation.ui.screens.documents.CollaborativeDocumentScreenV2
 import com.flowboard.presentation.ui.screens.notifications.NotificationCenterScreen
 import com.flowboard.presentation.ui.screens.chat.ChatListScreen
 import com.flowboard.presentation.ui.screens.chat.ChatScreen
@@ -41,10 +43,10 @@ fun FlowBoardApp(
     val loginViewModel: LoginViewModel = hiltViewModel()
     val isLoggedIn by loginViewModel.isLoggedIn.collectAsStateWithLifecycle()
 
-    // Navigate to tasks if already logged in
+    // Navigate to dashboard if already logged in
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
-            navController.navigate("tasks") {
+            navController.navigate("dashboard") {
                 popUpTo("login") { inclusive = true }
             }
         }
@@ -58,10 +60,10 @@ fun FlowBoardApp(
         composable("login") {
             val loginState by loginViewModel.loginState.collectAsStateWithLifecycle()
 
-            // Navigate to tasks when login successful
+            // Navigate to dashboard when login successful
             LaunchedEffect(loginState) {
                 if (loginState is LoginState.Success) {
-                    navController.navigate("tasks") {
+                    navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }
                 }
@@ -87,10 +89,10 @@ fun FlowBoardApp(
             val registerViewModel: RegisterViewModel = hiltViewModel()
             val registerState by registerViewModel.registerState.collectAsStateWithLifecycle()
 
-            // Navigate to tasks when registration successful
+            // Navigate to dashboard when registration successful
             LaunchedEffect(registerState) {
                 if (registerState is RegisterState.Success) {
-                    navController.navigate("tasks") {
+                    navController.navigate("dashboard") {
                         popUpTo("register") { inclusive = true }
                         popUpTo("login") { inclusive = true }
                     }
@@ -106,6 +108,42 @@ fun FlowBoardApp(
                 },
                 isLoading = registerState is RegisterState.Loading,
                 error = (registerState as? RegisterState.Error)?.message
+            )
+        }
+
+        composable("dashboard") {
+            val documentViewModel: DocumentViewModel = hiltViewModel()
+
+            DashboardScreen(
+                onDocumentClick = { documentId ->
+                    navController.navigate("document_edit/$documentId")
+                },
+                onCreateDocument = {
+                    navController.navigate("document_create")
+                },
+                onNotificationsClick = {
+                    navController.navigate("notifications")
+                },
+                onChatClick = {
+                    navController.navigate("chat_list")
+                },
+                onProfileClick = {
+                    navController.navigate("profile")
+                },
+                onSettingsClick = {
+                    navController.navigate("settings")
+                },
+                onTasksClick = {
+                    navController.navigate("tasks")
+                },
+                onLogout = {
+                    loginViewModel.logout()
+                    navController.navigate("login") {
+                        popUpTo("dashboard") { inclusive = true }
+                    }
+                },
+                documentViewModel = documentViewModel,
+                loginViewModel = loginViewModel
             )
         }
 
@@ -196,42 +234,24 @@ fun FlowBoardApp(
         }
 
         composable("document_create") {
-            val documentViewModel: DocumentViewModel = hiltViewModel()
-            val documentState by documentViewModel.documentState.collectAsStateWithLifecycle()
-            val activeUsers by documentViewModel.activeUsers.collectAsStateWithLifecycle()
+            // Create new document with generated ID
+            val newDocumentId = java.util.UUID.randomUUID().toString()
 
-            LaunchedEffect(Unit) {
-                documentViewModel.createDocument("Untitled Document", "")
-            }
-
-            CollaborativeDocumentScreen(
-                viewModel = documentViewModel,
+            CollaborativeDocumentScreenV2(
+                documentId = newDocumentId,
                 onNavigateBack = {
                     navController.popBackStack()
-                },
-                onShareDocument = {
-                    // Handle sharing
                 }
             )
         }
 
         composable("document_edit/{documentId}") { backStackEntry ->
-            val documentViewModel: DocumentViewModel = hiltViewModel()
             val documentId = backStackEntry.arguments?.getString("documentId") ?: return@composable
-            val documentState by documentViewModel.documentState.collectAsStateWithLifecycle()
-            val activeUsers by documentViewModel.activeUsers.collectAsStateWithLifecycle()
 
-            LaunchedEffect(documentId) {
-                documentViewModel.loadDocument(documentId)
-            }
-
-            CollaborativeDocumentScreen(
-                viewModel = documentViewModel,
+            CollaborativeDocumentScreenV2(
+                documentId = documentId,
                 onNavigateBack = {
                     navController.popBackStack()
-                },
-                onShareDocument = {
-                    // Handle sharing
                 }
             )
         }

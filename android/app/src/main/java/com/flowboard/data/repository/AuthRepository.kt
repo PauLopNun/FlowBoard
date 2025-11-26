@@ -76,6 +76,11 @@ class AuthRepository @Inject constructor(
     }
 
     /**
+     * Get user name (alias for getUsername)
+     */
+    suspend fun getUserName(): String? = getUsername()
+
+    /**
      * Save auth data after successful login
      */
     suspend fun saveAuth(token: String, userId: String, username: String) {

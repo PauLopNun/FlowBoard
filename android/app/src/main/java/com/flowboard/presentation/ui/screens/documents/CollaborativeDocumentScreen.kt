@@ -219,15 +219,22 @@ fun CollaborativeDocumentScreen(
         }
     }
 
-    // Share dialog
+    // Share dialog - Using the new ShareDocumentDialog component
     if (showShareDialog) {
-        ShareDocumentDialog(
-            onDismiss = { showShareDialog = false },
-            onShare = { email, permission ->
-                // TODO: Implement sharing logic
-                onShareDocument()
+        com.flowboard.presentation.ui.components.ShareDocumentDialog(
+            documentTitle = documentState.document?.blocks?.firstOrNull { it.type == "h1" }?.content ?: "Untitled Document",
+            currentCollaborators = emptyList(), // TODO: Load from ViewModel
+            onInviteUser = { email, role ->
+                // TODO: Call ViewModel method to invite user
                 showShareDialog = false
-            }
+            },
+            onUpdatePermission = { userId, role ->
+                // TODO: Call ViewModel method to update permission
+            },
+            onRemovePermission = { userId ->
+                // TODO: Call ViewModel method to remove permission
+            },
+            onDismiss = { showShareDialog = false }
         )
     }
 }
@@ -315,81 +322,4 @@ private fun VersionHistoryItem(
     }
 }
 
-@Composable
-private fun ShareDocumentDialog(
-    onDismiss: () -> Unit,
-    onShare: (String, String) -> Unit
-) {
-    var email by remember { mutableStateOf("") }
-    var selectedPermission by remember { mutableStateOf("view") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Share Document") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email address") },
-                    placeholder = { Text("user@example.com") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Text("Permission level:", style = MaterialTheme.typography.titleSmall)
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        RadioButton(
-                            selected = selectedPermission == "view",
-                            onClick = { selectedPermission = "view" }
-                        )
-                        Column {
-                            Text("Viewer", fontWeight = FontWeight.Medium)
-                            Text(
-                                "Can view only",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        RadioButton(
-                            selected = selectedPermission == "edit",
-                            onClick = { selectedPermission = "edit" }
-                        )
-                        Column {
-                            Text("Editor", fontWeight = FontWeight.Medium)
-                            Text(
-                                "Can view and edit",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onShare(email, selectedPermission) },
-                enabled = email.isNotBlank()
-            ) {
-                Text("Share")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
 

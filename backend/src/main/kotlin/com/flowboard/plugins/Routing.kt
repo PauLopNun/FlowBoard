@@ -3,9 +3,11 @@ package com.flowboard.plugins
 import com.flowboard.routes.*
 import com.flowboard.domain.*
 import com.flowboard.services.WebSocketManager
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.json.Json
 
 fun Application.configureRouting() {
     // Singleton services para toda la aplicación
@@ -50,5 +52,12 @@ fun Application.configureRouting() {
 
         // Rutas WebSocket (sin prefijo /api/v1)
         webSocketRoutes(webSocketManager, documentService)
+
+        // Document WebSocket routes for real-time collaboration
+        val json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
+        documentWebSocketRoutes(json)
     }
 }
