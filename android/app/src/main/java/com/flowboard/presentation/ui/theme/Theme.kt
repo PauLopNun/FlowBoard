@@ -10,10 +10,18 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.flowboard.presentation.viewmodel.SettingsViewModel
+import kotlinx.coroutines.flow.map
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -29,10 +37,16 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun FlowBoardTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    settingsViewModel: SettingsViewModel = hiltViewModel(),
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    val darkModeEnabled by settingsViewModel.darkModeEnabled.collectAsState()
+    val systemDarkTheme = isSystemInDarkTheme()
+
+    // Use user preference if set, otherwise follow system
+    val darkTheme = darkModeEnabled || systemDarkTheme
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
@@ -47,7 +61,7 @@ fun FlowBoardTheme(
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 

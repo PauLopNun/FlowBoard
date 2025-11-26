@@ -126,6 +126,55 @@ class AuthApiService @Inject constructor(
             Result.failure(e)
         }
     }
+
+    /**
+     * Get current user profile
+     * GET /api/v1/users/me
+     */
+    suspend fun getCurrentUser(token: String): Result<UserData> {
+        return try {
+            val response: UserData = httpClient.get("${ApiConfig.API_BASE_URL}/users/me") {
+                header("Authorization", "Bearer $token")
+            }.body()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Update user profile
+     * PUT /api/v1/users/me
+     */
+    suspend fun updateProfile(token: String, request: UpdateProfileRequest): Result<UserData> {
+        return try {
+            val response: UserData = httpClient.put("${ApiConfig.API_BASE_URL}/users/me") {
+                header("Authorization", "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Update password
+     * PUT /api/v1/users/me/password
+     */
+    suspend fun updatePassword(token: String, request: UpdatePasswordRequest): Result<UpdatePasswordResponse> {
+        return try {
+            val response: UpdatePasswordResponse = httpClient.put("${ApiConfig.API_BASE_URL}/users/me/password") {
+                header("Authorization", "Bearer $token")
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }.body()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
 
 // ============================================================================
@@ -150,6 +199,24 @@ data class RegisterRequest(
     val password: String,
     val username: String,
     val fullName: String? = null
+)
+
+/**
+ * Update profile request body
+ */
+@kotlinx.serialization.Serializable
+data class UpdateProfileRequest(
+    val fullName: String? = null,
+    val profileImageUrl: String? = null
+)
+
+/**
+ * Update password request body
+ */
+@kotlinx.serialization.Serializable
+data class UpdatePasswordRequest(
+    val oldPassword: String,
+    val newPassword: String
 )
 
 // ============================================================================
@@ -207,4 +274,12 @@ data class VerifyTokenResponse(
 data class LogoutResponse(
     val success: Boolean,
     val message: String? = null
+)
+
+/**
+ * Update password response
+ */
+@kotlinx.serialization.Serializable
+data class UpdatePasswordResponse(
+    val message: String
 )

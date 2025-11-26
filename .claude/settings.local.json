@@ -35,7 +35,13 @@
       "Bash(./gradlew.bat:*)",
       "Bash(cat:*)",
       "Bash(cmd /c:*)",
-      "Bash(android\\gradlew.bat assembleDebug:*)"
+      "Bash(android\\gradlew.bat assembleDebug:*)",
+      "Bash(..gradlew.bat build --no-daemon)",
+      "Bash(chmod:*)",
+      "Bash(./gradlew:*)",
+      "Bash(gradlew.bat:*)",
+      "Bash(.\\gradlew.bat :backend:build:*)",
+      "Bash(powershell -Command \"cd backend; ../gradlew.bat build --no-daemon\")"
     ],
     "deny": [],
     "ask": []

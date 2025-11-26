@@ -165,4 +165,59 @@ class AuthRepository @Inject constructor(
     suspend fun searchUserByEmail(email: String): Result<com.flowboard.data.remote.api.UserData> {
         return authApiService.searchUserByEmail(email)
     }
+
+    /**
+     * Get current user profile
+     */
+    suspend fun getCurrentUser(): com.flowboard.domain.model.User? {
+        val token = getToken() ?: return null
+        val result = authApiService.getCurrentUser(token)
+
+        return result.getOrNull()?.let { userData ->
+            com.flowboard.domain.model.User(
+                id = userData.id,
+                email = userData.email,
+                username = userData.username,
+                fullName = userData.fullName,
+                role = com.flowboard.data.local.entities.UserRole.USER,
+                profileImageUrl = userData.profileImageUrl,
+                isActive = userData.isActive,
+                createdAt = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC),
+                lastLoginAt = null
+            )
+        }
+    }
+
+    /**
+     * Update user profile
+     */
+    suspend fun updateProfile(fullName: String?, profileImageUrl: String?): com.flowboard.domain.model.User? {
+        val token = getToken() ?: return null
+        val request = com.flowboard.data.remote.api.UpdateProfileRequest(fullName, profileImageUrl)
+        val result = authApiService.updateProfile(token, request)
+
+        return result.getOrNull()?.let { userData ->
+            com.flowboard.domain.model.User(
+                id = userData.id,
+                email = userData.email,
+                username = userData.username,
+                fullName = userData.fullName,
+                role = com.flowboard.data.local.entities.UserRole.USER,
+                profileImageUrl = userData.profileImageUrl,
+                isActive = userData.isActive,
+                createdAt = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC),
+                lastLoginAt = null
+            )
+        }
+    }
+
+    /**
+     * Update password
+     */
+    suspend fun updatePassword(oldPassword: String, newPassword: String): Boolean {
+        val token = getToken() ?: return false
+        val request = com.flowboard.data.remote.api.UpdatePasswordRequest(oldPassword, newPassword)
+        val result = authApiService.updatePassword(token, request)
+        return result.isSuccess
+    }
 }

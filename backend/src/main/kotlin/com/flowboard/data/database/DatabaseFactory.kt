@@ -14,7 +14,18 @@ object DatabaseFactory {
         val database = Database.connect(createHikariDataSource())
         
         transaction(database) {
-            SchemaUtils.create(Users, Tasks, Projects)
+            SchemaUtils.create(
+                Users,
+                Tasks,
+                Projects,
+                BoardPermissions,
+                Documents,
+                DocumentPermissions,
+                Notifications,
+                ChatRooms,
+                ChatParticipants,
+                Messages
+            )
         }
     }
     

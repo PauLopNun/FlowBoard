@@ -19,12 +19,19 @@ import com.flowboard.presentation.ui.screens.tasks.TaskDetailScreen
 import com.flowboard.presentation.ui.screens.documents.DocumentListScreen
 import com.flowboard.presentation.ui.screens.documents.DocumentInfo
 import com.flowboard.presentation.ui.screens.documents.CollaborativeDocumentScreen
+import com.flowboard.presentation.ui.screens.notifications.NotificationCenterScreen
+import com.flowboard.presentation.ui.screens.chat.ChatListScreen
+import com.flowboard.presentation.ui.screens.chat.ChatScreen
+import com.flowboard.presentation.ui.screens.profile.ProfileScreen
+import com.flowboard.presentation.ui.screens.settings.SettingsScreen
 import com.flowboard.presentation.viewmodel.LoginState
 import com.flowboard.presentation.viewmodel.LoginViewModel
 import com.flowboard.presentation.viewmodel.RegisterState
 import com.flowboard.presentation.viewmodel.RegisterViewModel
 import com.flowboard.presentation.viewmodel.TaskViewModel
 import com.flowboard.presentation.viewmodel.DocumentViewModel
+import com.flowboard.presentation.viewmodel.NotificationViewModel
+import com.flowboard.presentation.viewmodel.ChatViewModel
 
 @Composable
 fun FlowBoardApp(
@@ -114,6 +121,18 @@ fun FlowBoardApp(
                 },
                 onDocumentsClick = {
                     navController.navigate("documents")
+                },
+                onNotificationsClick = {
+                    navController.navigate("notifications")
+                },
+                onChatClick = {
+                    navController.navigate("chat_list")
+                },
+                onProfileClick = {
+                    navController.navigate("profile")
+                },
+                onSettingsClick = {
+                    navController.navigate("settings")
                 },
                 onLogout = {
                     loginViewModel.logout()
@@ -265,6 +284,89 @@ fun FlowBoardApp(
                     navController.popBackStack()
                 },
                 isLoading = uiState.isLoading
+            )
+        }
+
+        // Notifications screen
+        composable("notifications") {
+            val notificationViewModel: NotificationViewModel = hiltViewModel()
+            val notifications by notificationViewModel.notifications.collectAsStateWithLifecycle()
+            val unreadCount by notificationViewModel.unreadCount.collectAsStateWithLifecycle()
+
+            NotificationCenterScreen(
+                notifications = notifications,
+                unreadCount = unreadCount,
+                onNotificationClick = { notification ->
+                    notificationViewModel.markAsRead(notification.id)
+                    // Navigate to resource if deepLink is available
+                    notification.deepLink?.let { navController.navigate(it) }
+                },
+                onMarkAsRead = { notificationId ->
+                    notificationViewModel.markAsRead(notificationId)
+                },
+                onMarkAllAsRead = {
+                    notificationViewModel.markAllAsRead()
+                },
+                onDeleteNotification = { notificationId ->
+                    notificationViewModel.deleteNotification(notificationId)
+                },
+                onDeleteAll = {
+                    notificationViewModel.deleteAllNotifications()
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Chat list screen
+        composable("chat_list") {
+            val chatViewModel: ChatViewModel = hiltViewModel()
+
+            ChatListScreen(
+                viewModel = chatViewModel,
+                onChatClick = { chatId ->
+                    navController.navigate("chat/$chatId")
+                },
+                onCreateChat = {
+                    navController.navigate("chat_create")
+                }
+            )
+        }
+
+        // Chat screen
+        composable("chat/{chatId}") { backStackEntry ->
+            val chatViewModel: ChatViewModel = hiltViewModel()
+            val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
+
+            LaunchedEffect(chatId) {
+                chatViewModel.loadChat(chatId)
+            }
+
+            ChatScreen(
+                viewModel = chatViewModel,
+                chatId = chatId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Profile screen
+        composable("profile") {
+            ProfileScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Settings screen
+        composable("settings") {
+            SettingsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
             )
         }
     }

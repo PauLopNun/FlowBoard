@@ -120,4 +120,32 @@ object AuthService {
             }
             .singleOrNull()
     }
+
+    suspend fun updateProfile(userId: String, fullName: String?, profileImageUrl: String?): User? = dbQuery {
+        val updateCount = Users.update({ Users.id eq UUID.fromString(userId) }) {
+            if (fullName != null) it[Users.fullName] = fullName
+            if (profileImageUrl != null) it[Users.profileImageUrl] = profileImageUrl
+        }
+
+        if (updateCount > 0) {
+            getUserById(userId)
+        } else {
+            null
+        }
+    }
+
+    suspend fun updatePassword(userId: String, oldPassword: String, newPassword: String): Boolean = dbQuery {
+        val userRow = Users.select { Users.id eq UUID.fromString(userId) }
+            .singleOrNull()
+
+        if (userRow != null && BCrypt.checkpw(oldPassword, userRow[Users.passwordHash])) {
+            val hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+            Users.update({ Users.id eq UUID.fromString(userId) }) {
+                it[passwordHash] = hashedPassword
+            }
+            true
+        } else {
+            false
+        }
+    }
 }

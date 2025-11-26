@@ -5,9 +5,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +32,10 @@ fun TaskListScreen(
     onTaskClick: (String) -> Unit,
     onCreateTaskClick: () -> Unit,
     onDocumentsClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    onChatClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     viewModel: TaskViewModel = hiltViewModel()
 ) {
@@ -98,6 +106,16 @@ fun TaskListScreen(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
+                        // Notifications button
+                        IconButton(onClick = onNotificationsClick) {
+                            Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+                        }
+
+                        // Chat button
+                        IconButton(onClick = onChatClick) {
+                            Icon(Icons.Default.Chat, contentDescription = "Chat")
+                        }
+
                         IconButton(onClick = { viewModel.syncTasks() }) {
                             Icon(Icons.Default.Sync, contentDescription = "Sync")
                         }
@@ -112,6 +130,26 @@ fun TaskListScreen(
                                 onDismissRequest = { showMenu = false }
                             ) {
                                 DropdownMenuItem(
+                                    text = { Text("Profile") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Person, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onProfileClick()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Settings") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Settings, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onSettingsClick()
+                                    }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Collaborative Documents") },
                                     leadingIcon = {
                                         Icon(Icons.Default.Description, contentDescription = null)
@@ -121,6 +159,7 @@ fun TaskListScreen(
                                         onDocumentsClick()
                                     }
                                 )
+                                Divider()
                                 DropdownMenuItem(
                                     text = { Text("Logout") },
                                     leadingIcon = {
