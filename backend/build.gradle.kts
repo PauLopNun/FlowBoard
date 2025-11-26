@@ -53,9 +53,6 @@ dependencies {
     // Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
-    
-    // CRDT
-    implementation("com.github.CharlieTap:synk:0.3.0")
 
     // Security
     implementation("org.mindrot:jbcrypt:0.4")

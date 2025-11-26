@@ -27,7 +27,9 @@ object DatabaseModule {
             context,
             FlowBoardDatabase::class.java,
             FlowBoardDatabase.DATABASE_NAME
-        ).build()
+        )
+        .fallbackToDestructiveMigration()
+        .build()
     }
 
     @Provides

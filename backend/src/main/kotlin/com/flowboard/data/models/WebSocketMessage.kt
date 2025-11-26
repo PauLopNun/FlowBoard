@@ -1,3 +1,5 @@
+package com.flowboard.data.models
+
 import com.flowboard.data.models.crdt.CollaborativeDocument
 import com.flowboard.data.models.crdt.DocumentOperation
 import kotlinx.datetime.LocalDateTime
@@ -185,10 +187,12 @@ data class CursorUpdateMessage(
 ) : CrdtMessage()
 
 @Serializable
-data class SynkMessage(
-    override val type: String = "SYNK_MESSAGE",
+data class SyncMessage(
+    override val type: String = "SYNC_MESSAGE",
     override val timestamp: LocalDateTime,
-    val message: com.tap.synk.models.Message
+    val boardId: String,
+    val blockId: String,
+    val content: String
 ) : CrdtMessage()
 
 // ============================================================================

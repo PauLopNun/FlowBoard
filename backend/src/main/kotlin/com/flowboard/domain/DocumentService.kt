@@ -3,13 +3,6 @@ package com.flowboard.domain
 import com.flowboard.data.database.BoardPermissions
 import com.flowboard.data.database.DatabaseFactory.dbQuery
 import com.flowboard.data.models.crdt.*
-import com.tap.synk.Synk
-import com.tap.synk.adapter.SynkAdapter
-import com.tap.synk.encode
-import com.tap.synk.encodeToString
-import com.tap.synk.models.Message
-import com.tap.synk.models.Syncable
-import com.tap.synk.serialize
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
@@ -26,26 +19,6 @@ class InMemoryDocumentService(
     private val webSocketManager: com.flowboard.services.WebSocketManager
 ) : DocumentService {
     private val documents = ConcurrentHashMap<String, CollaborativeDocument>()
-    private val synkInstances = ConcurrentHashMap<String, Synk>()
-
-    private fun getSynk(boardId: String): Synk {
-        return synkInstances.getOrPut(boardId) {
-            val adapter = object : SynkAdapter<ContentBlock> {
-                override fun resolveId(syncable: ContentBlock): String {
-                    return syncable.id
-                }
-
-                override fun serialize(syncable: ContentBlock): String {
-                    return Json.encodeToString(syncable)
-                }
-
-                override fun deserialize(id: String, syncable: String): ContentBlock? {
-                    return Json.decodeFromString<ContentBlock>(syncable)
-                }
-            }
-            Synk.Builder(adapter).build()
-        }
-    }
 
 
     override suspend fun getDocument(boardId: String): CollaborativeDocument {
@@ -62,7 +35,6 @@ class InMemoryDocumentService(
 
     override suspend fun applyOperation(operation: DocumentOperation): CollaborativeDocument {
         val document = getDocument(operation.boardId)
-        val synk = getSynk(operation.boardId)
         val updatedDocument = when (operation) {
             is AddBlockOperation -> {
                 val newBlocks = document.blocks.toMutableList()
@@ -87,23 +59,15 @@ class InMemoryDocumentService(
             is UpdateBlockFormattingOperation -> {
                 val newBlocks = document.blocks.map {
                     if (it.id == operation.blockId) {
-                        val updatedBlock = it.copy(
+                        it.copy(
                             fontWeight = operation.fontWeight ?: it.fontWeight,
                             fontStyle = operation.fontStyle ?: it.fontStyle,
                             textDecoration = operation.textDecoration ?: it.textDecoration,
                             fontSize = operation.fontSize ?: it.fontSize,
                             color = operation.color ?: it.color,
-                            textAlign = operation.textAlign ?: it.textAlign
+                            textAlign = operation.textAlign ?: it.textAlign,
+                            synkLastModified = System.currentTimeMillis()
                         )
-                        val message = synk.asMessage(updatedBlock)
-                        webSocketManager.broadcastToRoom(
-                            boardId = operation.boardId,
-                            message = com.flowboard.data.models.SynkMessage(
-                                timestamp = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.UTC),
-                                message = message
-                            )
-                        )
-                        updatedBlock
                     } else {
                         it
                     }

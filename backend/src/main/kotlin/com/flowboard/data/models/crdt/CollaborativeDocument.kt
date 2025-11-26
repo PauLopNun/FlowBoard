@@ -1,6 +1,5 @@
 package com.flowboard.data.models.crdt
 
-import com.tap.synk.models.Syncable
 import kotlinx.serialization.Serializable
 
 /**
