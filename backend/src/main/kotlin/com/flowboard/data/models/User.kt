@@ -36,6 +36,14 @@ data class LoginRequest(
 )
 
 @Serializable
+data class GoogleSignInRequest(
+    val idToken: String,
+    val email: String,
+    val displayName: String? = null,
+    val profilePictureUrl: String? = null
+)
+
+@Serializable
 data class LoginResponse(
     val token: String,
     val user: User

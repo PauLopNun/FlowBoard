@@ -2,6 +2,7 @@ package com.flowboard.routes
 
 import com.flowboard.data.models.LoginRequest
 import com.flowboard.data.models.RegisterRequest
+import com.flowboard.data.models.GoogleSignInRequest
 import com.flowboard.domain.AuthService
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -51,7 +52,26 @@ fun Route.authRoutes() {
                 ))
             }
         }
-        
+
+        post("/google") {
+            val request = call.receive<GoogleSignInRequest>()
+
+            try {
+                val response = AuthService.googleSignIn(request)
+                call.respond(HttpStatusCode.OK, response)
+            } catch (e: IllegalArgumentException) {
+                call.respond(HttpStatusCode.BadRequest, mapOf(
+                    "error" to "Google Sign-In failed",
+                    "message" to (e.message ?: "Invalid Google token")
+                ))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, mapOf(
+                    "error" to "Internal server error",
+                    "message" to e.message
+                ))
+            }
+        }
+
         post("/logout") {
             // In a JWT-based system, logout is typically handled client-side
             // by removing the token. Here we can just return success.

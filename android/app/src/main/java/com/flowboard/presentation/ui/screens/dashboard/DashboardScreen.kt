@@ -60,6 +60,7 @@ fun DashboardScreen(
     onProfileClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onTasksClick: () -> Unit = {},
+    onViewAllDocuments: () -> Unit = {},
     onLogout: () -> Unit = {},
     documentViewModel: DocumentViewModel = hiltViewModel(),
     loginViewModel: LoginViewModel = hiltViewModel()
@@ -189,8 +190,21 @@ fun DashboardScreen(
                     )
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Botón "Ver todos"
+                        TextButton(onClick = onViewAllDocuments) {
+                            Text("Ver todos")
+                            Icon(
+                                Icons.Default.ArrowForward,
+                                contentDescription = "Ver todos",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        VerticalDivider(modifier = Modifier.height(24.dp))
+
                         IconButton(
                             onClick = { selectedView = ViewType.GRID }
                         ) {

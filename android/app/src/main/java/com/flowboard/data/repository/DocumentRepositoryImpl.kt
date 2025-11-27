@@ -1,7 +1,10 @@
 package com.flowboard.data.repository
 
+import com.flowboard.data.local.entities.DocumentEntity
 import com.flowboard.data.models.crdt.CollaborativeDocument
 import com.flowboard.data.models.crdt.DocumentOperation
+import com.flowboard.data.remote.api.DocumentApiService
+import com.flowboard.data.remote.dto.DocumentListResponse
 import com.flowboard.data.remote.websocket.ConnectionState
 import com.flowboard.data.remote.websocket.DocumentWebSocketClient
 import com.flowboard.data.remote.websocket.WebSocketState
@@ -17,7 +20,8 @@ import javax.inject.Inject
 
 class DocumentRepositoryImpl @Inject constructor(
     private val webSocketClient: DocumentWebSocketClient,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val documentApiService: DocumentApiService
 ) : DocumentRepository {
 
     override suspend fun getDocument(boardId: String): Flow<CollaborativeDocument> {
@@ -80,6 +84,61 @@ class DocumentRepositoryImpl @Inject constructor(
         return flow {
             // This is not directly supported by the new WebSocket client
             // Would need to derive from document state changes
+        }
+    }
+
+    // Document CRUD operations
+    suspend fun getAllDocuments(): Result<DocumentListResponse> {
+        return try {
+            val response = documentApiService.getAllDocuments()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getDocumentById(id: String): Result<DocumentEntity> {
+        return try {
+            val document = documentApiService.getDocumentById(id)
+            Result.success(document)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createDocument(title: String, content: String = "", isPublic: Boolean = false): Result<DocumentEntity> {
+        return try {
+            val document = documentApiService.createDocument(title, content, isPublic)
+            Result.success(document)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateDocument(id: String, title: String? = null, content: String? = null, isPublic: Boolean? = null): Result<DocumentEntity> {
+        return try {
+            val document = documentApiService.updateDocument(id, title, content, isPublic)
+            Result.success(document)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteDocument(id: String): Result<Unit> {
+        return try {
+            documentApiService.deleteDocument(id)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun shareDocument(documentId: String, email: String, role: String): Result<Unit> {
+        return try {
+            documentApiService.shareDocument(documentId, email, role)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

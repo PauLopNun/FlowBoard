@@ -26,6 +26,7 @@ fun LoginScreen(
     onLoginClick: (String, String) -> Unit,
     onRegisterClick: () -> Unit,
     onForgotPasswordClick: () -> Unit,
+    onGoogleSignInClick: () -> Unit = {},
     isLoading: Boolean = false,
     error: String? = null,
     modifier: Modifier = Modifier
@@ -169,6 +170,39 @@ fun LoginScreen(
                         )
                     } else {
                         Text("Sign In")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Divider with "OR"
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "OR",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f))
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Google Sign-In button
+                OutlinedButton(
+                    onClick = onGoogleSignInClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Sign in with Google")
                     }
                 }
 

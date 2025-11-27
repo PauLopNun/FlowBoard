@@ -85,6 +85,34 @@ class LoginViewModel @Inject constructor(
         }
     }
 
+    fun signInWithGoogle(activity: android.app.Activity) {
+        viewModelScope.launch {
+            Log.d(TAG, "Google Sign-In initiated")
+            _loginState.value = LoginState.Loading
+
+            try {
+                val result = authRepository.signInWithGoogle(activity)
+
+                result.fold(
+                    onSuccess = { response ->
+                        Log.d(TAG, "Google Sign-In successful for user: ${response.username}")
+                        _loginState.value = LoginState.Success
+                        _isLoggedIn.value = true
+                    },
+                    onFailure = { exception ->
+                        Log.e(TAG, "Google Sign-In failed: ${exception.message}", exception)
+                        _loginState.value = LoginState.Error(
+                            exception.message ?: "Google Sign-In failed"
+                        )
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Unexpected error during Google Sign-In: ${e.message}", e)
+                _loginState.value = LoginState.Error(e.message ?: "Unknown error occurred")
+            }
+        }
+    }
+
 }
 
 /**

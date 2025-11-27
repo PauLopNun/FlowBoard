@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.data.models.crdt.ContentBlock
 import com.flowboard.data.remote.websocket.ConnectionState
 import com.flowboard.presentation.ui.components.CollaborativeCursorsLayer
+import com.flowboard.presentation.ui.components.FluidDocumentEditor
 import com.flowboard.presentation.ui.components.ShareDocumentDialog
 import com.flowboard.presentation.ui.components.CollaboratorRole
 import com.flowboard.presentation.ui.components.DocumentCollaborator
@@ -163,59 +164,60 @@ fun CollaborativeDocumentScreenV2(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Document editor
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                document?.blocks?.let { blocks ->
-                    items(blocks, key = { it.id }) { block ->
-                        CollaborativeBlock(
-                            block = block,
-                            onTextChange = { newText ->
-                                viewModel.insertText(block.id, newText, 0)
-                            },
-                            onCursorPositionChange = { position ->
-                                viewModel.updateCursorPosition(block.id, position)
-                            },
-                            onFormatChange = { formatting ->
-                                viewModel.updateFormatting(
-                                    blockId = block.id,
-                                    fontWeight = formatting.fontWeight,
-                                    fontStyle = formatting.fontStyle,
-                                    textDecoration = formatting.textDecoration
-                                )
-                            },
-                            onDelete = {
-                                viewModel.deleteBlock(block.id)
-                            }
-                        )
-                    }
-                }
+            // Fluid document editor - combines all blocks into a single text field
+            val fullContent = document?.blocks?.joinToString("\n") { it.content } ?: ""
 
-                // Add new block button
-                item {
-                    OutlinedButton(
-                        onClick = {
-                            val lastBlockId = document?.blocks?.lastOrNull()?.id
+            FluidDocumentEditor(
+                content = fullContent,
+                onContentChange = { newContent ->
+                    // Split content into lines and update blocks
+                    val lines = newContent.split("\n")
+                    val currentBlocks = document?.blocks ?: emptyList()
+
+                    // Update existing blocks or create new ones
+                    lines.forEachIndexed { index, lineContent ->
+                        val block = currentBlocks.getOrNull(index)
+                        if (block != null) {
+                            // Update existing block
+                            if (block.content != lineContent) {
+                                viewModel.insertText(block.id, lineContent, 0)
+                            }
+                        } else {
+                            // Create new block
                             viewModel.addBlock(
                                 block = ContentBlock(
                                     id = UUID.randomUUID().toString(),
                                     type = "p",
-                                    content = ""
+                                    content = lineContent
                                 ),
-                                afterBlockId = lastBlockId
+                                afterBlockId = currentBlocks.lastOrNull()?.id
                             )
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Add Block")
+                        }
                     }
-                }
-            }
+
+                    // Remove extra blocks if lines were deleted
+                    if (lines.size < currentBlocks.size) {
+                        currentBlocks.drop(lines.size).forEach { block ->
+                            viewModel.deleteBlock(block.id)
+                        }
+                    }
+                },
+                onCursorPositionChange = { position ->
+                    // Calculate which block the cursor is in
+                    val currentBlocks = document?.blocks ?: emptyList()
+                    var currentPos = 0
+                    currentBlocks.forEach { block ->
+                        val blockEndPos = currentPos + block.content.length + 1 // +1 for newline
+                        if (position >= currentPos && position <= blockEndPos) {
+                            val localPosition = position - currentPos
+                            viewModel.updateCursorPosition(block.id, localPosition)
+                            return@forEach
+                        }
+                        currentPos = blockEndPos
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
 
             // Collaborative cursors overlay
             CollaborativeCursorsLayer(

@@ -175,6 +175,34 @@ class AuthApiService @Inject constructor(
             Result.failure(e)
         }
     }
+
+    /**
+     * Sign in with Google
+     * POST /api/v1/auth/google
+     */
+    suspend fun googleSignIn(request: GoogleSignInRequest): Result<AuthResponse> {
+        return try {
+            Log.d(TAG, "Attempting Google Sign-In for email: ${request.email}")
+
+            val httpResponse = httpClient.post("$AUTH_ENDPOINT/google") {
+                contentType(ContentType.Application.Json)
+                setBody(request)
+            }
+
+            if (httpResponse.status.value == 200) {
+                val response: AuthResponse = httpResponse.body()
+                Log.d(TAG, "Google Sign-In successful")
+                Result.success(response)
+            } else {
+                val errorBody = httpResponse.body<String>()
+                Log.e(TAG, "Google Sign-In failed with status ${httpResponse.status.value}")
+                Result.failure(Exception("Google Sign-In failed: $errorBody"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Google Sign-In failed with exception: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
 }
 
 // ============================================================================
@@ -217,6 +245,17 @@ data class UpdateProfileRequest(
 data class UpdatePasswordRequest(
     val oldPassword: String,
     val newPassword: String
+)
+
+/**
+ * Google Sign-In request body
+ */
+@kotlinx.serialization.Serializable
+data class GoogleSignInRequest(
+    val idToken: String,
+    val email: String,
+    val displayName: String? = null,
+    val profilePictureUrl: String? = null
 )
 
 // ============================================================================

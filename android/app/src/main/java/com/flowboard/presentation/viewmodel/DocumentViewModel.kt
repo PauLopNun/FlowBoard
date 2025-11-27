@@ -19,12 +19,16 @@ import javax.inject.Inject
 @HiltViewModel
 class DocumentViewModel @Inject constructor(
     private val documentRepository: com.flowboard.domain.repository.DocumentRepository,
+    private val documentRepositoryImpl: com.flowboard.data.repository.DocumentRepositoryImpl,
     private val permissionRepository: com.flowboard.domain.repository.PermissionRepository,
     private val authRepository: com.flowboard.data.repository.AuthRepository
 ) : ViewModel() {
 
     private val _documentState = MutableStateFlow(DocumentState())
     val documentState: StateFlow<DocumentState> = _documentState.asStateFlow()
+
+    private val _documentListState = MutableStateFlow(DocumentListState())
+    val documentListState: StateFlow<DocumentListState> = _documentListState.asStateFlow()
 
     // WebSocket connection state
     val connectionState: StateFlow<WebSocketState> = documentRepository.getConnectionState()
@@ -328,6 +332,84 @@ class DocumentViewModel @Inject constructor(
     fun clearError() {
         _documentState.update { it.copy(error = null) }
     }
+
+    /**
+     * Fetch all documents from backend
+     */
+    fun fetchAllDocuments() {
+        viewModelScope.launch {
+            _documentListState.update { it.copy(isLoading = true) }
+            documentRepositoryImpl.getAllDocuments()
+                .onSuccess { response ->
+                    _documentListState.update {
+                        it.copy(
+                            ownedDocuments = response.ownedDocuments.map { doc -> doc.toEntity() },
+                            sharedWithMe = response.sharedWithMe.map { doc -> doc.toEntity() },
+                            isLoading = false,
+                            error = null
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _documentListState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = error.message ?: "Failed to fetch documents"
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Create new document via API
+     */
+    fun createDocumentViaApi(title: String, content: String = "", isPublic: Boolean = false, onSuccess: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            _documentListState.update { it.copy(isLoading = true) }
+            documentRepositoryImpl.createDocument(title, content, isPublic)
+                .onSuccess { document ->
+                    _documentListState.update { state ->
+                        state.copy(
+                            ownedDocuments = state.ownedDocuments + document,
+                            isLoading = false,
+                            error = null
+                        )
+                    }
+                    onSuccess(document.id)
+                }
+                .onFailure { error ->
+                    _documentListState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = error.message ?: "Failed to create document"
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Delete document via API
+     */
+    fun deleteDocumentViaApi(documentId: String) {
+        viewModelScope.launch {
+            documentRepositoryImpl.deleteDocument(documentId)
+                .onSuccess {
+                    _documentListState.update { state ->
+                        state.copy(
+                            ownedDocuments = state.ownedDocuments.filter { it.id != documentId },
+                            sharedWithMe = state.sharedWithMe.filter { it.id != documentId }
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _documentListState.update {
+                        it.copy(error = error.message ?: "Failed to delete document")
+                    }
+                }
+        }
+    }
 }
 
 /**
@@ -356,5 +438,15 @@ data class UserCursor(
 data class DocumentPermission(
     val email: String,
     val permission: String // "view" or "edit"
+)
+
+/**
+ * State for document list
+ */
+data class DocumentListState(
+    val ownedDocuments: List<com.flowboard.data.local.entities.DocumentEntity> = emptyList(),
+    val sharedWithMe: List<com.flowboard.data.local.entities.DocumentEntity> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
 )
 

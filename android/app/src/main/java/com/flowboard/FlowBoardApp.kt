@@ -1,10 +1,12 @@
 package com.flowboard
 
+import android.app.Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -59,6 +61,8 @@ fun FlowBoardApp(
     ) {
         composable("login") {
             val loginState by loginViewModel.loginState.collectAsStateWithLifecycle()
+            val context = LocalContext.current
+            val activity = context as? Activity
 
             // Navigate to dashboard when login successful
             LaunchedEffect(loginState) {
@@ -79,6 +83,9 @@ fun FlowBoardApp(
                 onForgotPasswordClick = {
                     Log.d("FlowBoardApp", "Forgot Password clicked!")
                     // navController.navigate("forgot_password") // Uncomment when screen is implemented
+                },
+                onGoogleSignInClick = {
+                    activity?.let { loginViewModel.signInWithGoogle(it) }
                 },
                 isLoading = loginState is LoginState.Loading,
                 error = (loginState as? LoginState.Error)?.message
@@ -120,6 +127,9 @@ fun FlowBoardApp(
                 },
                 onCreateDocument = {
                     navController.navigate("document_create")
+                },
+                onViewAllDocuments = {
+                    navController.navigate("documents")
                 },
                 onNotificationsClick = {
                     navController.navigate("notifications")
@@ -184,48 +194,43 @@ fun FlowBoardApp(
         composable("documents") {
             val documentViewModel: DocumentViewModel = hiltViewModel()
             val activeUsers by documentViewModel.activeUsers.collectAsStateWithLifecycle()
+            val documentListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
 
-            // Sample documents for demo
-            val sampleDocuments = remember {
-                listOf(
+            // Fetch documents on screen load
+            LaunchedEffect(Unit) {
+                documentViewModel.fetchAllDocuments()
+            }
+
+            // Convert DocumentEntity to DocumentInfo for UI
+            val documents = remember(documentListState) {
+                (documentListState.ownedDocuments + documentListState.sharedWithMe).map { doc ->
                     DocumentInfo(
-                        id = "doc1",
-                        title = "Project Proposal",
-                        preview = "This document outlines the key objectives and timeline for our upcoming project...",
-                        owner = "John Doe",
-                        lastModified = "2 hours ago",
-                        isShared = true,
-                        activeEditors = 2
-                    ),
-                    DocumentInfo(
-                        id = "doc2",
-                        title = "Meeting Notes",
-                        preview = "Team meeting on November 25, 2025. Discussed sprint planning and deliverables...",
-                        owner = "Jane Smith",
-                        lastModified = "1 day ago",
-                        isShared = true,
-                        activeEditors = 0
-                    ),
-                    DocumentInfo(
-                        id = "doc3",
-                        title = "Technical Specification",
-                        preview = "Detailed technical specifications for the FlowBoard collaborative editor feature...",
-                        owner = "You",
-                        lastModified = "3 days ago",
-                        isShared = false,
-                        activeEditors = 0
+                        id = doc.id,
+                        title = doc.title,
+                        preview = if (doc.content.length > 100) doc.content.take(100) + "..." else doc.content,
+                        owner = doc.ownerName ?: "Unknown",
+                        lastModified = doc.updatedAt,
+                        isShared = documentListState.sharedWithMe.any { it.id == doc.id },
+                        activeEditors = 0 // TODO: get real active editors count
                     )
-                )
+                }
             }
 
             DocumentListScreen(
-                documents = sampleDocuments,
+                documents = documents,
                 activeUsers = activeUsers,
                 onDocumentClick = { documentId ->
                     navController.navigate("document_edit/$documentId")
                 },
                 onCreateDocument = {
-                    navController.navigate("document_create")
+                    documentViewModel.createDocumentViaApi(
+                        title = "Untitled Document",
+                        content = "",
+                        isPublic = false,
+                        onSuccess = { newDocId ->
+                            navController.navigate("document_edit/$newDocId")
+                        }
+                    )
                 },
                 onNavigateBack = {
                     navController.popBackStack()

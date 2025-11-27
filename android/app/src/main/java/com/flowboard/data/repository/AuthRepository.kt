@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.flowboard.data.auth.GoogleAuthManager
 import com.flowboard.data.remote.api.AuthApiService
 import com.flowboard.data.remote.api.AuthResponse
 import com.flowboard.data.remote.api.LoginRequest
@@ -26,7 +27,8 @@ import javax.inject.Singleton
 @Singleton
 class AuthRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    private val authApiService: AuthApiService
+    private val authApiService: AuthApiService,
+    private val googleAuthManager: GoogleAuthManager
 ) {
     companion object {
         private val TOKEN_KEY = stringPreferencesKey("jwt_token")
@@ -227,5 +229,37 @@ class AuthRepository @Inject constructor(
         val request = com.flowboard.data.remote.api.UpdatePasswordRequest(oldPassword, newPassword)
         val result = authApiService.updatePassword(token, request)
         return result.isSuccess
+    }
+
+    /**
+     * Sign in with Google
+     * Requires Activity context for Credential Manager
+     */
+    suspend fun signInWithGoogle(activity: android.app.Activity): Result<AuthResponse> {
+        // Get Google ID token
+        val googleResult = googleAuthManager.signInWithGoogle(activity)
+
+        if (googleResult.isFailure) {
+            return Result.failure(googleResult.exceptionOrNull() ?: Exception("Google Sign-In failed"))
+        }
+
+        val googleSignInResult = googleResult.getOrNull()!!
+
+        // Send ID token to backend for verification
+        val result = authApiService.googleSignIn(
+            com.flowboard.data.remote.api.GoogleSignInRequest(
+                idToken = googleSignInResult.idToken,
+                email = googleSignInResult.email,
+                displayName = googleSignInResult.displayName,
+                profilePictureUrl = googleSignInResult.profilePictureUrl
+            )
+        )
+
+        result.onSuccess { authResponse ->
+            saveAuth(authResponse.token, authResponse.userId, authResponse.username)
+            authResponse.defaultBoardId?.let { saveBoardId(it) }
+        }
+
+        return result
     }
 }
