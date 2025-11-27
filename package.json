@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/PauLopNun/FlowBoard#readme",
   "dependencies": {
-    "@anthropic-ai/claude-code": "^2.0.54",
+    "@anthropic-ai/claude-code": "^2.0.55",
     "@google/gemini-cli": "^0.17.1"
   }
 }

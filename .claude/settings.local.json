@@ -45,7 +45,8 @@
       "Bash(echo:*)",
       "Bash(androidgradlew.bat -p android assembleDebug)",
       "Bash(powershell:*)",
-      "Bash(keytool:*)"
+      "Bash(keytool:*)",
+      "Bash(/home/paulopnun/Escritorio/FlowBoard/get-sha1.sh)"
     ],
     "deny": [],
     "ask": []

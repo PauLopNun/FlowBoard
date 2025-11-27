@@ -34,8 +34,42 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @HttpClientQualifier
     fun provideHttpClient(): HttpClient {
+        return HttpClient(Android) {
+            install(ContentNegotiation) {
+                json(Json {
+                    prettyPrint = true
+                    isLenient = true
+                    ignoreUnknownKeys = true
+                })
+            }
+
+            install(Logging) {
+                logger = Logger.DEFAULT
+                level = LogLevel.ALL
+            }
+
+            expectSuccess = false  // Don't throw on non-2xx responses
+
+            install(Auth) {
+                bearer {
+                    loadTokens {
+                        // Load stored tokens (implement token storage)
+                        null
+                    }
+                    refreshTokens {
+                        // Refresh tokens logic
+                        null
+                    }
+                }
+            }
+        }
+    }
+
+    @Provides
+    @Singleton
+    @HttpClientQualifier
+    fun provideHttpClientQualified(): HttpClient {
         return HttpClient(Android) {
             install(ContentNegotiation) {
                 json(Json {
