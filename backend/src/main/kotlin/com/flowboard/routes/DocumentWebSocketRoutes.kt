@@ -64,7 +64,7 @@ fun Route.documentWebSocketRoutes(json: Json) {
                     message = UserJoinedDocumentMessage(
                         timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
                         documentId = documentId,
-                        user = UserPresenceInfo(
+                        user = DocumentUserPresence(
                             userId = userId,
                             userName = userName,
                             color = getUserColor(userId),
@@ -141,7 +141,7 @@ private suspend fun sendJoinedMessage(
     )
 
     val activeUsers = sessions.values.map { s ->
-        UserPresenceInfo(
+        DocumentUserPresence(
             userId = s.id,
             userName = s.userName,
             color = getUserColor(s.id),
@@ -207,7 +207,7 @@ private suspend fun handleIncomingMessage(
                 )
 
                 val activeUsers = sessions.values.map { s ->
-                    UserPresenceInfo(
+                    DocumentUserPresence(
                         userId = s.id,
                         userName = s.userName,
                         color = getUserColor(s.id),

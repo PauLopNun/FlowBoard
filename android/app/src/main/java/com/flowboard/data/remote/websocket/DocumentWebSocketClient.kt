@@ -35,8 +35,8 @@ class DocumentWebSocketClient @Inject constructor(
     private val _documentState = MutableStateFlow<CollaborativeDocument?>(null)
     val documentState: StateFlow<CollaborativeDocument?> = _documentState.asStateFlow()
 
-    private val _activeUsers = MutableStateFlow<List<UserPresenceInfo>>(emptyList())
-    val activeUsers: StateFlow<List<UserPresenceInfo>> = _activeUsers.asStateFlow()
+    private val _activeUsers = MutableStateFlow<List<DocumentUserPresence>>(emptyList())
+    val activeUsers: StateFlow<List<DocumentUserPresence>> = _activeUsers.asStateFlow()
 
     private val _cursorUpdates = MutableSharedFlow<CursorUpdateMessage>()
     val cursorUpdates: SharedFlow<CursorUpdateMessage> = _cursorUpdates.asSharedFlow()

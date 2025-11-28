@@ -32,7 +32,7 @@ data class DocumentJoinedMessage(
     override val timestamp: LocalDateTime,
     val documentId: String,
     val document: CollaborativeDocument,
-    val activeUsers: List<UserPresenceInfo>
+    val activeUsers: List<DocumentUserPresence>
 ) : DocumentWebSocketMessage()
 
 /**
@@ -79,7 +79,7 @@ data class CursorUpdateMessage(
 data class UserJoinedDocumentMessage(
     override val timestamp: LocalDateTime,
     val documentId: String,
-    val user: UserPresenceInfo
+    val user: DocumentUserPresence
 ) : DocumentWebSocketMessage()
 
 /**
@@ -108,7 +108,7 @@ data class RequestDocumentStateMessage(
 data class DocumentStateMessage(
     override val timestamp: LocalDateTime,
     val document: CollaborativeDocument,
-    val activeUsers: List<UserPresenceInfo>
+    val activeUsers: List<DocumentUserPresence>
 ) : DocumentWebSocketMessage()
 
 /**
@@ -133,10 +133,11 @@ data class OperationAckMessage(
 ) : DocumentWebSocketMessage()
 
 /**
- * User presence info with cursor
+ * Document user presence info with cursor
+ * Note: Renamed to avoid conflict with UserPresenceInfo in WebSocketMessage
  */
 @Serializable
-data class UserPresenceInfo(
+data class DocumentUserPresence(
     val userId: String,
     val userName: String,
     val email: String? = null,

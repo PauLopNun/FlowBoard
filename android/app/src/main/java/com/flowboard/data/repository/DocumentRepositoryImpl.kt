@@ -3,6 +3,7 @@ package com.flowboard.data.repository
 import com.flowboard.data.local.entities.DocumentEntity
 import com.flowboard.data.models.crdt.CollaborativeDocument
 import com.flowboard.data.models.crdt.DocumentOperation
+import com.flowboard.data.models.DocumentUserPresence
 import com.flowboard.data.remote.api.DocumentApiService
 import com.flowboard.data.remote.dto.DocumentListResponse
 import com.flowboard.data.remote.websocket.ConnectionState
@@ -59,8 +60,8 @@ class DocumentRepositoryImpl @Inject constructor(
     }
 
     override val activeUsers: Flow<List<com.flowboard.data.remote.dto.UserPresenceInfo>>
-        get() = webSocketClient.activeUsers.map { users ->
-            users.map { user ->
+        get() = webSocketClient.activeUsers.map { users: List<DocumentUserPresence> ->
+            users.map { user: DocumentUserPresence ->
                 com.flowboard.data.remote.dto.UserPresenceInfo(
                     userId = user.userId,
                     username = user.userName,

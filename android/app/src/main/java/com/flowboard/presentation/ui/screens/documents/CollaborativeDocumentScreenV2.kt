@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.data.models.crdt.ContentBlock
+import com.flowboard.data.models.DocumentUserPresence
 import com.flowboard.data.remote.websocket.ConnectionState
 import com.flowboard.presentation.ui.components.CollaborativeCursorsLayer
 import com.flowboard.presentation.ui.components.FluidDocumentEditor
@@ -124,7 +125,7 @@ fun CollaborativeDocumentScreenV2(
                             horizontalArrangement = Arrangement.spacedBy((-8).dp),
                             modifier = Modifier.padding(end = 8.dp)
                         ) {
-                            activeUsers.take(5).forEach { user ->
+                            activeUsers.take(5).forEach { user: DocumentUserPresence ->
                                 UserAvatar(
                                     username = user.userName,
                                     isOnline = user.isOnline,

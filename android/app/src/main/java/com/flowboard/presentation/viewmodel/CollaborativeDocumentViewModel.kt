@@ -50,7 +50,7 @@ class CollaborativeDocumentViewModel @Inject constructor(
         )
 
     // Active users
-    val activeUsers: StateFlow<List<UserPresenceInfo>> = webSocketClient.activeUsers
+    val activeUsers: StateFlow<List<DocumentUserPresence>> = webSocketClient.activeUsers
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
