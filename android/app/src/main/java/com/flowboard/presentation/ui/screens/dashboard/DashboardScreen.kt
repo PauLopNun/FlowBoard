@@ -61,6 +61,7 @@ fun DashboardScreen(
     onSettingsClick: () -> Unit = {},
     onTasksClick: () -> Unit = {},
     onViewAllDocuments: () -> Unit = {},
+    onEditorDemoClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     documentViewModel: DocumentViewModel = hiltViewModel(),
     loginViewModel: LoginViewModel = hiltViewModel()
@@ -172,7 +173,8 @@ fun DashboardScreen(
                 QuickActionsSection(
                     onCreateDocument = onCreateDocument,
                     onTasksClick = onTasksClick,
-                    onChatClick = onChatClick
+                    onChatClick = onChatClick,
+                    onEditorDemoClick = onEditorDemoClick
                 )
             }
 
@@ -476,7 +478,8 @@ fun HeroSection(
 fun QuickActionsSection(
     onCreateDocument: () -> Unit,
     onTasksClick: () -> Unit,
-    onChatClick: () -> Unit
+    onChatClick: () -> Unit,
+    onEditorDemoClick: () -> Unit
 ) {
     Column {
         Text(
@@ -485,6 +488,8 @@ fun QuickActionsSection(
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(12.dp))
+
+        // Primera fila
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -510,6 +515,58 @@ fun QuickActionsSection(
                 onClick = onChatClick,
                 modifier = Modifier.weight(1f)
             )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Segunda fila - Editor Demo destacado
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(80.dp)
+                .clickable(onClick = onEditorDemoClick),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Edit,
+                        contentDescription = null,
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "📄 My Documents",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF4CAF50)
+                        )
+                        Text(
+                            text = "View and manage your saved documents",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    tint = Color(0xFF4CAF50)
+                )
+            }
         }
     }
 }

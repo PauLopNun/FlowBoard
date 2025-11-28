@@ -1,6 +1,7 @@
 package com.flowboard.presentation.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -18,13 +19,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.serialization.Serializable
@@ -32,16 +30,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * Editor de texto rico avanzado usando AnnotatedString
- * Permite formato individual por palabra/selección
- *
- * Características:
- * - ✅ Negrita, cursiva, subrayado por selección
- * - ✅ Colores de texto individuales
- * - ✅ Tamaños de fuente (H1, H2, H3, normal)
- * - ✅ Alineación de texto
- * - ✅ Guardado automático con metadatos de formato
- * - ✅ Persistencia completa en JSON
+ * Editor de texto rico mejorado
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,12 +54,10 @@ fun AdvancedRichTextEditor(
     var showToolbar by remember { mutableStateOf(true) }
     var showColorPicker by remember { mutableStateOf(false) }
     var lastSavedContent by remember { mutableStateOf(initialContent) }
-    var hasChanges by remember { mutableStateOf(false) }
 
     // Auto-guardado
     LaunchedEffect(textFieldValue.text, formatRanges) {
         if (textFieldValue.text.isNotEmpty()) {
-            hasChanges = true
             if (autoSave) {
                 kotlinx.coroutines.delay(autoSaveDelayMs)
                 val content = RichTextContent(
@@ -80,7 +67,6 @@ fun AdvancedRichTextEditor(
                 if (content != lastSavedContent) {
                     onSave(content)
                     lastSavedContent = content
-                    hasChanges = false
                 }
             }
         }
@@ -94,28 +80,6 @@ fun AdvancedRichTextEditor(
                 formatRanges = formatRanges
             )
         )
-    }
-
-    // Construir texto con formato
-    val annotatedText = remember(textFieldValue.text, formatRanges) {
-        buildAnnotatedString {
-            append(textFieldValue.text)
-            formatRanges.forEach { range ->
-                if (range.start < textFieldValue.text.length && range.end <= textFieldValue.text.length) {
-                    addStyle(
-                        style = SpanStyle(
-                            color = range.color?.let { Color(it) } ?: Color.Unspecified,
-                            fontSize = range.fontSize?.sp ?: 16.sp,
-                            fontWeight = if (range.isBold) FontWeight.Bold else FontWeight.Normal,
-                            fontStyle = if (range.isItalic) FontStyle.Italic else FontStyle.Normal,
-                            textDecoration = if (range.isUnderline) TextDecoration.Underline else null
-                        ),
-                        start = range.start,
-                        end = range.end
-                    )
-                }
-            }
-        }
     }
 
     Column(
@@ -158,9 +122,7 @@ fun AdvancedRichTextEditor(
                             )
                             onSave(content)
                             lastSavedContent = content
-                            hasChanges = false
-                        },
-                        enabled = hasChanges
+                        }
                     ) {
                         Icon(Icons.Default.Save, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
@@ -187,19 +149,12 @@ fun AdvancedRichTextEditor(
                         // Negrita
                         IconButton(
                             onClick = {
-                                val start = textFieldValue.selection.start
-                                val end = textFieldValue.selection.end
-                                if (start != end) {
-                                    formatRanges = formatRanges.map {
-                                        if (it.start == start && it.end == end) {
-                                            it.copy(isBold = !it.isBold)
-                                        } else it
-                                    }.toMutableList().apply {
-                                        if (none { it.start == start && it.end == end }) {
-                                            add(FormatRange(start, end, isBold = true))
-                                        }
-                                    }
-                                }
+                                applyFormatToSelection(
+                                    textFieldValue = textFieldValue,
+                                    currentRanges = formatRanges,
+                                    onRangesUpdate = { formatRanges = it },
+                                    formatUpdate = { it.copy(isBold = !it.isBold) }
+                                )
                             }
                         ) {
                             Icon(Icons.Default.FormatBold, "Bold")
@@ -208,19 +163,12 @@ fun AdvancedRichTextEditor(
                         // Cursiva
                         IconButton(
                             onClick = {
-                                val start = textFieldValue.selection.start
-                                val end = textFieldValue.selection.end
-                                if (start != end) {
-                                    formatRanges = formatRanges.map {
-                                        if (it.start == start && it.end == end) {
-                                            it.copy(isItalic = !it.isItalic)
-                                        } else it
-                                    }.toMutableList().apply {
-                                        if (none { it.start == start && it.end == end }) {
-                                            add(FormatRange(start, end, isItalic = true))
-                                        }
-                                    }
-                                }
+                                applyFormatToSelection(
+                                    textFieldValue = textFieldValue,
+                                    currentRanges = formatRanges,
+                                    onRangesUpdate = { formatRanges = it },
+                                    formatUpdate = { it.copy(isItalic = !it.isItalic) }
+                                )
                             }
                         ) {
                             Icon(Icons.Default.FormatItalic, "Italic")
@@ -229,19 +177,12 @@ fun AdvancedRichTextEditor(
                         // Subrayado
                         IconButton(
                             onClick = {
-                                val start = textFieldValue.selection.start
-                                val end = textFieldValue.selection.end
-                                if (start != end) {
-                                    formatRanges = formatRanges.map {
-                                        if (it.start == start && it.end == end) {
-                                            it.copy(isUnderline = !it.isUnderline)
-                                        } else it
-                                    }.toMutableList().apply {
-                                        if (none { it.start == start && it.end == end }) {
-                                            add(FormatRange(start, end, isUnderline = true))
-                                        }
-                                    }
-                                }
+                                applyFormatToSelection(
+                                    textFieldValue = textFieldValue,
+                                    currentRanges = formatRanges,
+                                    onRangesUpdate = { formatRanges = it },
+                                    formatUpdate = { it.copy(isUnderline = !it.isUnderline) }
+                                )
                             }
                         ) {
                             Icon(Icons.Default.FormatUnderlined, "Underline")
@@ -252,14 +193,12 @@ fun AdvancedRichTextEditor(
                         // Tamaños
                         FilledTonalButton(
                             onClick = {
-                                val start = textFieldValue.selection.start
-                                val end = textFieldValue.selection.end
-                                if (start != end) {
-                                    formatRanges = formatRanges.toMutableList().apply {
-                                        removeAll { it.start == start && it.end == end }
-                                        add(FormatRange(start, end, fontSize = 32, isBold = true))
-                                    }
-                                }
+                                applyFormatToSelection(
+                                    textFieldValue = textFieldValue,
+                                    currentRanges = formatRanges,
+                                    onRangesUpdate = { formatRanges = it },
+                                    formatUpdate = { FormatRange(it.start, it.end, fontSize = 32, isBold = true) }
+                                )
                             },
                             modifier = Modifier.height(40.dp)
                         ) {
@@ -268,14 +207,12 @@ fun AdvancedRichTextEditor(
 
                         FilledTonalButton(
                             onClick = {
-                                val start = textFieldValue.selection.start
-                                val end = textFieldValue.selection.end
-                                if (start != end) {
-                                    formatRanges = formatRanges.toMutableList().apply {
-                                        removeAll { it.start == start && it.end == end }
-                                        add(FormatRange(start, end, fontSize = 24, isBold = true))
-                                    }
-                                }
+                                applyFormatToSelection(
+                                    textFieldValue = textFieldValue,
+                                    currentRanges = formatRanges,
+                                    onRangesUpdate = { formatRanges = it },
+                                    formatUpdate = { FormatRange(it.start, it.end, fontSize = 24, isBold = true) }
+                                )
                             },
                             modifier = Modifier.height(40.dp)
                         ) {
@@ -284,14 +221,12 @@ fun AdvancedRichTextEditor(
 
                         FilledTonalButton(
                             onClick = {
-                                val start = textFieldValue.selection.start
-                                val end = textFieldValue.selection.end
-                                if (start != end) {
-                                    formatRanges = formatRanges.toMutableList().apply {
-                                        removeAll { it.start == start && it.end == end }
-                                        add(FormatRange(start, end, fontSize = 18, isBold = true))
-                                    }
-                                }
+                                applyFormatToSelection(
+                                    textFieldValue = textFieldValue,
+                                    currentRanges = formatRanges,
+                                    onRangesUpdate = { formatRanges = it },
+                                    formatUpdate = { FormatRange(it.start, it.end, fontSize = 18, isBold = true) }
+                                )
                             },
                             modifier = Modifier.height(40.dp)
                         ) {
@@ -312,7 +247,7 @@ fun AdvancedRichTextEditor(
                                 val end = textFieldValue.selection.end
                                 if (start != end) {
                                     formatRanges = formatRanges.filter {
-                                        !(it.start == start && it.end == end)
+                                        it.end <= start || it.start >= end
                                     }.toMutableList()
                                 }
                             }
@@ -324,14 +259,12 @@ fun AdvancedRichTextEditor(
                     if (showColorPicker) {
                         RichTextColorPicker(
                             onColorSelected = { color ->
-                                val start = textFieldValue.selection.start
-                                val end = textFieldValue.selection.end
-                                if (start != end) {
-                                    formatRanges = formatRanges.toMutableList().apply {
-                                        removeAll { it.start == start && it.end == end }
-                                        add(FormatRange(start, end, color = color.value.toLong()))
-                                    }
-                                }
+                                applyFormatToSelection(
+                                    textFieldValue = textFieldValue,
+                                    currentRanges = formatRanges,
+                                    onRangesUpdate = { formatRanges = it },
+                                    formatUpdate = { FormatRange(it.start, it.end, color = color.value.toLong()) }
+                                )
                                 showColorPicker = false
                             }
                         )
@@ -342,21 +275,27 @@ fun AdvancedRichTextEditor(
             }
         }
 
-        // Editor
+        // Editor - Solo texto plano, sin duplicación
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f)
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState())
         ) {
+            if (textFieldValue.text.isEmpty()) {
+                Text(
+                    text = placeholder,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
             BasicTextField(
                 value = textFieldValue,
                 onValueChange = { newValue ->
-                    // Ajustar rangos de formato cuando cambia el texto
+                    // Ajustar rangos cuando se elimina texto
                     if (newValue.text.length < textFieldValue.text.length) {
-                        // Texto eliminado - ajustar rangos
-                        val diff = textFieldValue.text.length - newValue.text.length
                         formatRanges = formatRanges.mapNotNull { range ->
                             when {
                                 range.end <= newValue.text.length -> range
@@ -367,28 +306,14 @@ fun AdvancedRichTextEditor(
                     }
                     textFieldValue = newValue
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 28.sp
                 ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                decorationBox = { innerTextField ->
-                    if (textFieldValue.text.isEmpty()) {
-                        Text(
-                            text = placeholder,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                        )
-                    }
-                    Box {
-                        Text(
-                            text = annotatedText,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        innerTextField()
-                    }
-                }
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
             )
         }
 
@@ -400,52 +325,42 @@ fun AdvancedRichTextEditor(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(8.dp)
             ) {
                 Text(
                     text = "${textFieldValue.text.length} characters",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
-
-                if (autoSave && hasChanges) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(12.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Text(
-                            text = "Saving...",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                } else if (autoSave) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Check,
-                            null,
-                            modifier = Modifier.size(12.dp),
-                            tint = Color(0xFF4CAF50)
-                        )
-                        Text(
-                            text = "Saved",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF4CAF50)
-                        )
-                    }
-                }
             }
         }
     }
+}
+
+/**
+ * Aplicar formato a la selección actual
+ */
+private fun applyFormatToSelection(
+    textFieldValue: TextFieldValue,
+    currentRanges: List<FormatRange>,
+    onRangesUpdate: (List<FormatRange>) -> Unit,
+    formatUpdate: (FormatRange) -> FormatRange
+) {
+    val start = textFieldValue.selection.start
+    val end = textFieldValue.selection.end
+
+    if (start == end) return // No hay selección
+
+    // Eliminar rangos que se solapan con la selección
+    val filteredRanges = currentRanges.filter {
+        it.end <= start || it.start >= end
+    }.toMutableList()
+
+    // Agregar nuevo rango con formato
+    val baseRange = FormatRange(start, end)
+    filteredRanges.add(formatUpdate(baseRange))
+
+    onRangesUpdate(filteredRanges)
 }
 
 /**
@@ -523,7 +438,7 @@ private fun RichTextColorPicker(
                 shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.size(32.dp),
                 color = color,
-                border = androidx.compose.foundation.BorderStroke(
+                border = BorderStroke(
                     1.dp,
                     MaterialTheme.colorScheme.outline
                 )

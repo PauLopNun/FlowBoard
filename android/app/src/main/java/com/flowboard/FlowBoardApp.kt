@@ -19,10 +19,8 @@ import com.flowboard.presentation.ui.screens.dashboard.DashboardScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
 import com.flowboard.presentation.ui.screens.tasks.CreateTaskScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskDetailScreen
-import com.flowboard.presentation.ui.screens.documents.DocumentListScreen
-import com.flowboard.presentation.ui.screens.documents.DocumentInfo
-import com.flowboard.presentation.ui.screens.documents.CollaborativeDocumentScreen
-import com.flowboard.presentation.ui.screens.documents.CollaborativeDocumentScreenV2
+import com.flowboard.presentation.ui.screens.documents.DocumentEditorScreen
+import com.flowboard.presentation.ui.screens.documents.MyDocumentsScreen
 import com.flowboard.presentation.ui.screens.notifications.NotificationCenterScreen
 import com.flowboard.presentation.ui.screens.chat.ChatListScreen
 import com.flowboard.presentation.ui.screens.chat.ChatScreen
@@ -126,10 +124,10 @@ fun FlowBoardApp(
                     navController.navigate("document_edit/$documentId")
                 },
                 onCreateDocument = {
-                    navController.navigate("document_create")
+                    navController.navigate("document_new")
                 },
                 onViewAllDocuments = {
-                    navController.navigate("documents")
+                    navController.navigate("my_documents")
                 },
                 onNotificationsClick = {
                     navController.navigate("notifications")
@@ -145,6 +143,9 @@ fun FlowBoardApp(
                 },
                 onTasksClick = {
                     navController.navigate("tasks")
+                },
+                onEditorDemoClick = {
+                    navController.navigate("my_documents")
                 },
                 onLogout = {
                     loginViewModel.logout()
@@ -191,46 +192,14 @@ fun FlowBoardApp(
             )
         }
 
-        composable("documents") {
-            val documentViewModel: DocumentViewModel = hiltViewModel()
-            val activeUsers by documentViewModel.activeUsers.collectAsStateWithLifecycle()
-            val documentListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
-
-            // Fetch documents on screen load
-            LaunchedEffect(Unit) {
-                documentViewModel.fetchAllDocuments()
-            }
-
-            // Convert DocumentEntity to DocumentInfo for UI
-            val documents = remember(documentListState) {
-                (documentListState.ownedDocuments + documentListState.sharedWithMe).map { doc ->
-                    DocumentInfo(
-                        id = doc.id,
-                        title = doc.title,
-                        preview = if (doc.content.length > 100) doc.content.take(100) + "..." else doc.content,
-                        owner = doc.ownerName ?: "Unknown",
-                        lastModified = doc.updatedAt,
-                        isShared = documentListState.sharedWithMe.any { it.id == doc.id },
-                        activeEditors = 0 // TODO: get real active editors count
-                    )
-                }
-            }
-
-            DocumentListScreen(
-                documents = documents,
-                activeUsers = activeUsers,
+        // My Documents - Lista de documentos guardados
+        composable("my_documents") {
+            MyDocumentsScreen(
                 onDocumentClick = { documentId ->
                     navController.navigate("document_edit/$documentId")
                 },
                 onCreateDocument = {
-                    documentViewModel.createDocumentViaApi(
-                        title = "Untitled Document",
-                        content = "",
-                        isPublic = false,
-                        onSuccess = { newDocId ->
-                            navController.navigate("document_edit/$newDocId")
-                        }
-                    )
+                    navController.navigate("document_new")
                 },
                 onNavigateBack = {
                     navController.popBackStack()
@@ -238,22 +207,21 @@ fun FlowBoardApp(
             )
         }
 
-        composable("document_create") {
-            // Create new document with generated ID
-            val newDocumentId = java.util.UUID.randomUUID().toString()
-
-            CollaborativeDocumentScreenV2(
-                documentId = newDocumentId,
+        // Crear nuevo documento
+        composable("document_new") {
+            DocumentEditorScreen(
+                documentId = null,
                 onNavigateBack = {
                     navController.popBackStack()
                 }
             )
         }
 
+        // Editar documento existente
         composable("document_edit/{documentId}") { backStackEntry ->
             val documentId = backStackEntry.arguments?.getString("documentId") ?: return@composable
 
-            CollaborativeDocumentScreenV2(
+            DocumentEditorScreen(
                 documentId = documentId,
                 onNavigateBack = {
                     navController.popBackStack()
