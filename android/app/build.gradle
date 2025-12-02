@@ -1,7 +1,8 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
-    id 'kotlin-kapt'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    id 'com.google.devtools.ksp'
     id 'dagger.hilt.android.plugin'
     id 'kotlin-parcelize'
     id 'org.jetbrains.kotlin.plugin.serialization'
@@ -39,17 +40,13 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
         freeCompilerArgs += [
-            "-Xdebug",
-            "-verbose"
+            "-Xjvm-default=all",
+            "-opt-in=kotlin.RequiresOptIn"
         ]
     }
     
     buildFeatures {
         compose true
-    }
-    
-    composeOptions {
-        kotlinCompilerExtensionVersion compose_compiler_version
     }
     
     packaging {
@@ -83,13 +80,13 @@ dependencies {
     // Hilt
     implementation "com.google.dagger:hilt-android:$hilt_version"
     implementation 'androidx.hilt:hilt-navigation-compose:1.1.0'
-    kapt "com.google.dagger:hilt-compiler:$hilt_version"
+    ksp "com.google.dagger:hilt-compiler:$hilt_version"
 
     // Room
     implementation "androidx.room:room-runtime:$room_version"
     implementation "androidx.room:room-ktx:$room_version"
-    kapt "androidx.room:room-compiler:$room_version"
-    
+    ksp "androidx.room:room-compiler:$room_version"
+
     // Networking
     implementation "io.ktor:ktor-client-android:$ktor_version"
     implementation "io.ktor:ktor-client-okhttp:$ktor_version"
@@ -118,6 +115,9 @@ dependencies {
     // DataStore
     implementation 'androidx.datastore:datastore-preferences:1.0.0'
 
+    // Compose Rich Editor
+    implementation 'com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc13'
+
     // Google Sign-In
     implementation 'com.google.android.gms:play-services-auth:20.7.0'
     implementation 'androidx.credentials:credentials:1.2.0'
@@ -143,9 +143,8 @@ dependencies {
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
 }
 
-kapt {
-    correctErrorTypes true
-    arguments {
-        arg("kapt.verbose", "true")
-    }
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
+    arg("room.expandProjection", "true")
 }

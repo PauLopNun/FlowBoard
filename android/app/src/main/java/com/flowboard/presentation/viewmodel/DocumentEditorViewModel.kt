@@ -16,6 +16,10 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.flowboard.data.remote.websocket.DocumentSyncService
+import com.flowboard.data.remote.websocket.DocumentUpdate
+import com.flowboard.data.remote.websocket.ConnectionState
+import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
 @Serializable
@@ -29,7 +33,8 @@ data class SavedDocument(
 
 @HiltViewModel
 class DocumentEditorViewModel @Inject constructor(
-    application: Application
+    application: Application,
+    private val documentSyncService: DocumentSyncService
 ) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("documents", Context.MODE_PRIVATE)
@@ -41,8 +46,98 @@ class DocumentEditorViewModel @Inject constructor(
     private val _allDocuments = MutableStateFlow<List<SavedDocument>>(emptyList())
     val allDocuments: StateFlow<List<SavedDocument>> = _allDocuments.asStateFlow()
 
+    private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
+    val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
+
+    private val _remoteContentUpdate = MutableStateFlow<String?>(null)
+    val remoteContentUpdate: StateFlow<String?> = _remoteContentUpdate.asStateFlow()
+
     init {
         loadAllDocuments()
+        observeDocumentUpdates()
+        observeConnectionState()
+    }
+
+    /**
+     * Observar actualizaciones de documentos desde WebSocket
+     */
+    private fun observeDocumentUpdates() {
+        viewModelScope.launch {
+            documentSyncService.documentUpdates.collectLatest { update ->
+                when (update) {
+                    is DocumentUpdate.ContentChanged -> {
+                        _remoteContentUpdate.value = update.content
+                    }
+                    is DocumentUpdate.CursorMoved -> {
+                        // Manejar movimiento de cursor de otros usuarios
+                    }
+                    is DocumentUpdate.UserJoined -> {
+                        // Manejar usuario que se une
+                    }
+                    is DocumentUpdate.UserLeft -> {
+                        // Manejar usuario que se va
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Observar estado de conexión
+     */
+    private fun observeConnectionState() {
+        viewModelScope.launch {
+            documentSyncService.connectionState.collectLatest { state ->
+                _connectionState.value = state
+            }
+        }
+    }
+
+    /**
+     * Conectar a documento para colaboración en tiempo real
+     */
+    fun connectToDocument(documentId: String, userId: String, token: String) {
+        viewModelScope.launch {
+            try {
+                documentSyncService.connectToDocument(documentId, userId, token)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * Desconectar del documento
+     */
+    fun disconnectFromDocument() {
+        viewModelScope.launch {
+            documentSyncService.disconnect()
+        }
+    }
+
+    /**
+     * Enviar actualización de contenido en tiempo real
+     */
+    fun sendContentUpdate(documentId: String, content: String, cursorPosition: Int) {
+        viewModelScope.launch {
+            documentSyncService.sendContentUpdate(documentId, content, cursorPosition)
+        }
+    }
+
+    /**
+     * Invitar usuario a colaborar
+     */
+    fun inviteUser(documentId: String, userIdOrEmail: String, permission: String) {
+        viewModelScope.launch {
+            documentSyncService.inviteUser(documentId, userIdOrEmail, permission)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        viewModelScope.launch {
+            documentSyncService.disconnect()
+        }
     }
 
     fun loadDocument(documentId: String) {

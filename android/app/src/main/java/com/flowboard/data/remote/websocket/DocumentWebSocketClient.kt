@@ -291,13 +291,3 @@ class DocumentWebSocketClient @Inject constructor(
         return session?.isActive == true && _connectionState.value is ConnectionState.Connected
     }
 }
-
-/**
- * Connection state
- */
-sealed class ConnectionState {
-    object Disconnected : ConnectionState()
-    object Connecting : ConnectionState()
-    object Connected : ConnectionState()
-    data class Error(val message: String) : ConnectionState()
-}

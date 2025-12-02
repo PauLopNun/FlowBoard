@@ -1,0 +1,43 @@
+═══════════════════════════════════════════════════════════════════
+              🎯 COMANDOS PARA COMPILAR FLOWBOARD
+═══════════════════════════════════════════════════════════════════
+
+OPCIÓN 1: Con limpieza completa (RECOMENDADO - primera vez)
+────────────────────────────────────────────────────────────
+cd /home/paulopnun/Escritorio/FlowBoard
+chmod +x clean-and-build-kotlin2.sh
+./clean-and-build-kotlin2.sh
+
+
+OPCIÓN 2: Compilación rápida (para cambios posteriores)
+────────────────────────────────────────────────────────
+cd /home/paulopnun/Escritorio/FlowBoard
+chmod +x compile.sh
+./compile.sh
+
+
+OPCIÓN 3: Manual detallado
+───────────────────────────
+cd /home/paulopnun/Escritorio/FlowBoard/android
+./gradlew --stop
+./gradlew clean
+rm -rf .gradle app/.gradle app/build build
+./gradlew assembleDebug --refresh-dependencies
+
+
+═══════════════════════════════════════════════════════════════════
+                     ✅ TODO ESTÁ LISTO
+═══════════════════════════════════════════════════════════════════
+
+Problemas resueltos:
+✅ SDK de Android configurado
+✅ Símbolos no vinculados (IR) - Solucionado
+✅ KAPT → KSP (migrado)
+✅ Kotlin 1.9.22 → 2.0.0 (actualizado)
+✅ Compose Compiler Plugin (añadido)
+
+Resultado esperado:
+📦 APK en: android/app/build/outputs/apk/debug/app-debug.apk
+
+═══════════════════════════════════════════════════════════════════
+

@@ -16,9 +16,14 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.flowboard.presentation.ui.components.AdvancedRichTextEditor
-import com.flowboard.presentation.ui.components.RichTextContent
+import com.flowboard.presentation.ui.components.ComposeRichTextEditor
+import com.flowboard.presentation.ui.components.UserInvitationDialog
+import com.flowboard.presentation.ui.components.SuggestedUser
+import com.flowboard.presentation.ui.components.CollaboratorInfo
+import com.flowboard.presentation.ui.components.PermissionLevel
 import com.flowboard.presentation.viewmodel.DocumentEditorViewModel
+import com.flowboard.data.remote.dto.UserPresenceInfo
+import kotlinx.datetime.toLocalDateTime
 import java.io.File
 import java.io.FileOutputStream
 
@@ -37,7 +42,46 @@ fun DocumentEditorScreen(
     val documentState by viewModel.currentDocument.collectAsStateWithLifecycle()
     var showTitleDialog by remember { mutableStateOf(documentId == null) }
     var showExportMenu by remember { mutableStateOf(false) }
+    var showInviteDialog by remember { mutableStateOf(false) }
     var documentTitle by remember { mutableStateOf("") }
+    var documentContent by remember { mutableStateOf("") }
+
+    // Mock data para usuarios activos y sugeridos
+    val activeUsers = remember {
+        listOf(
+            UserPresenceInfo(
+                userId = "user1",
+                username = "johndoe",
+                fullName = "John Doe",
+                profileImageUrl = null,
+                isOnline = true,
+                lastActivity = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+            ),
+            UserPresenceInfo(
+                userId = "user2",
+                username = "janesmith",
+                fullName = "Jane Smith",
+                profileImageUrl = null,
+                isOnline = true,
+                lastActivity = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+            )
+        )
+    }
+
+    val suggestedUsers = remember {
+        listOf(
+            SuggestedUser("user3", "Alice Johnson", "alice@example.com"),
+            SuggestedUser("user4", "Bob Wilson", "bob@example.com"),
+            SuggestedUser("user5", "Charlie Brown", "charlie@example.com")
+        )
+    }
+
+    val currentCollaborators = remember {
+        listOf(
+            CollaboratorInfo("user1", "John Doe", true, PermissionLevel.EDIT),
+            CollaboratorInfo("user2", "Jane Smith", true, PermissionLevel.EDIT)
+        )
+    }
 
     // Cargar documento si existe
     LaunchedEffect(documentId) {
@@ -46,10 +90,11 @@ fun DocumentEditorScreen(
         }
     }
 
-    // Actualizar título cuando cargue el documento
+    // Actualizar título y contenido cuando cargue el documento
     LaunchedEffect(documentState) {
         documentState?.let { doc ->
             documentTitle = doc.title
+            documentContent = doc.content
         }
     }
 
@@ -105,31 +150,26 @@ fun DocumentEditorScreen(
     ) { padding ->
         Box(modifier = modifier.padding(padding)) {
             if (documentState != null || documentId == null) {
-                val initialContent = remember(documentState) {
-                    documentState?.let {
-                        RichTextContent.fromJson(it.content)
-                    } ?: RichTextContent()
-                }
-
-                AdvancedRichTextEditor(
-                    initialContent = initialContent,
-                    onContentChange = { content ->
-                        // No hacer nada aquí, solo en onSave
-                    },
-                    onSave = { content ->
+                ComposeRichTextEditor(
+                    initialHtml = documentContent,
+                    onContentChange = { htmlContent ->
+                        documentContent = htmlContent
+                        // Auto-save cada cambio
                         if (documentTitle.isNotEmpty()) {
                             val docId = documentId ?: java.util.UUID.randomUUID().toString()
                             viewModel.saveDocument(
                                 id = docId,
                                 title = documentTitle,
-                                content = content.toJson()
+                                content = htmlContent
                             )
                         }
                     },
+                    activeUsers = activeUsers,
+                    onInviteUser = {
+                        showInviteDialog = true
+                    },
                     modifier = Modifier.fillMaxSize(),
-                    placeholder = "Start writing your document...",
-                    autoSave = true,
-                    autoSaveDelayMs = 3000L
+                    placeholder = "Start writing something amazing..."
                 )
             } else {
                 // Loading
@@ -182,6 +222,24 @@ fun DocumentEditorScreen(
                 }
             )
         }
+
+        // Diálogo de invitación
+        if (showInviteDialog) {
+            UserInvitationDialog(
+                onDismiss = { showInviteDialog = false },
+                onInviteUser = { userIdOrEmail, permission ->
+                    // TODO: Implementar lógica de invitación real
+                    Toast.makeText(
+                        context,
+                        "Invited $userIdOrEmail with ${permission.displayName} permission",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    showInviteDialog = false
+                },
+                suggestedUsers = suggestedUsers,
+                currentCollaborators = currentCollaborators
+            )
+        }
     }
 }
 
@@ -203,9 +261,8 @@ private fun exportToPDF(
         paint.textSize = 12f
         paint.color = android.graphics.Color.BLACK
 
-        // Parse content y escribir texto
-        val richContent = RichTextContent.fromJson(content)
-        val text = richContent.plainText
+        // Parse HTML content y extraer texto plano
+        val text = android.text.Html.fromHtml(content, android.text.Html.FROM_HTML_MODE_LEGACY).toString()
 
         var yPosition = 50f
         val lineHeight = 20f

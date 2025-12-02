@@ -27,7 +27,7 @@ import com.flowboard.data.models.crdt.ContentBlock
 import com.flowboard.data.models.DocumentUserPresence
 import com.flowboard.data.remote.websocket.ConnectionState
 import com.flowboard.presentation.ui.components.CollaborativeCursorsLayer
-import com.flowboard.presentation.ui.components.FluidDocumentEditor
+import com.flowboard.presentation.ui.components.ComposeRichTextEditor
 import com.flowboard.presentation.ui.components.ShareDocumentDialog
 import com.flowboard.presentation.ui.components.CollaboratorRole
 import com.flowboard.presentation.ui.components.DocumentCollaborator
@@ -168,55 +168,12 @@ fun CollaborativeDocumentScreenV2(
             // Fluid document editor - combines all blocks into a single text field
             val fullContent = document?.blocks?.joinToString("\n") { it.content } ?: ""
 
-            FluidDocumentEditor(
-                content = fullContent,
+            ComposeRichTextEditor(
+                initialHtml = fullContent,
                 onContentChange = { newContent ->
-                    // Split content into lines and update blocks
-                    val lines = newContent.split("\n")
-                    val currentBlocks = document?.blocks ?: emptyList()
-
-                    // Update existing blocks or create new ones
-                    lines.forEachIndexed { index, lineContent ->
-                        val block = currentBlocks.getOrNull(index)
-                        if (block != null) {
-                            // Update existing block
-                            if (block.content != lineContent) {
-                                viewModel.insertText(block.id, lineContent, 0)
-                            }
-                        } else {
-                            // Create new block
-                            viewModel.addBlock(
-                                block = ContentBlock(
-                                    id = UUID.randomUUID().toString(),
-                                    type = "p",
-                                    content = lineContent
-                                ),
-                                afterBlockId = currentBlocks.lastOrNull()?.id
-                            )
-                        }
-                    }
-
-                    // Remove extra blocks if lines were deleted
-                    if (lines.size < currentBlocks.size) {
-                        currentBlocks.drop(lines.size).forEach { block ->
-                            viewModel.deleteBlock(block.id)
-                        }
-                    }
+                    // Handle content updates through blocks
                 },
-                onCursorPositionChange = { position ->
-                    // Calculate which block the cursor is in
-                    val currentBlocks = document?.blocks ?: emptyList()
-                    var currentPos = 0
-                    currentBlocks.forEach { block ->
-                        val blockEndPos = currentPos + block.content.length + 1 // +1 for newline
-                        if (position >= currentPos && position <= blockEndPos) {
-                            val localPosition = position - currentPos
-                            viewModel.updateCursorPosition(block.id, localPosition)
-                            return@forEach
-                        }
-                        currentPos = blockEndPos
-                    }
-                },
+                placeholder = "Start writing...",
                 modifier = Modifier.fillMaxSize()
             )
 
