@@ -1,29 +1,19 @@
 package com.flowboard.presentation.ui.screens.dashboard
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -31,24 +21,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.flowboard.data.remote.dto.UserPresenceInfo
-import com.flowboard.domain.model.User
-import com.flowboard.presentation.ui.components.ActiveUsersList
 import com.flowboard.presentation.ui.theme.*
 import com.flowboard.presentation.viewmodel.DocumentViewModel
 import com.flowboard.presentation.viewmodel.LoginViewModel
-import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
-data class DashboardDocument(
-    val id: String,
-    val title: String,
-    val preview: String,
-    val lastModified: String,
-    val owner: String,
-    val isShared: Boolean,
-    val activeEditors: Int,
-    val icon: String = "📄"
-)
+import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
+
+enum class DashboardView {
+    HOME,
+    INBOX,
+    SEARCH,
+    TASKS,
+    MY_DOCUMENTS,
+    TRASH
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,203 +53,123 @@ fun DashboardScreen(
     documentViewModel: DocumentViewModel = hiltViewModel(),
     loginViewModel: LoginViewModel = hiltViewModel()
 ) {
-    val activeUsers by documentViewModel.activeUsers.collectAsStateWithLifecycle()
-    var showMenu by remember { mutableStateOf(false) }
-    var selectedView by remember { mutableStateOf(ViewType.GRID) }
+    val documentListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    
+    var currentView by remember { mutableStateOf(DashboardView.HOME) }
+    var searchQuery by remember { mutableStateOf("") }
 
-    // Sample documents - En producción estos vendrían del ViewModel
-    val recentDocuments = remember {
-        listOf(
-            DashboardDocument(
-                id = "doc1",
-                title = "Project Proposal 2025",
-                preview = "Comprehensive project proposal outlining objectives, timeline, and deliverables for Q1 2025...",
-                lastModified = "2 hours ago",
-                owner = "John Doe",
-                isShared = true,
-                activeEditors = 3,
-                icon = "📋"
-            ),
-            DashboardDocument(
-                id = "doc2",
-                title = "Meeting Notes - Sprint Planning",
-                preview = "Team meeting on November 25, 2025. Discussed sprint planning, feature prioritization...",
-                lastModified = "5 hours ago",
-                owner = "Jane Smith",
-                isShared = true,
-                activeEditors = 1,
-                icon = "📝"
-            ),
-            DashboardDocument(
-                id = "doc3",
-                title = "Technical Architecture",
-                preview = "Detailed technical specifications for the FlowBoard collaborative editor. CRDT implementation...",
-                lastModified = "Yesterday",
-                owner = "You",
-                isShared = false,
-                activeEditors = 0,
-                icon = "⚙️"
-            ),
-            DashboardDocument(
-                id = "doc4",
-                title = "Design System Guidelines",
-                preview = "UI/UX design system with color palette, typography, and component specifications...",
-                lastModified = "2 days ago",
-                owner = "Sarah Wilson",
-                isShared = true,
-                activeEditors = 2,
-                icon = "🎨"
-            ),
-            DashboardDocument(
-                id = "doc5",
-                title = "Marketing Strategy Q1",
-                preview = "Strategic marketing plan for Q1 2025 including campaigns, budget allocation...",
-                lastModified = "3 days ago",
-                owner = "Mike Johnson",
-                isShared = true,
-                activeEditors = 0,
-                icon = "📊"
-            )
-        )
+    // Trigger load documents
+    LaunchedEffect(Unit) {
+        documentViewModel.fetchAllDocuments()
     }
 
-    Scaffold(
-        topBar = {
-            ModernTopBar(
-                activeUsers = activeUsers,
-                onNotificationsClick = onNotificationsClick,
-                onChatClick = onChatClick,
-                onMenuClick = { showMenu = true },
-                showMenu = showMenu,
-                onDismissMenu = { showMenu = false },
-                onProfileClick = {
-                    showMenu = false
-                    onProfileClick()
-                },
-                onSettingsClick = {
-                    showMenu = false
-                    onSettingsClick()
-                },
-                onTasksClick = {
-                    showMenu = false
-                    onTasksClick()
-                },
-                onLogout = {
-                    showMenu = false
-                    loginViewModel.logout()
-                    onLogout()
-                }
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Hero Section
-            item {
-                HeroSection(onCreateDocument = onCreateDocument)
-            }
-
-            // Quick Actions
-            item {
-                QuickActionsSection(
-                    onCreateDocument = onCreateDocument,
-                    onTasksClick = onTasksClick,
-                    onChatClick = onChatClick,
-                    onEditorDemoClick = onEditorDemoClick
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.width(300.dp)
+            ) {
+                DashboardSidebar(
+                    currentView = currentView,
+                    onNavigate = { view ->
+                        currentView = view
+                        scope.launch { drawerState.close() }
+                    },
+                    onCreateDocument = {
+                        scope.launch { drawerState.close() }
+                        onCreateDocument()
+                    },
+                    onProfileClick = onProfileClick,
+                    onSettingsClick = onSettingsClick,
+                    onLogout = {
+                        scope.launch { drawerState.close() }
+                        loginViewModel.logout()
+                        onLogout()
+                    },
+                    documents = documentListState.ownedDocuments,
+                    onDocumentClick = { docId ->
+                        scope.launch { drawerState.close() }
+                        onDocumentClick(docId)
+                    }
                 )
             }
-
-            // View Toggle
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+        }
+    ) {
+        if (currentView == DashboardView.TASKS) {
+            // Temporarily wrapping TaskListScreen to allow drawer access if we modify it later, 
+            // or just letting it be a full screen experience within the dashboard context.
+            // For better UX, we might want to pass a navigation icon to TaskListScreen in the future.
+            TaskListScreen(
+                onTaskClick = { /* Handle task click */ },
+                onCreateTaskClick = { /* Handle create */ },
+                onNotificationsClick = onNotificationsClick,
+                onChatClick = onChatClick,
+                onProfileClick = onProfileClick,
+                onSettingsClick = onSettingsClick,
+                onLogout = onLogout
+            )
+            // Add a floating button to open drawer if TaskListScreen doesn't support it?
+            // For now, let's stick to the requested functional access.
+             Box(modifier = Modifier.fillMaxSize()) {
+                IconButton(
+                    onClick = { scope.launch { drawerState.open() } },
+                    modifier = Modifier.padding(top = 8.dp, start = 4.dp)
                 ) {
-                    Text(
-                        text = "Recent Documents",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Botón "Ver todos"
-                        TextButton(onClick = onViewAllDocuments) {
-                            Text("Ver todos")
-                            Icon(
-                                Icons.Default.ArrowForward,
-                                contentDescription = "Ver todos",
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-
-                        VerticalDivider(modifier = Modifier.height(24.dp))
-
-                        IconButton(
-                            onClick = { selectedView = ViewType.GRID }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.GridView,
-                                contentDescription = "Grid View",
-                                tint = if (selectedView == ViewType.GRID)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        IconButton(
-                            onClick = { selectedView = ViewType.LIST }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ViewList,
-                                contentDescription = "List View",
-                                tint = if (selectedView == ViewType.LIST)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Icon(Icons.Default.Menu, contentDescription = "Menu")
                 }
-            }
-
-            // Documents Grid/List
-            if (selectedView == ViewType.GRID) {
-                items(recentDocuments.chunked(2)) { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        rowItems.forEach { document ->
-                            Box(modifier = Modifier.weight(1f)) {
-                                DocumentCard(
-                                    document = document,
-                                    onClick = { onDocumentClick(document.id) }
-                                )
+             }
+        } else {
+            Scaffold(
+                topBar = {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Text(
+                                "FlowBoard",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = { 
+                                scope.launch { drawerState.open() }
+                            }) {
+                                Icon(Icons.Default.Menu, "Menu")
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = onNotificationsClick) {
+                                Icon(Icons.Outlined.Notifications, "Notifications")
+                            }
+                            IconButton(onClick = onChatClick) {
+                                Icon(Icons.Outlined.ChatBubbleOutline, "Chat")
                             }
                         }
-                        // Fill empty space if odd number
-                        if (rowItems.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
+                    )
+                },
+                floatingActionButton = {
+                    FloatingActionButton(
+                        onClick = onCreateDocument,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) {
+                        Icon(Icons.Default.Add, "New Page")
                     }
                 }
-            } else {
-                items(recentDocuments) { document ->
-                    DocumentListItem(
-                        document = document,
-                        onClick = { onDocumentClick(document.id) }
-                    )
-                }
+            ) { paddingValues ->
+                 DashboardContent(
+                    paddingValues = paddingValues,
+                    currentView = currentView,
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { searchQuery = it },
+                    documentListState = documentListState,
+                    onDocumentClick = onDocumentClick,
+                    onDeleteDocument = { docId ->
+                        documentViewModel.deleteDocumentViaApi(docId)
+                    }
+                )
             }
         }
     }
@@ -270,521 +177,409 @@ fun DashboardScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ModernTopBar(
-    activeUsers: List<UserPresenceInfo>,
-    onNotificationsClick: () -> Unit,
-    onChatClick: () -> Unit,
-    onMenuClick: () -> Unit,
-    showMenu: Boolean,
-    onDismissMenu: () -> Unit,
+fun DashboardSidebar(
+    currentView: DashboardView,
+    onNavigate: (DashboardView) -> Unit,
+    onCreateDocument: () -> Unit,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    onTasksClick: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    documents: List<com.flowboard.data.local.entities.DocumentEntity>,
+    onDocumentClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // Workspace Selector (Placeholder)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+                .clickable { onProfileClick() }
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("W", fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                "My Workspace",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(Icons.Default.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        // Main Navigation
+        NavigationItem(
+            icon = Icons.Outlined.Home, 
+            label = "Home", 
+            isSelected = currentView == DashboardView.HOME,
+            onClick = { onNavigate(DashboardView.HOME) }
+        )
+        NavigationItem(
+            icon = Icons.Outlined.Inbox, 
+            label = "Inbox", 
+            isSelected = currentView == DashboardView.INBOX,
+            onClick = { onNavigate(DashboardView.INBOX) }
+        )
+        NavigationItem(
+            icon = Icons.Outlined.CheckCircle, 
+            label = "Tasks", 
+            isSelected = currentView == DashboardView.TASKS,
+            onClick = { onNavigate(DashboardView.TASKS) }
+        )
+        NavigationItem(
+            icon = Icons.Outlined.Search, 
+            label = "Search", 
+            isSelected = currentView == DashboardView.SEARCH,
+            onClick = { onNavigate(DashboardView.SEARCH) }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Actions
+        NavigationItem(
+            icon = Icons.Default.Add,
+            label = "New Page",
+            isSelected = false,
+            onClick = onCreateDocument
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Favorites / Private
+        Text(
+            "PRIVATE",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp, start = 12.dp)
+        )
+        
+        NavigationItem(
+            icon = Icons.Outlined.Folder, 
+            label = "My Documents", 
+            isSelected = currentView == DashboardView.MY_DOCUMENTS,
+            onClick = { onNavigate(DashboardView.MY_DOCUMENTS) }
+        )
+
+        // Dynamic list of private documents
+        if (documents.isEmpty()) {
+             Text(
+                "No recent pages",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.padding(start = 12.dp, top = 8.dp)
+            )
+        } else {
+            documents.take(5).forEach { doc ->
+                NavigationItem(
+                    icon = Icons.Outlined.Description,
+                    label = doc.title,
+                    isSelected = false,
+                    onClick = { onDocumentClick(doc.id) }
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+         // Shared
+        Text(
+            "SHARED",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        NavigationItem(Icons.Outlined.Group, "Team Updates", false) {}
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Bottom Actions
+        NavigationItem(Icons.Outlined.Settings, "Settings", false, onSettingsClick)
+        NavigationItem(
+            icon = Icons.Outlined.Delete, 
+            label = "Trash", 
+            isSelected = currentView == DashboardView.TRASH,
+            onClick = { onNavigate(DashboardView.TRASH) }
+        )
+        NavigationItem(Icons.AutoMirrored.Filled.Logout, "Logout", false, onLogout)
+    }
+}
+
+
+@Composable
+fun NavigationItem(
+    icon: ImageVector,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        tonalElevation = 2.dp,
-        shadowElevation = 4.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Logo/Brand
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(GradientStart, GradientEnd)
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "F",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-                Text(
-                    text = "FlowBoard",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // Actions
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Active users
-                if (activeUsers.isNotEmpty()) {
-                    ActiveUsersList(users = activeUsers)
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-
-                // Notifications
-                IconButton(onClick = onNotificationsClick) {
-                    BadgedBox(
-                        badge = {
-                            Badge(
-                                containerColor = MaterialTheme.colorScheme.error
-                            ) {
-                                Text("3")
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Notifications,
-                            contentDescription = "Notifications"
-                        )
-                    }
-                }
-
-                // Chat
-                IconButton(onClick = onChatClick) {
-                    Icon(
-                        imageVector = Icons.Outlined.ChatBubbleOutline,
-                        contentDescription = "Chat"
-                    )
-                }
-
-                // Menu
-                Box {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "More options"
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = onDismissMenu
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Profile") },
-                            leadingIcon = {
-                                Icon(Icons.Outlined.Person, contentDescription = null)
-                            },
-                            onClick = onProfileClick
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Tasks") },
-                            leadingIcon = {
-                                Icon(Icons.Outlined.CheckCircle, contentDescription = null)
-                            },
-                            onClick = onTasksClick
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Settings") },
-                            leadingIcon = {
-                                Icon(Icons.Outlined.Settings, contentDescription = null)
-                            },
-                            onClick = onSettingsClick
-                        )
-                        HorizontalDivider()
-                        DropdownMenuItem(
-                            text = { Text("Logout") },
-                            leadingIcon = {
-                                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-                            },
-                            onClick = onLogout
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun HeroSection(
-    onCreateDocument: () -> Unit
-) {
-    Card(
+        color = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        shape = RoundedCornerShape(8.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+            .padding(vertical = 2.dp)
+            .clickable(onClick = onClick)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            GradientStart.copy(alpha = 0.1f),
-                            GradientEnd.copy(alpha = 0.1f)
-                        )
-                    )
-                )
-                .padding(32.dp)
-        ) {
-            Column(
-                verticalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxHeight()
-            ) {
-                Column {
-                    Text(
-                        text = "Welcome back!",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Create and collaborate on documents in real-time",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                    )
-                }
-
-                Button(
-                    onClick = onCreateDocument,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ),
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Create New Document", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun QuickActionsSection(
-    onCreateDocument: () -> Unit,
-    onTasksClick: () -> Unit,
-    onChatClick: () -> Unit,
-    onEditorDemoClick: () -> Unit
-) {
-    Column {
-        Text(
-            text = "Quick Actions",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Primera fila
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            QuickActionCard(
-                icon = Icons.Outlined.Description,
-                title = "New Document",
-                color = LightPrimary,
-                onClick = onCreateDocument,
-                modifier = Modifier.weight(1f)
-            )
-            QuickActionCard(
-                icon = Icons.Outlined.CheckCircle,
-                title = "Tasks",
-                color = LightSecondary,
-                onClick = onTasksClick,
-                modifier = Modifier.weight(1f)
-            )
-            QuickActionCard(
-                icon = Icons.Outlined.ChatBubbleOutline,
-                title = "Chat",
-                color = LightTertiary,
-                onClick = onChatClick,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Segunda fila - Editor Demo destacado
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(80.dp)
-                .clickable(onClick = onEditorDemoClick),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = null,
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Column {
-                        Text(
-                            text = "📄 My Documents",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF4CAF50)
-                        )
-                        Text(
-                            text = "View and manage your saved documents",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-                Icon(
-                    imageVector = Icons.Default.ArrowForward,
-                    contentDescription = null,
-                    tint = Color(0xFF4CAF50)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun QuickActionCard(
-    icon: ImageVector,
-    title: String,
-    color: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .height(100.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.1f)
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(28.dp)
+                tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = color
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
             )
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DocumentCard(
-    document: DashboardDocument,
-    onClick: () -> Unit
+fun DashboardContent(
+    paddingValues: PaddingValues,
+    currentView: DashboardView,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    documentListState: com.flowboard.presentation.viewmodel.DocumentListState,
+    onDocumentClick: (String) -> Unit,
+    onDeleteDocument: (String) -> Unit
 ) {
-    Card(
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp,
-            hoveredElevation = 8.dp
-        )
+            .fillMaxSize()
+            .padding(paddingValues)
+            .background(MaterialTheme.colorScheme.background)
     ) {
+        // Header Section
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
-            Column {
-                Row(
+            Text(
+                text = when (currentView) {
+                    DashboardView.HOME -> "Home"
+                    DashboardView.INBOX -> "Inbox"
+                    DashboardView.SEARCH -> "Search"
+                    DashboardView.TRASH -> "Trash"
+                    DashboardView.TASKS -> "Tasks"
+                    DashboardView.MY_DOCUMENTS -> "My Documents"
+                },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            
+            if (currentView == DashboardView.SEARCH) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = document.icon,
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                    if (document.isShared) {
-                        Icon(
-                            imageVector = Icons.Default.Group,
-                            contentDescription = "Shared",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
+                    placeholder = { Text("Search documents...") },
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+            } else if (currentView == DashboardView.HOME) {
                 Text(
-                    text = document.title,
+                    "Good morning, User",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = document.preview,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Column {
-                if (document.activeEditors > 0) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Success)
-                        )
-                        Text(
-                            text = "${document.activeEditors} editing now",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Success
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                Text(
-                    text = "Modified ${document.lastModified}",
-                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
+
+        LazyColumn(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Filter Logic
+            val allDocs = (documentListState.ownedDocuments + documentListState.sharedWithMe)
+                .sortedByDescending { it.updatedAt }
+            
+            val filteredDocs = when (currentView) {
+                DashboardView.HOME -> allDocs
+                DashboardView.INBOX -> documentListState.sharedWithMe
+                DashboardView.MY_DOCUMENTS -> documentListState.ownedDocuments
+                DashboardView.SEARCH -> if (searchQuery.isBlank()) emptyList() else allDocs.filter { 
+                    it.title.contains(searchQuery, ignoreCase = true) 
+                }
+                DashboardView.TRASH, DashboardView.TASKS -> emptyList() // Tasks handled by parent
+            }
+
+            // Recently Visited Header (only for Home)
+            if (currentView == DashboardView.HOME && filteredDocs.isNotEmpty()) {
+                item {
+                    Text(
+                        "RECENTLY VISITED",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                    )
+                }
+            }
+            
+            if (documentListState.isLoading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else if (filteredDocs.isEmpty()) {
+                item {
+                     EmptyState(
+                         message = when(currentView) {
+                             DashboardView.SEARCH -> "Type to search..."
+                             DashboardView.TRASH -> "Trash is empty"
+                             DashboardView.INBOX -> "No shared documents"
+                             DashboardView.MY_DOCUMENTS -> "No documents created yet"
+                             else -> "No documents yet"
+                         }
+                     )
+                }
+            } else {
+                items(filteredDocs) { doc ->
+                    SimpleDocumentItem(
+                        title = doc.title,
+                        updatedAt = doc.updatedAt, 
+                        isShared = doc.ownerId != "me", // Simplified logic
+                        onClick = { onDocumentClick(doc.id) },
+                        onDelete = { onDeleteDocument(doc.id) }
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun DocumentListItem(
-    document: DashboardDocument,
-    onClick: () -> Unit
+fun SimpleDocumentItem(
+    title: String,
+    updatedAt: String,
+    isShared: Boolean,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    Card(
+    var showMenu by remember { mutableStateOf(false) }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+            .clickable(onClick = onClick)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Icon(
+                imageVector = Icons.Outlined.Description,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = document.icon,
-                    style = MaterialTheme.typography.headlineSmall
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
                 )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = document.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = document.preview,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Column(
-                horizontalAlignment = Alignment.End
-            ) {
-                if (document.activeEditors > 0) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(Success)
-                        )
-                        Text(
-                            text = "${document.activeEditors}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Success,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = document.lastModified,
-                    style = MaterialTheme.typography.labelSmall,
+                    text = "Last edited $updatedAt", // Simplified
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            if (isShared) {
+                Icon(
+                    imageVector = Icons.Default.Group,
+                    contentDescription = "Shared",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            
+            // Action Menu
+            Box {
+                IconButton(
+                    onClick = { showMenu = true },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = "Options",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { 
+                            Icon(
+                                Icons.Outlined.Delete, 
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            ) 
+                        },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        }
+                    )
+                }
             }
         }
     }
 }
 
-enum class ViewType {
-    GRID,
-    LIST
+@Composable
+fun EmptyState(message: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            Icons.Outlined.NoteAdd,
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            message,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }

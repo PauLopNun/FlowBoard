@@ -14,8 +14,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.flowboard.domain.model.CollaborativeDocument
 import com.flowboard.domain.model.ContentBlock
+import com.flowboard.domain.model.PermissionLevel
 import com.flowboard.presentation.ui.components.ComposeRichTextEditor
 import com.flowboard.presentation.ui.components.UserAvatar
+import com.flowboard.presentation.ui.components.DocumentCollaborator
+import com.flowboard.presentation.ui.components.CollaboratorRole
 import com.flowboard.presentation.viewmodel.DocumentViewModel
 import com.flowboard.presentation.viewmodel.UserCursor
 
@@ -213,20 +216,38 @@ fun CollaborativeDocumentScreen(
         }
     }
 
-    // Share dialog - Using the new ShareDocumentDialog component
+    // Share dialog
     if (showShareDialog) {
+        val collaborators = documentState.sharedWith.map { permission ->
+            DocumentCollaborator(
+                userId = permission.email, // Using email as ID fallback
+                email = permission.email,
+                name = permission.email.substringBefore("@"), // Name fallback
+                role = when (permission.permission) {
+                    "EDITOR" -> CollaboratorRole.EDITOR
+                    "VIEWER" -> CollaboratorRole.VIEWER
+                    else -> CollaboratorRole.VIEWER
+                }
+            )
+        }
+
         com.flowboard.presentation.ui.components.ShareDocumentDialog(
             documentTitle = documentState.document?.blocks?.firstOrNull { it.type == "h1" }?.content ?: "Untitled Document",
-            currentCollaborators = emptyList(), // TODO: Load from ViewModel
+            currentCollaborators = collaborators,
             onInviteUser = { email, role ->
-                // TODO: Call ViewModel method to invite user
-                showShareDialog = false
+                val permissionLevel = when (role) {
+                    CollaboratorRole.EDITOR -> PermissionLevel.EDITOR
+                    CollaboratorRole.VIEWER -> PermissionLevel.VIEWER
+                    CollaboratorRole.OWNER -> PermissionLevel.OWNER
+                }
+                viewModel.shareDocument(email, permissionLevel)
+                // Note: Dialog stays open to allow more invites or show success state if we added one
             },
             onUpdatePermission = { userId, role ->
-                // TODO: Call ViewModel method to update permission
+                // TODO: Implement update permission in ViewModel if API supports it
             },
             onRemovePermission = { userId ->
-                // TODO: Call ViewModel method to remove permission
+                // TODO: Implement remove permission in ViewModel if API supports it
             },
             onDismiss = { showShareDialog = false }
         )
