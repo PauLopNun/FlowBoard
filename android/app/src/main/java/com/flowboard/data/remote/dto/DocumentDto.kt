@@ -1,6 +1,7 @@
 package com.flowboard.data.remote.dto
 
 import com.flowboard.data.local.entities.DocumentEntity
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -11,8 +12,8 @@ data class DocumentDto(
     val ownerId: String,
     val ownerName: String? = null,
     val isPublic: Boolean = false,
-    val createdAt: String,
-    val updatedAt: String,
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime,
     val lastEditedBy: String? = null,
     val lastEditedByName: String? = null,
     val permissions: List<DocumentPermissionDto>? = null
@@ -25,12 +26,12 @@ data class DocumentDto(
             ownerId = ownerId,
             ownerName = ownerName,
             isPublic = isPublic,
-            createdAt = createdAt,
-            updatedAt = updatedAt,
+            createdAt = createdAt.toString(),
+            updatedAt = updatedAt.toString(),
             lastEditedBy = lastEditedBy,
             lastEditedByName = lastEditedByName,
             isSync = true,
-            lastSyncAt = updatedAt
+            lastSyncAt = updatedAt.toString()
         )
     }
 
@@ -43,8 +44,8 @@ data class DocumentDto(
                 ownerId = entity.ownerId,
                 ownerName = entity.ownerName,
                 isPublic = entity.isPublic,
-                createdAt = entity.createdAt,
-                updatedAt = entity.updatedAt,
+                createdAt = LocalDateTime.parse(entity.createdAt),
+                updatedAt = LocalDateTime.parse(entity.updatedAt),
                 lastEditedBy = entity.lastEditedBy,
                 lastEditedByName = entity.lastEditedByName
             )
@@ -61,7 +62,7 @@ data class DocumentPermissionDto(
     val userEmail: String? = null,
     val role: String,
     val grantedBy: String,
-    val grantedAt: String
+    val grantedAt: LocalDateTime
 )
 
 @Serializable

@@ -142,4 +142,12 @@ class DocumentRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun getUserId(): String? {
+        return authRepository.getUserId()
+    }
+
+    suspend fun isUserAuthenticated(): Boolean {
+        return authRepository.isLoggedIn()
+    }
 }
