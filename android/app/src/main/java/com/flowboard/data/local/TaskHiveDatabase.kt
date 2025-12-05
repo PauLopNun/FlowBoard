@@ -5,9 +5,13 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import android.content.Context
+import com.flowboard.data.local.dao.DocumentDao
+import com.flowboard.data.local.dao.PendingOperationDao
 import com.flowboard.data.local.dao.ProjectDao
 import com.flowboard.data.local.dao.TaskDao
 import com.flowboard.data.local.dao.UserDao
+import com.flowboard.data.local.entities.DocumentEntity
+import com.flowboard.data.local.entities.PendingOperationEntity
 import com.flowboard.data.local.entities.ProjectEntity
 import com.flowboard.data.local.entities.TaskEntity
 import com.flowboard.data.local.entities.UserEntity
@@ -26,9 +30,11 @@ import com.flowboard.data.local.entities.TypingIndicatorEntity
         ChatRoomEntity::class,
         MessageEntity::class,
         ChatParticipantEntity::class,
-        TypingIndicatorEntity::class
+        TypingIndicatorEntity::class,
+        DocumentEntity::class,
+        PendingOperationEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -39,6 +45,8 @@ abstract class FlowBoardDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
     abstract fun notificationDao(): com.flowboard.data.local.dao.NotificationDao
     abstract fun chatDao(): com.flowboard.data.local.dao.ChatDao
+    abstract fun documentDao(): DocumentDao
+    abstract fun pendingOperationDao(): PendingOperationDao
     
     companion object {
         const val DATABASE_NAME = "flowboard_database"
