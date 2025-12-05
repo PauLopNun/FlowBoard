@@ -336,6 +336,52 @@ cd android && ./gradlew test
 cd backend && ./gradlew test
 ```
 
+### 🔧 Troubleshooting - Problemas Comunes
+
+#### Error: "Metadata instance has version 2.1.0, while maximum supported version is 2.0.0"
+
+Este error ocurre por un conflicto de versiones de Kotlin. **Solución:**
+
+```bash
+# Opción 1: Usar script de compilación limpia (RECOMENDADO)
+chmod +x compile-android.sh
+./compile-android.sh
+
+# Opción 2: Limpieza manual
+cd android
+./gradlew --stop
+./gradlew clean --no-daemon
+rm -rf app/build build .gradle
+./gradlew assembleDebug --no-daemon
+```
+
+📖 **Ver documentación completa:** [SOLUCION_KOTLIN_VERSION.md](SOLUCION_KOTLIN_VERSION.md)
+
+#### Error: "SDK location not found"
+
+Asegúrate de tener configurado `android/local.properties`:
+```properties
+sdk.dir=/ruta/a/tu/Android/Sdk
+```
+
+#### Daemon de Gradle no responde
+
+```bash
+cd android
+./gradlew --stop
+pkill -f gradle  # En Linux/Mac
+./gradlew assembleDebug --no-daemon
+```
+
+#### Cache corrupta
+
+```bash
+cd android
+rm -rf ~/.gradle/caches/
+rm -rf ~/.gradle/daemon/
+./gradlew clean --no-daemon
+```
+
 ### 📱 Usar la Aplicación
 
 #### Credenciales de Demo

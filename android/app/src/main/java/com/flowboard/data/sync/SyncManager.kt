@@ -8,6 +8,7 @@ import android.net.NetworkRequest
 import android.util.Log
 import androidx.work.*
 import com.flowboard.data.workers.DocumentSyncWorker
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,7 +23,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class SyncManager @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
     companion object {
         const val TAG = "SyncManager"

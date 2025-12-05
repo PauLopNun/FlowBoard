@@ -7,6 +7,8 @@ import com.flowboard.data.local.dao.ProjectDao
 import com.flowboard.data.local.dao.TaskDao
 import com.flowboard.data.local.dao.UserDao
 import com.flowboard.data.local.dao.ChatDao
+import com.flowboard.data.local.dao.DocumentDao
+import com.flowboard.data.local.dao.PendingOperationDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -51,4 +53,10 @@ object DatabaseModule {
     fun provideChatDao(database: FlowBoardDatabase): ChatDao {
         return database.chatDao()
     }
+
+    @Provides
+    fun provideDocumentDao(database: FlowBoardDatabase) = database.documentDao()
+
+    @Provides
+    fun providePendingOperationDao(database: FlowBoardDatabase) = database.pendingOperationDao()
 }
