@@ -63,14 +63,31 @@ class LoginViewModel @Inject constructor(
                     },
                     onFailure = { exception ->
                         Log.e(TAG, "Login failed: ${exception.message}", exception)
-                        _loginState.value = LoginState.Error(
-                            exception.message ?: "Network error occurred"
-                        )
+
+                        // Mensajes de error más específicos
+                        val errorMessage = when {
+                            exception.message?.contains("No se puede conectar") == true ->
+                                "No se puede conectar al servidor. Verifica tu conexión a internet"
+                            exception.message?.contains("contraseña") == true ->
+                                "Email o contraseña incorrectos"
+                            exception.message?.contains("Usuario no encontrado") == true ->
+                                "Usuario no encontrado. ¿Necesitas registrarte?"
+                            exception.message?.contains("servidor") == true ->
+                                "Error del servidor. Intenta de nuevo en unos minutos"
+                            exception.message?.isNotBlank() == true ->
+                                exception.message!!
+                            else ->
+                                "Error de conexión. Verifica tu internet e intenta de nuevo"
+                        }
+
+                        _loginState.value = LoginState.Error(errorMessage)
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Unexpected error during login: ${e.message}", e)
-                _loginState.value = LoginState.Error(e.message ?: "Unknown error occurred")
+                _loginState.value = LoginState.Error(
+                    "Error inesperado: ${e.message ?: "Por favor intenta de nuevo"}"
+                )
             }
         }
     }

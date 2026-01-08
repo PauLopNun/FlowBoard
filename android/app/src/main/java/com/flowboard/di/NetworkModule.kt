@@ -36,6 +36,12 @@ object NetworkModule {
     @Singleton
     fun provideHttpClient(): HttpClient {
         return HttpClient(Android) {
+            // Configurar timeouts más largos para el servidor de producción
+            engine {
+                connectTimeout = 30_000  // 30 segundos
+                socketTimeout = 30_000   // 30 segundos
+            }
+
             install(ContentNegotiation) {
                 json(Json {
                     prettyPrint = true
@@ -71,6 +77,12 @@ object NetworkModule {
     @HttpClientQualifier
     fun provideHttpClientQualified(): HttpClient {
         return HttpClient(Android) {
+            // Configurar timeouts más largos para el servidor de producción
+            engine {
+                connectTimeout = 30_000  // 30 segundos
+                socketTimeout = 30_000   // 30 segundos
+            }
+
             install(ContentNegotiation) {
                 json(Json {
                     prettyPrint = true

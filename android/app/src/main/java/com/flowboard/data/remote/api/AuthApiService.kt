@@ -29,6 +29,7 @@ class AuthApiService @Inject constructor(
         return try {
             Log.d(TAG, "Attempting login for email: ${request.email}")
             Log.d(TAG, "Login URL: $AUTH_ENDPOINT/login")
+            Log.d(TAG, "Full URL: ${ApiConfig.BASE_URL}")
 
             val httpResponse = httpClient.post("$AUTH_ENDPOINT/login") {
                 contentType(ContentType.Application.Json)
@@ -43,15 +44,37 @@ class AuthApiService @Inject constructor(
                 Log.d(TAG, "Login successful: ${response.success}")
                 Result.success(response)
             } else {
-                val errorBody = httpResponse.body<String>()
-                Log.e(TAG, "Login failed with status ${httpResponse.status.value}")
-                Log.e(TAG, "Error response body: $errorBody")
-                Result.failure(Exception("Login failed: $errorBody"))
+                try {
+                    val errorBody = httpResponse.body<String>()
+                    Log.e(TAG, "Login failed with status ${httpResponse.status.value}")
+                    Log.e(TAG, "Error response body: $errorBody")
+
+                    // Extraer mensaje de error más amigable
+                    val errorMessage = when (httpResponse.status.value) {
+                        400 -> "Email o contraseña inválidos"
+                        401 -> "Credenciales incorrectas"
+                        404 -> "Usuario no encontrado"
+                        500 -> "Error del servidor. Intenta de nuevo más tarde"
+                        else -> "Error de conexión: ${httpResponse.status.value}"
+                    }
+                    Result.failure(Exception(errorMessage))
+                } catch (e: Exception) {
+                    Result.failure(Exception("Error al procesar respuesta del servidor"))
+                }
             }
+        } catch (e: java.net.UnknownHostException) {
+            Log.e(TAG, "Network error - Unknown host: ${e.message}", e)
+            Result.failure(Exception("No se puede conectar al servidor. Verifica tu conexión a internet"))
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.e(TAG, "Network error - Timeout: ${e.message}", e)
+            Result.failure(Exception("El servidor no responde. Intenta de nuevo más tarde"))
+        } catch (e: java.net.ConnectException) {
+            Log.e(TAG, "Network error - Connection refused: ${e.message}", e)
+            Result.failure(Exception("No se puede conectar al servidor. Verifica tu conexión"))
         } catch (e: Exception) {
             Log.e(TAG, "Login failed with exception: ${e.message}", e)
             Log.e(TAG, "Exception type: ${e.javaClass.simpleName}")
-            Result.failure(e)
+            Result.failure(Exception("Error de red: ${e.message ?: "Conexión fallida"}"))
         }
     }
 

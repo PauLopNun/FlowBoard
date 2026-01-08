@@ -34,6 +34,7 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showDebugInfo by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -58,7 +59,54 @@ fun LoginScreen(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Debug info toggle button
+        TextButton(onClick = { showDebugInfo = !showDebugInfo }) {
+            Text(
+                text = if (showDebugInfo) "Ocultar info de servidor ▲" else "Ver info de servidor ▼",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        // Debug info card
+        if (showDebugInfo) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "🔧 Información de Conexión",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Servidor: ${com.flowboard.data.remote.ApiConfig.BASE_URL}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                    Text(
+                        text = "API: ${com.flowboard.data.remote.ApiConfig.API_BASE_URL}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "💡 Si no puedes conectar, verifica:\n• Tu conexión a internet\n• El servidor puede tardar ~30s en despertar",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Login Form
         Card(
@@ -239,15 +287,53 @@ fun LoginScreen(
                 modifier = Modifier.padding(16.dp)
             ) {
                 Text(
-                    text = "Demo Credentials",
+                    text = "🧪 Credenciales de Prueba",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Email: demo@flowboard.com\nPassword: demo123",
+                    text = "Puedes probar con estas credenciales:",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Opción 1
+                Text(
+                    text = "📧 test@flowboard.com",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "🔑 password123",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "O registra una cuenta nueva",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Botón para auto-rellenar
+                OutlinedButton(
+                    onClick = {
+                        email = "test@flowboard.com"
+                        password = "password123"
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Usar credenciales de prueba")
+                }
             }
         }
     }
