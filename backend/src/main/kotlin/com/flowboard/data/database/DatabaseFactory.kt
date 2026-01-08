@@ -11,26 +11,37 @@ import org.jetbrains.exposed.sql.transactions.transaction
 object DatabaseFactory {
     
     fun init() {
-        val database = Database.connect(createHikariDataSource())
-        
-        transaction(database) {
-            SchemaUtils.create(
-                Users,
-                Tasks,
-                Projects,
-                BoardPermissions,
-                Documents,
-                DocumentPermissions,
-                Notifications,
-                ChatRooms,
-                ChatParticipants,
-                Messages
-            )
+        try {
+            val database = Database.connect(createHikariDataSource())
+
+            transaction(database) {
+                SchemaUtils.create(
+                    Users,
+                    Tasks,
+                    Projects,
+                    BoardPermissions,
+                    Documents,
+                    DocumentPermissions,
+                    Notifications,
+                    ChatRooms,
+                    ChatParticipants,
+                    Messages
+                )
+            }
+            println("✅ Database initialized successfully")
+        } catch (e: Exception) {
+            System.err.println("❌ Database initialization failed: ${e.message}")
+            System.err.println("⚠️  Application will start WITHOUT database functionality")
+            e.printStackTrace()
+            // Don't throw - allow app to start for debugging
         }
     }
     
     private fun createHikariDataSource(): HikariDataSource {
         val databaseUrl = System.getenv("DATABASE_URL")
+
+        println("🔍 Configuring database connection...")
+        println("DATABASE_URL present: ${databaseUrl != null}")
 
         val config = HikariConfig().apply {
             driverClassName = "org.postgresql.Driver"
@@ -38,21 +49,35 @@ object DatabaseFactory {
             if (databaseUrl != null && databaseUrl.startsWith("postgresql://")) {
                 // Render/Heroku format: postgresql://user:password@host:port/database
                 // Convert to JDBC format: jdbc:postgresql://host:port/database
-                val regex = Regex("postgresql://([^:]+):([^@]+)@(.+)")
+                val regex = Regex("postgresql://([^:]+):([^@]+)@([^/]+)/(.+)")
                 val match = regex.find(databaseUrl)
 
                 if (match != null) {
                     val username = match.groupValues[1]
                     val password = match.groupValues[2]
-                    val hostAndDb = match.groupValues[3]
+                    val hostAndPort = match.groupValues[3]
+                    val database = match.groupValues[4]
+
+                    // Convert internal hostname to external for Render
+                    // Format: dpg-xxxxx-a -> dpg-xxxxx-a.oregon-postgres.render.com
+                    val externalHost = if (hostAndPort.contains(".")) {
+                        // Already has domain
+                        hostAndPort
+                    } else if (hostAndPort.startsWith("dpg-")) {
+                        // Render internal hostname - convert to external
+                        "$hostAndPort.oregon-postgres.render.com"
+                    } else {
+                        hostAndPort
+                    }
 
                     // Add SSL parameters for Render
-                    this.jdbcUrl = "jdbc:postgresql://$hostAndDb?sslmode=require"
+                    this.jdbcUrl = "jdbc:postgresql://$externalHost/$database?sslmode=require"
                     this.username = username
                     this.password = password
 
-                    println("Database connection configured for Render")
-                    println("JDBC URL: jdbc:postgresql://$hostAndDb?sslmode=require")
+                    println("✅ Database connection configured for Render")
+                    println("📍 Host: $externalHost")
+                    println("🗄️  Database: $database")
                 } else {
                     throw IllegalArgumentException("Invalid DATABASE_URL format: $databaseUrl")
                 }
@@ -62,7 +87,7 @@ object DatabaseFactory {
                 this.username = System.getenv("DATABASE_USER") ?: "flowboard"
                 this.password = System.getenv("DATABASE_PASSWORD") ?: "flowboard"
 
-                println("Database connection configured for local development")
+                println("✅ Database connection configured for local development")
             }
 
             maximumPoolSize = 10
