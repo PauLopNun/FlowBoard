@@ -137,6 +137,7 @@ data class DocumentErrorMessage(
  */
 @Serializable
 data class OperationAckMessage(
+    override val type: String = "OPERATION_ACK",
     override val timestamp: LocalDateTime,
     val operationId: String,
     val success: Boolean,

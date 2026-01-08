@@ -118,10 +118,19 @@ fun Route.webSocketRoutes(
 
                                     // Send the current document state to the user
                                     val document = documentService.getDocument(message.boardId)
+                                    val activeUsers = webSocketManager.getActiveUsersInRoom(message.boardId).map { userInfo ->
+                                        DocumentUserPresence(
+                                            userId = userInfo.userId,
+                                            userName = userInfo.userName,
+                                            color = userInfo.color ?: "#000000",
+                                            cursor = null,
+                                            isOnline = true
+                                        )
+                                    }
                                     val documentStateMessage = DocumentStateMessage(
                                         timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()),
                                         document = document,
-                                        activeUsers = webSocketManager.getActiveUsersInRoom(message.boardId)
+                                        activeUsers = activeUsers
                                     )
                                     send(Frame.Text(json.encodeToString(documentStateMessage)))
 

@@ -46,9 +46,13 @@ object DatabaseFactory {
                     val password = match.groupValues[2]
                     val hostAndDb = match.groupValues[3]
 
-                    this.jdbcUrl = "jdbc:postgresql://$hostAndDb"
+                    // Add SSL parameters for Render
+                    this.jdbcUrl = "jdbc:postgresql://$hostAndDb?sslmode=require"
                     this.username = username
                     this.password = password
+
+                    println("Database connection configured for Render")
+                    println("JDBC URL: jdbc:postgresql://$hostAndDb?sslmode=require")
                 } else {
                     throw IllegalArgumentException("Invalid DATABASE_URL format: $databaseUrl")
                 }
@@ -57,11 +61,19 @@ object DatabaseFactory {
                 this.jdbcUrl = databaseUrl ?: "jdbc:postgresql://localhost:5432/flowboard"
                 this.username = System.getenv("DATABASE_USER") ?: "flowboard"
                 this.password = System.getenv("DATABASE_PASSWORD") ?: "flowboard"
+
+                println("Database connection configured for local development")
             }
 
             maximumPoolSize = 10
             isAutoCommit = false
             transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+
+            // Connection timeout settings
+            connectionTimeout = 30000 // 30 seconds
+            idleTimeout = 600000 // 10 minutes
+            maxLifetime = 1800000 // 30 minutes
+
             validate()
         }
         return HikariDataSource(config)

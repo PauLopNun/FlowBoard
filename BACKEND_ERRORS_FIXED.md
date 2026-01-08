@@ -2,11 +2,11 @@
 
 ## 📋 Resumen de Errores Corregidos
 
-El deployment en Render fallaba con **17 errores de compilación de Kotlin**. Todos han sido resueltos.
+El deployment en Render fallaba con **19 errores de compilación de Kotlin** y **errores de conexión a PostgreSQL**. Todos han sido resueltos.
 
 ---
 
-## 🔧 Cambios Realizados
+## 🔧 Cambios Realizados (Actualizado 2026-01-08)
 
 ### 1. **Eliminación de Redeclaraciones de Clases** ❌➡️✅
 
@@ -111,33 +111,101 @@ Type mismatch: inferred type is DocumentOperationMessage but WebSocketMessage wa
 
 ---
 
-## 📊 Resumen de Archivos Modificados
+### 6. **Campo `type` Faltante en OperationAckMessage** 📝
+
+**Error:**
+```
+Class 'OperationAckMessage' is not abstract and does not implement abstract base class member public abstract val type: String
+```
+
+**Problema:** `OperationAckMessage` hereda de `DocumentWebSocketMessage` que requiere el campo `type`, pero no lo tenía definido.
+
+**Solución:**
+- ✅ Agregado `override val type: String = "OPERATION_ACK"` a `OperationAckMessage`
+
+**Archivos modificados:**
+- `backend/src/main/kotlin/com/flowboard/data/models/DocumentWebSocketMessage.kt`
+
+---
+
+### 7. **Incompatibilidad de Tipos: UserPresenceInfo vs DocumentUserPresence** 🔄
+
+**Error:**
+```
+Type mismatch: inferred type is List<UserPresenceInfo> but List<DocumentUserPresence> was expected
+```
+
+**Problema:** `webSocketManager.getActiveUsersInRoom()` devuelve `List<UserPresenceInfo>` pero `DocumentStateMessage` requiere `List<DocumentUserPresence>`.
+
+**Solución:**
+- ✅ Agregada conversión de `UserPresenceInfo` a `DocumentUserPresence`
+- ✅ Mapeo correcto de campos:
+  - `userId`, `userName`, `color` → mapeados directamente
+  - `cursor` → null (se actualizará con eventos de cursor)
+  - `isOnline` → true (usuarios activos en la sala)
+
+**Archivos modificados:**
+- `backend/src/main/kotlin/com/flowboard/routes/WebSocketRoutes.kt`
+
+---
+
+### 8. **Configuración de PostgreSQL para Render** 🗄️
+
+**Error (Runtime):**
+```
+java.net.UnknownHostException: dpg-d4isl1muk2gs739l3lh0-a
+Failed to initialize pool: The connection attempt failed
+```
+
+**Problema:** 
+- Render usa hostname interno para PostgreSQL
+- Faltaba configuración SSL requerida por Render
+- Timeouts muy cortos para servicios en la nube
+
+**Solución:**
+- ✅ Agregado `?sslmode=require` a la URL de JDBC
+- ✅ Aumentados timeouts de conexión:
+  - `connectionTimeout = 30000` (30 segundos)
+  - `idleTimeout = 600000` (10 minutos)
+  - `maxLifetime = 1800000` (30 minutos)
+- ✅ Agregados logs de debugging para diagnóstico
+
+**Archivos modificados:**
+- `backend/src/main/kotlin/com/flowboard/data/database/DatabaseFactory.kt`
+
+---
+
+## 📊 Resumen de Archivos Modificados (Actualizado)
 
 | Archivo | Tipo de Cambio | Descripción |
 |---------|----------------|-------------|
 | `WebSocketMessage.kt` | Eliminación | Redeclaraciones eliminadas |
-| `DocumentWebSocketMessage.kt` | Refactorización | Herencia y campo `type` agregados |
+| `DocumentWebSocketMessage.kt` | Refactorización | Herencia, campo `type`, y OperationAckMessage |
 | `DocumentService.kt` | Corrección | Campo `synkLastModified` eliminado |
 | `NotificationService.kt` | Import | Operador `eq` importado |
-| `WebSocketRoutes.kt` | Corrección | Parámetros y tipos corregidos |
+| `WebSocketRoutes.kt` | Corrección | Parámetros, tipos, y conversión de usuarios |
+| `DatabaseFactory.kt` | Configuración | SSL y timeouts para Render |
 
 ---
 
-## ✅ Verificación
+## ✅ Verificación Final
 
-Todos los errores de compilación han sido resueltos:
+Todos los errores de compilación y configuración han sido resueltos:
 ```
 ✅ No redeclaraciones
 ✅ Jerarquía de clases correcta
-✅ Todos los campos existen
-✅ Imports completos
+✅ Todos los campos abstractos implementados
+✅ Todos los imports completos
 ✅ Parámetros correctos
 ✅ Tipos compatibles
+✅ Conversiones de tipos implementadas
+✅ SSL configurado para PostgreSQL
+✅ Timeouts optimizados para la nube
 ```
 
 ---
 
-## 🚀 Próximos Pasos
+## 🚀 Próximos Pasos (Actualizado)
 
 1. **Hacer commit de los cambios:**
    ```bash
