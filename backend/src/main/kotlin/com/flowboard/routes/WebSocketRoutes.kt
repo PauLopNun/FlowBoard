@@ -120,8 +120,8 @@ fun Route.webSocketRoutes(
                                     val document = documentService.getDocument(message.boardId)
                                     val documentStateMessage = DocumentStateMessage(
                                         timestamp = Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()),
-                                        boardId = message.boardId,
-                                        document = document
+                                        document = document,
+                                        activeUsers = webSocketManager.getActiveUsersInRoom(message.boardId)
                                     )
                                     send(Frame.Text(json.encodeToString(documentStateMessage)))
 
@@ -175,18 +175,20 @@ fun Route.webSocketRoutes(
                                         webSocketManager.broadcastToRoomExcept(
                                             boardId = message.operation.boardId,
                                             exceptSession = this,
-                                            message = message
+                                            message = message as WebSocketMessage
                                         )
                                     }
                                 }
 
                                 "CURSOR_UPDATE" -> {
                                     val message = json.decodeFromString<CursorUpdateMessage>(receivedText)
-                                    if (currentBoardId == message.boardId) {
+                                    // Extract boardId from documentId (assuming documentId contains boardId info)
+                                    // For now, use currentBoardId
+                                    if (currentBoardId != null) {
                                         webSocketManager.broadcastToRoomExcept(
-                                            boardId = message.boardId,
+                                            boardId = currentBoardId!!,
                                             exceptSession = this,
-                                            message = message
+                                            message = message as WebSocketMessage
                                         )
                                     }
                                 }

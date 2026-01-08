@@ -150,41 +150,8 @@ data class ErrorMessage(
 @Serializable
 sealed class CrdtMessage : WebSocketMessage()
 
-/**
- * Enviado por un cliente para aplicar un cambio en el documento.
- * También se transmite a otros clientes.
- */
-@Serializable
-data class DocumentOperationMessage(
-    override val type: String = "DOCUMENT_OPERATION",
-    override val timestamp: LocalDateTime,
-    val operation: DocumentOperation
-) : CrdtMessage()
-
-/**
- * Enviado por el servidor a un nuevo cliente con el estado completo del documento.
- */
-@Serializable
-data class DocumentStateMessage(
-    override val type: String = "DOCUMENT_STATE",
-    override val timestamp: LocalDateTime,
-    val boardId: String,
-    val document: CollaborativeDocument
-) : CrdtMessage()
-
-/**
- * Enviado por un cliente (y transmitido) para actualizar la posición de su cursor/selección.
- */
-@Serializable
-data class CursorUpdateMessage(
-    override val type: String = "CURSOR_UPDATE",
-    override val timestamp: LocalDateTime,
-    val boardId: String,
-    val userId: String,
-    val blockId: String?,
-    val position: Int,
-    val selectionEnd: Int? = null
-) : CrdtMessage()
+// NOTE: DocumentOperationMessage, DocumentStateMessage, and CursorUpdateMessage
+// are now defined in DocumentWebSocketMessage.kt to avoid duplication
 
 @Serializable
 data class SyncMessage(

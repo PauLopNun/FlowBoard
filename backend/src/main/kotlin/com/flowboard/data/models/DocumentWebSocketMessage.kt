@@ -9,8 +9,9 @@ import kotlinx.serialization.Serializable
  * WebSocket messages for document collaboration
  */
 @Serializable
-sealed class DocumentWebSocketMessage {
-    abstract val timestamp: LocalDateTime
+sealed class DocumentWebSocketMessage : WebSocketMessage() {
+    abstract override val timestamp: LocalDateTime
+    abstract override val type: String
 }
 
 /**
@@ -18,6 +19,7 @@ sealed class DocumentWebSocketMessage {
  */
 @Serializable
 data class JoinDocumentMessage(
+    override val type: String = "JOIN_DOCUMENT",
     override val timestamp: LocalDateTime,
     val documentId: String,
     val userId: String,
@@ -29,6 +31,7 @@ data class JoinDocumentMessage(
  */
 @Serializable
 data class DocumentJoinedMessage(
+    override val type: String = "DOCUMENT_JOINED",
     override val timestamp: LocalDateTime,
     val documentId: String,
     val document: CollaborativeDocument,
@@ -40,6 +43,7 @@ data class DocumentJoinedMessage(
  */
 @Serializable
 data class DocumentOperationMessage(
+    override val type: String = "DOCUMENT_OPERATION",
     override val timestamp: LocalDateTime,
     val operation: DocumentOperation,
     val userId: String
@@ -50,6 +54,7 @@ data class DocumentOperationMessage(
  */
 @Serializable
 data class DocumentOperationBroadcast(
+    override val type: String = "DOCUMENT_OPERATION_BROADCAST",
     override val timestamp: LocalDateTime,
     val operation: DocumentOperation,
     val userId: String,
@@ -61,6 +66,7 @@ data class DocumentOperationBroadcast(
  */
 @Serializable
 data class CursorUpdateMessage(
+    override val type: String = "CURSOR_UPDATE",
     override val timestamp: LocalDateTime,
     val documentId: String,
     val userId: String,
@@ -77,6 +83,7 @@ data class CursorUpdateMessage(
  */
 @Serializable
 data class UserJoinedDocumentMessage(
+    override val type: String = "USER_JOINED_DOCUMENT",
     override val timestamp: LocalDateTime,
     val documentId: String,
     val user: DocumentUserPresence
@@ -87,6 +94,7 @@ data class UserJoinedDocumentMessage(
  */
 @Serializable
 data class UserLeftDocumentMessage(
+    override val type: String = "USER_LEFT_DOCUMENT",
     override val timestamp: LocalDateTime,
     val documentId: String,
     val userId: String
@@ -97,6 +105,7 @@ data class UserLeftDocumentMessage(
  */
 @Serializable
 data class RequestDocumentStateMessage(
+    override val type: String = "REQUEST_DOCUMENT_STATE",
     override val timestamp: LocalDateTime,
     val documentId: String
 ) : DocumentWebSocketMessage()
@@ -106,6 +115,7 @@ data class RequestDocumentStateMessage(
  */
 @Serializable
 data class DocumentStateMessage(
+    override val type: String = "DOCUMENT_STATE",
     override val timestamp: LocalDateTime,
     val document: CollaborativeDocument,
     val activeUsers: List<DocumentUserPresence>
@@ -116,6 +126,7 @@ data class DocumentStateMessage(
  */
 @Serializable
 data class DocumentErrorMessage(
+    override val type: String = "DOCUMENT_ERROR",
     override val timestamp: LocalDateTime,
     val error: String,
     val code: String

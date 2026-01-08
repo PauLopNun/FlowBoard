@@ -65,8 +65,7 @@ class InMemoryDocumentService(
                             textDecoration = operation.textDecoration ?: it.textDecoration,
                             fontSize = operation.fontSize ?: it.fontSize,
                             color = operation.color ?: it.color,
-                            textAlign = operation.textAlign ?: it.textAlign,
-                            synkLastModified = System.currentTimeMillis()
+                            textAlign = operation.textAlign ?: it.textAlign
                         )
                     } else {
                         it
