@@ -121,10 +121,10 @@ fun Route.webSocketRoutes(
                                     val activeUsers = webSocketManager.getActiveUsersInRoom(message.boardId).map { userInfo ->
                                         DocumentUserPresence(
                                             userId = userInfo.userId,
-                                            userName = userInfo.userName,
-                                            color = userInfo.color ?: "#000000",
+                                            userName = userInfo.username,  // Corregido: username (no userName)
+                                            color = "#" + userInfo.userId.takeLast(6),  // Generar color desde userId
                                             cursor = null,
-                                            isOnline = true
+                                            isOnline = userInfo.isOnline
                                         )
                                     }
                                     val documentStateMessage = DocumentStateMessage(
