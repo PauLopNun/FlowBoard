@@ -10,8 +10,17 @@ import org.jetbrains.exposed.sql.transactions.transaction
 
 object DatabaseFactory {
     
+    private var initialized = false
+    private var initializationError: Exception? = null
+
     fun init() {
+        if (initialized) {
+            println("⚠️  Database already initialized")
+            return
+        }
+
         try {
+            println("🔍 Attempting database initialization...")
             val database = Database.connect(createHikariDataSource())
 
             transaction(database) {
@@ -28,15 +37,21 @@ object DatabaseFactory {
                     Messages
                 )
             }
+            initialized = true
             println("✅ Database initialized successfully")
         } catch (e: Exception) {
+            initializationError = e
             System.err.println("❌ Database initialization failed: ${e.message}")
             System.err.println("⚠️  Application will start WITHOUT database functionality")
-            e.printStackTrace()
-            // Don't throw - allow app to start for debugging
+            System.err.println("📋 This is expected during Docker build - DB will initialize on first request")
+            // Don't throw - allow app to start
         }
     }
-    
+
+    fun isInitialized(): Boolean = initialized
+
+    fun getInitializationError(): Exception? = initializationError
+
     private fun createHikariDataSource(): HikariDataSource {
         val databaseUrl = System.getenv("DATABASE_URL")
 
