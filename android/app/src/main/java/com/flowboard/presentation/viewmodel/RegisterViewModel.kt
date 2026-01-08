@@ -1,4 +1,4 @@
-"package com.flowboard.presentation.viewmodel
+package com.flowboard.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
