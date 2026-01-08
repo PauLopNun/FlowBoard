@@ -13,7 +13,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
 fun Route.chatRoutes(chatService: ChatService) {
-    authenticate("jwt") {
+    authenticate("auth-jwt") {
         route("/chat") {
             // Create chat room
             post("/rooms") {

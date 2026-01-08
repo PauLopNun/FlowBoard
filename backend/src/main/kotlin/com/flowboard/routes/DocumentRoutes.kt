@@ -15,7 +15,7 @@ fun Route.documentRoutes(
     documentService: DocumentPersistenceService,
     notificationService: NotificationService
 ) {
-    authenticate("jwt") {
+    authenticate("auth-jwt") {
         route("/documents") {
             // Create document
             post {

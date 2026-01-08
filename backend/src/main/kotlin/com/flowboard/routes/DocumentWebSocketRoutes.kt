@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap
 fun Route.documentWebSocketRoutes(json: Json) {
     val documentSessions = ConcurrentHashMap<String, MutableMap<String, DocumentWebSocketSession>>()
 
-    authenticate("jwt") {
+    authenticate("auth-jwt") {
         webSocket("/ws/documents/{documentId}") {
             val documentId = call.parameters["documentId"] ?: run {
                 close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Missing document ID"))

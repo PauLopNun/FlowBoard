@@ -11,7 +11,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
 fun Route.notificationRoutes(notificationService: NotificationService) {
-    authenticate("jwt") {
+    authenticate("auth-jwt") {
         route("/notifications") {
             // Get all user notifications
             get {
