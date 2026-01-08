@@ -13,7 +13,7 @@ fun Application.configureSecurity() {
     val jwtSecret = environment.config.propertyOrNull("jwt.secret")?.getString() ?: "your-secret-key"
     
     install(Authentication) {
-        jwt("jwt") {  // Cambiar de "auth-jwt" a "jwt" para coincidir con las rutas
+        jwt("auth-jwt") {
             realm = jwtRealm
             verifier(
                 JWT
