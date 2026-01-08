@@ -1,4 +1,4 @@
-package com.flowboard.presentation.viewmodel
+"package com.flowboard.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -51,14 +51,27 @@ class RegisterViewModel @Inject constructor(
                         _registerState.value = RegisterState.Success(authResponse.user.username)
                     },
                     onFailure = { error ->
-                        _registerState.value = RegisterState.Error(
-                            error.message ?: "Registration failed"
-                        )
+                        val errorMessage = when {
+                            error.message?.contains("already exists") == true ||
+                            error.message?.contains("ya existe") == true ->
+                                "Este email ya está registrado. Intenta iniciar sesión"
+                            error.message?.contains("invalid email") == true ->
+                                "Email inválido"
+                            error.message?.contains("No se puede conectar") == true ->
+                                "No se puede conectar al servidor. Verifica tu conexión"
+                            error.message?.contains("servidor") == true ->
+                                "Error del servidor. Intenta de nuevo más tarde"
+                            error.message?.isNotBlank() == true ->
+                                error.message!!
+                            else ->
+                                "Error al registrar. Por favor intenta de nuevo"
+                        }
+                        _registerState.value = RegisterState.Error(errorMessage)
                     }
                 )
             } catch (e: Exception) {
                 _registerState.value = RegisterState.Error(
-                    e.message ?: "An unexpected error occurred"
+                    "Error inesperado: ${e.message ?: "Por favor intenta de nuevo"}"
                 )
             }
         }
