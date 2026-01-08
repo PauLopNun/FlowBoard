@@ -61,7 +61,7 @@ fi
 # Paso 4: Push a origin
 echo ""
 echo "📋 Paso 4: Haciendo push a origin..."
-git push origin "$CURRENT_BRANCH"
+git push -u origin "$CURRENT_BRANCH"
 echo -e "${GREEN}✅ Push completado${NC}"
 
 # Paso 5: Esperar un poco para que Render detecte los cambios

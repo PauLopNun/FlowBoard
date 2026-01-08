@@ -30,6 +30,6 @@ echo "4. En tu Web Service → Environment"
 echo "5. Actualiza DATABASE_URL con la External URL"
 echo "6. Debe incluir: .oregon-postgres.render.com"
 echo ""
-echo "Luego ejecuta: git push origin main"
+echo "Luego ejecuta: git push -u origin master"
 echo ""
 

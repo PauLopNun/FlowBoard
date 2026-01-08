@@ -37,7 +37,7 @@ echo ""
 echo "✅ Commit completado"
 echo ""
 echo "📤 Haciendo push a GitHub..."
-git push origin main
+git push -u origin master
 
 echo ""
 echo "=========================================="
