@@ -73,25 +73,14 @@ object DatabaseFactory {
                     val hostAndPort = match.groupValues[3]
                     val database = match.groupValues[4]
 
-                    // Convert internal hostname to external for Render
-                    // Format: dpg-xxxxx-a -> dpg-xxxxx-a.oregon-postgres.render.com
-                    val externalHost = if (hostAndPort.contains(".")) {
-                        // Already has domain
-                        hostAndPort
-                    } else if (hostAndPort.startsWith("dpg-")) {
-                        // Render internal hostname - convert to external
-                        "$hostAndPort.oregon-postgres.render.com"
-                    } else {
-                        hostAndPort
-                    }
-
-                    // Add SSL parameters for Render
-                    this.jdbcUrl = "jdbc:postgresql://$externalHost/$database?sslmode=require"
+                    // On Render, use the internal hostname directly (no domain conversion, no SSL)
+                    // Internal format: dpg-xxxxx-a (resolves via Render's internal network)
+                    this.jdbcUrl = "jdbc:postgresql://$hostAndPort/$database"
                     this.username = username
                     this.password = password
 
-                    println("✅ Database connection configured for Render")
-                    println("📍 Host: $externalHost")
+                    println("✅ Database connection configured for Render (internal network)")
+                    println("📍 Host: $hostAndPort")
                     println("🗄️  Database: $database")
                 } else {
                     throw IllegalArgumentException("Invalid DATABASE_URL format: $databaseUrl")
