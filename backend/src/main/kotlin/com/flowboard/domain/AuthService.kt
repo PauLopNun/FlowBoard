@@ -13,22 +13,20 @@ import org.mindrot.jbcrypt.BCrypt
 import java.util.*
 
 object AuthService {
-    
+
     suspend fun register(request: RegisterRequest): LoginResponse = dbQuery {
-        // Check if user already exists
-        val existingUser = Users.select { Users.email eq request.email or (Users.username eq request.username) }
+        val existing = Users
+            .select { Users.email eq request.email or (Users.username eq request.username) }
             .singleOrNull()
-        
-        if (existingUser != null) {
+
+        if (existing != null) {
             throw IllegalArgumentException("User with this email or username already exists")
         }
-        
-        // Hash password
+
         val hashedPassword = BCrypt.hashpw(request.password, BCrypt.gensalt())
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
         val userId = UUID.randomUUID()
-        
-        // Create user
+
         Users.insert {
             it[id] = userId
             it[email] = request.email
@@ -37,8 +35,7 @@ object AuthService {
             it[passwordHash] = hashedPassword
             it[createdAt] = now
         }
-        
-        // Create user object
+
         val user = User(
             id = userId.toString(),
             email = request.email,
@@ -47,101 +44,81 @@ object AuthService {
             role = UserRole.USER,
             createdAt = now
         )
-        
-        // Generate JWT token
-        val token = JwtConfig.makeToken(request.email, userId.toString(), request.username)
 
-        LoginResponse(token = token, user = user)
+        LoginResponse(
+            token = JwtConfig.makeToken(request.email, userId.toString(), request.username),
+            user = user
+        )
     }
-    
-    suspend fun login(request: LoginRequest): LoginResponse? = dbQuery {
-        val userRow = Users.select { Users.email eq request.email }
-            .singleOrNull()
 
-        if (userRow != null && BCrypt.checkpw(request.password, userRow[Users.passwordHash])) {
-            // Update last login
+    suspend fun login(request: LoginRequest): LoginResponse? = dbQuery {
+        val row = Users.select { Users.email eq request.email }.singleOrNull()
+
+        if (row != null && BCrypt.checkpw(request.password, row[Users.passwordHash])) {
             val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-            Users.update({ Users.email eq request.email }) {
-                it[lastLoginAt] = now
-            }
+            Users.update({ Users.email eq request.email }) { it[lastLoginAt] = now }
 
             val user = User(
-                id = userRow[Users.id].toString(),
-                email = userRow[Users.email],
-                username = userRow[Users.username],
-                fullName = userRow[Users.fullName],
-                role = userRow[Users.role],
-                profileImageUrl = userRow[Users.profileImageUrl],
-                isActive = userRow[Users.isActive],
-                createdAt = userRow[Users.createdAt],
+                id = row[Users.id].toString(),
+                email = row[Users.email],
+                username = row[Users.username],
+                fullName = row[Users.fullName],
+                role = row[Users.role],
+                profileImageUrl = row[Users.profileImageUrl],
+                isActive = row[Users.isActive],
+                createdAt = row[Users.createdAt],
                 lastLoginAt = now
             )
 
-            val token = JwtConfig.makeToken(request.email, userRow[Users.id].toString(), userRow[Users.username])
-
-            LoginResponse(token = token, user = user)
+            LoginResponse(
+                token = JwtConfig.makeToken(row[Users.email], row[Users.id].toString(), row[Users.username]),
+                user = user
+            )
         } else {
             null
         }
     }
 
     suspend fun googleSignIn(request: GoogleSignInRequest): LoginResponse = dbQuery {
-        // TODO: In production, verify the idToken with Google's API
-        // For now, we trust the client has verified it
-
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
 
-        // Check if user exists
-        val existingUser = Users.select { Users.email eq request.email }
-            .singleOrNull()
+        val existing = Users.select { Users.email eq request.email }.singleOrNull()
 
-        if (existingUser != null) {
-            // User exists - log them in
-            Users.update({ Users.email eq request.email }) {
-                it[lastLoginAt] = now
-                // Update profile image if provided
-                if (request.profilePictureUrl != null) {
-                    it[profileImageUrl] = request.profilePictureUrl
-                }
-            }
+        if (existing != null) {
+            Users.update({ Users.email eq request.email }) { it[lastLoginAt] = now }
 
+            val finalUsername = existing[Users.username]
             val user = User(
-                id = existingUser[Users.id].toString(),
-                email = existingUser[Users.email],
-                username = existingUser[Users.username],
-                fullName = existingUser[Users.fullName],
-                role = existingUser[Users.role],
-                profileImageUrl = request.profilePictureUrl ?: existingUser[Users.profileImageUrl],
-                isActive = existingUser[Users.isActive],
-                createdAt = existingUser[Users.createdAt],
+                id = existing[Users.id].toString(),
+                email = existing[Users.email],
+                username = finalUsername,
+                fullName = existing[Users.fullName],
+                role = existing[Users.role],
+                profileImageUrl = request.photoUrl ?: existing[Users.profileImageUrl],
+                isActive = existing[Users.isActive],
+                createdAt = existing[Users.createdAt],
                 lastLoginAt = now
             )
 
-            val token = JwtConfig.makeToken(request.email, existingUser[Users.id].toString(), existingUser[Users.username])
-            LoginResponse(token = token, user = user)
+            LoginResponse(
+                token = JwtConfig.makeToken(request.email, existing[Users.id].toString(), finalUsername),
+                user = user
+            )
         } else {
-            // New user - create account
             val userId = UUID.randomUUID()
-
-            // Generate username from email if displayName is not provided
-            val username = request.displayName?.replace(" ", "")?.lowercase()
-                ?: request.email.substringBefore("@")
-
-            // Make sure username is unique
-            var finalUsername = username
-            var counter = 1
-            while (Users.select { Users.username eq finalUsername }.count() > 0) {
-                finalUsername = "$username$counter"
-                counter++
-            }
+            val baseUsername = request.email.substringBefore("@").replace(Regex("[^a-zA-Z0-9_]"), "_")
+            val finalUsername = if (Users.select { Users.username eq baseUsername }.count() == 0L)
+                baseUsername
+            else
+                "${baseUsername}_${userId.toString().take(4)}"
 
             Users.insert {
                 it[id] = userId
                 it[email] = request.email
-                it[Users.username] = finalUsername
+                it[username] = finalUsername
                 it[fullName] = request.displayName ?: request.email.substringBefore("@")
-                it[passwordHash] = "" // No password for Google sign-in users
-                it[profileImageUrl] = request.profilePictureUrl
+                it[passwordHash] = BCrypt.hashpw(UUID.randomUUID().toString(), BCrypt.gensalt())
+                it[profileImageUrl] = request.photoUrl
                 it[createdAt] = now
                 it[lastLoginAt] = now
             }
@@ -152,77 +129,15 @@ object AuthService {
                 username = finalUsername,
                 fullName = request.displayName ?: request.email.substringBefore("@"),
                 role = UserRole.USER,
-                profileImageUrl = request.profilePictureUrl,
+                profileImageUrl = request.photoUrl,
                 createdAt = now,
                 lastLoginAt = now
             )
 
-            val token = JwtConfig.makeToken(request.email, userId.toString(), finalUsername)
-            LoginResponse(token = token, user = user)
-        }
-    }
-
-    suspend fun getUserById(id: String): User? = dbQuery {
-        Users.select { Users.id eq UUID.fromString(id) }
-            .map { row ->
-                User(
-                    id = row[Users.id].toString(),
-                    email = row[Users.email],
-                    username = row[Users.username],
-                    fullName = row[Users.fullName],
-                    role = row[Users.role],
-                    profileImageUrl = row[Users.profileImageUrl],
-                    isActive = row[Users.isActive],
-                    createdAt = row[Users.createdAt],
-                    lastLoginAt = row[Users.lastLoginAt]
-                )
-            }
-            .singleOrNull()
-    }
-    
-    suspend fun getUserByEmail(email: String): User? = dbQuery {
-        Users.select { Users.email eq email }
-            .map { row ->
-                User(
-                    id = row[Users.id].toString(),
-                    email = row[Users.email],
-                    username = row[Users.username],
-                    fullName = row[Users.fullName],
-                    role = row[Users.role],
-                    profileImageUrl = row[Users.profileImageUrl],
-                    isActive = row[Users.isActive],
-                    createdAt = row[Users.createdAt],
-                    lastLoginAt = row[Users.lastLoginAt]
-                )
-            }
-            .singleOrNull()
-    }
-
-    suspend fun updateProfile(userId: String, fullName: String?, profileImageUrl: String?): User? = dbQuery {
-        val updateCount = Users.update({ Users.id eq UUID.fromString(userId) }) {
-            if (fullName != null) it[Users.fullName] = fullName
-            if (profileImageUrl != null) it[Users.profileImageUrl] = profileImageUrl
-        }
-
-        if (updateCount > 0) {
-            getUserById(userId)
-        } else {
-            null
-        }
-    }
-
-    suspend fun updatePassword(userId: String, oldPassword: String, newPassword: String): Boolean = dbQuery {
-        val userRow = Users.select { Users.id eq UUID.fromString(userId) }
-            .singleOrNull()
-
-        if (userRow != null && BCrypt.checkpw(oldPassword, userRow[Users.passwordHash])) {
-            val hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt())
-            Users.update({ Users.id eq UUID.fromString(userId) }) {
-                it[passwordHash] = hashedPassword
-            }
-            true
-        } else {
-            false
+            LoginResponse(
+                token = JwtConfig.makeToken(request.email, userId.toString(), finalUsername),
+                user = user
+            )
         }
     }
 }

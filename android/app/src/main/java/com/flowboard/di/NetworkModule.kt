@@ -1,8 +1,11 @@
 package com.flowboard.di
 
 import com.flowboard.data.remote.api.AuthApiService
+import com.flowboard.data.remote.api.PermissionApiService
+import com.flowboard.data.remote.api.PermissionApiServiceImpl
 import com.flowboard.data.remote.api.TaskApiService
 import com.flowboard.data.remote.websocket.TaskWebSocketClient
+import com.flowboard.data.repository.AuthRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -12,8 +15,6 @@ import io.ktor.client.engine.android.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
-import io.ktor.client.plugins.auth.*
-import io.ktor.client.plugins.auth.providers.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
@@ -34,141 +35,85 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideHttpClient(): HttpClient {
-        return HttpClient(Android) {
-            // Configurar timeouts más largos para el servidor de producción
-            engine {
-                connectTimeout = 30_000  // 30 segundos
-                socketTimeout = 30_000   // 30 segundos
-            }
+    fun provideJson(): Json = Json {
+        prettyPrint = true
+        isLenient = true
+        ignoreUnknownKeys = true
+    }
 
-            install(ContentNegotiation) {
-                json(Json {
-                    prettyPrint = true
-                    isLenient = true
-                    ignoreUnknownKeys = true
-                })
-            }
-
-            install(Logging) {
-                logger = Logger.DEFAULT
-                level = LogLevel.ALL
-            }
-
-            expectSuccess = false  // Don't throw on non-2xx responses
-
-            install(Auth) {
-                bearer {
-                    loadTokens {
-                        // Load stored tokens (implement token storage)
-                        null
-                    }
-                    refreshTokens {
-                        // Refresh tokens logic
-                        null
-                    }
-                }
-            }
+    @Provides
+    @Singleton
+    fun provideHttpClient(): HttpClient = HttpClient(Android) {
+        engine {
+            connectTimeout = 30_000
+            socketTimeout = 30_000
         }
+        install(ContentNegotiation) {
+            json(Json { isLenient = true; ignoreUnknownKeys = true })
+        }
+        install(Logging) {
+            logger = Logger.DEFAULT
+            level = LogLevel.HEADERS
+        }
+        expectSuccess = false
     }
 
     @Provides
     @Singleton
     @HttpClientQualifier
-    fun provideHttpClientQualified(): HttpClient {
-        return HttpClient(Android) {
-            // Configurar timeouts más largos para el servidor de producción
-            engine {
-                connectTimeout = 30_000  // 30 segundos
-                socketTimeout = 30_000   // 30 segundos
-            }
-
-            install(ContentNegotiation) {
-                json(Json {
-                    prettyPrint = true
-                    isLenient = true
-                    ignoreUnknownKeys = true
-                })
-            }
-
-            install(Logging) {
-                logger = Logger.DEFAULT
-                level = LogLevel.ALL
-            }
-
-            expectSuccess = false  // Don't throw on non-2xx responses
-
-            install(Auth) {
-                bearer {
-                    loadTokens {
-                        // Load stored tokens (implement token storage)
-                        null
-                    }
-                    refreshTokens {
-                        // Refresh tokens logic
-                        null
-                    }
-                }
-            }
+    fun provideHttpClientQualified(): HttpClient = HttpClient(Android) {
+        engine {
+            connectTimeout = 30_000
+            socketTimeout = 30_000
         }
+        install(ContentNegotiation) {
+            json(Json { isLenient = true; ignoreUnknownKeys = true })
+        }
+        install(Logging) {
+            logger = Logger.DEFAULT
+            level = LogLevel.HEADERS
+        }
+        expectSuccess = false
     }
 
     @Provides
     @Singleton
     @WebSocketClientQualifier
-    fun provideWebSocketClient(): HttpClient {
-        return HttpClient(OkHttp) {
-            install(ContentNegotiation) {
-                json(Json {
-                    prettyPrint = true
-                    isLenient = true
-                    ignoreUnknownKeys = true
-                })
-            }
-
-            install(Logging) {
-                logger = Logger.DEFAULT
-                level = LogLevel.INFO
-            }
-
-            install(WebSockets) {
-                pingInterval = 30_000 // 30 seconds
-                maxFrameSize = Long.MAX_VALUE
-            }
+    fun provideWebSocketClient(): HttpClient = HttpClient(OkHttp) {
+        install(ContentNegotiation) {
+            json(Json { isLenient = true; ignoreUnknownKeys = true })
+        }
+        install(Logging) {
+            logger = Logger.DEFAULT
+            level = LogLevel.INFO
+        }
+        install(WebSockets) {
+            pingInterval = 30_000
+            maxFrameSize = Long.MAX_VALUE
         }
     }
 
     @Provides
     @Singleton
-    fun provideTaskApiService(@HttpClientQualifier httpClient: HttpClient): TaskApiService {
-        return TaskApiService(httpClient)
-    }
+    fun provideAuthApiService(@HttpClientQualifier httpClient: HttpClient): AuthApiService =
+        AuthApiService(httpClient)
 
     @Provides
     @Singleton
-    fun provideTaskWebSocketClient(@WebSocketClientQualifier httpClient: HttpClient): TaskWebSocketClient {
-        return TaskWebSocketClient(httpClient)
-    }
+    fun provideTaskApiService(
+        @HttpClientQualifier httpClient: HttpClient,
+        authRepository: AuthRepository
+    ): TaskApiService = TaskApiService(httpClient, authRepository)
 
     @Provides
     @Singleton
-    fun provideAuthApiService(@HttpClientQualifier httpClient: HttpClient): AuthApiService {
-        return AuthApiService(httpClient)
-    }
+    fun providePermissionApiService(
+        @HttpClientQualifier httpClient: HttpClient,
+        authRepository: AuthRepository
+    ): PermissionApiService = PermissionApiServiceImpl(httpClient, authRepository)
 
     @Provides
     @Singleton
-    fun providePermissionApiService(@HttpClientQualifier httpClient: HttpClient): com.flowboard.data.remote.api.PermissionApiService {
-        return com.flowboard.data.remote.api.PermissionApiServiceImpl(httpClient)
-    }
-
-    @Provides
-    @Singleton
-    fun provideJson(): Json {
-        return Json {
-            prettyPrint = true
-            isLenient = true
-            ignoreUnknownKeys = true
-        }
-    }
+    fun provideTaskWebSocketClient(@WebSocketClientQualifier httpClient: HttpClient): TaskWebSocketClient =
+        TaskWebSocketClient(httpClient)
 }
