@@ -3,20 +3,23 @@ package com.flowboard.data.models
 import com.flowboard.data.models.crdt.CollaborativeDocument
 import com.flowboard.data.models.crdt.DocumentOperation
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * WebSocket messages for document collaboration
+ * WebSocket messages for document collaboration.
+ *
+ * IMPORTANT: @SerialName values must match the `type` field values set on the backend
+ * (e.g. "JOIN_DOCUMENT", "DOCUMENT_JOINED", etc.) so that kotlinx.serialization can
+ * correctly discriminate between subtypes during JSON decoding.
  */
 @Serializable
 sealed class DocumentWebSocketMessage {
     abstract val timestamp: LocalDateTime
 }
 
-/**
- * Client joins a document room
- */
 @Serializable
+@SerialName("JOIN_DOCUMENT")
 data class JoinDocumentMessage(
     override val timestamp: LocalDateTime,
     val documentId: String,
@@ -24,10 +27,8 @@ data class JoinDocumentMessage(
     val userName: String
 ) : DocumentWebSocketMessage()
 
-/**
- * Server confirms room joined
- */
 @Serializable
+@SerialName("DOCUMENT_JOINED")
 data class DocumentJoinedMessage(
     override val timestamp: LocalDateTime,
     val documentId: String,
@@ -35,20 +36,16 @@ data class DocumentJoinedMessage(
     val activeUsers: List<DocumentUserPresence>
 ) : DocumentWebSocketMessage()
 
-/**
- * Client sends an operation
- */
 @Serializable
+@SerialName("DOCUMENT_OPERATION")
 data class DocumentOperationMessage(
     override val timestamp: LocalDateTime,
     val operation: DocumentOperation,
     val userId: String
 ) : DocumentWebSocketMessage()
 
-/**
- * Server broadcasts operation to all clients
- */
 @Serializable
+@SerialName("DOCUMENT_OPERATION_BROADCAST")
 data class DocumentOperationBroadcast(
     override val timestamp: LocalDateTime,
     val operation: DocumentOperation,
@@ -56,10 +53,8 @@ data class DocumentOperationBroadcast(
     val userName: String
 ) : DocumentWebSocketMessage()
 
-/**
- * Client sends cursor position
- */
 @Serializable
+@SerialName("CURSOR_UPDATE")
 data class CursorUpdateMessage(
     override val timestamp: LocalDateTime,
     val documentId: String,
@@ -72,59 +67,47 @@ data class CursorUpdateMessage(
     val color: String
 ) : DocumentWebSocketMessage()
 
-/**
- * User joined document
- */
 @Serializable
+@SerialName("USER_JOINED_DOCUMENT")
 data class UserJoinedDocumentMessage(
     override val timestamp: LocalDateTime,
     val documentId: String,
     val user: DocumentUserPresence
 ) : DocumentWebSocketMessage()
 
-/**
- * User left document
- */
 @Serializable
+@SerialName("USER_LEFT_DOCUMENT")
 data class UserLeftDocumentMessage(
     override val timestamp: LocalDateTime,
     val documentId: String,
     val userId: String
 ) : DocumentWebSocketMessage()
 
-/**
- * Request full document state
- */
 @Serializable
+@SerialName("REQUEST_DOCUMENT_STATE")
 data class RequestDocumentStateMessage(
     override val timestamp: LocalDateTime,
     val documentId: String
 ) : DocumentWebSocketMessage()
 
-/**
- * Server sends full document state
- */
 @Serializable
+@SerialName("DOCUMENT_STATE")
 data class DocumentStateMessage(
     override val timestamp: LocalDateTime,
     val document: CollaborativeDocument,
     val activeUsers: List<DocumentUserPresence>
 ) : DocumentWebSocketMessage()
 
-/**
- * Error message
- */
 @Serializable
+@SerialName("DOCUMENT_ERROR")
 data class DocumentErrorMessage(
     override val timestamp: LocalDateTime,
     val error: String,
     val code: String
 ) : DocumentWebSocketMessage()
 
-/**
- * Acknowledgment of operation
- */
 @Serializable
+@SerialName("OPERATION_ACK")
 data class OperationAckMessage(
     override val timestamp: LocalDateTime,
     val operationId: String,
@@ -132,10 +115,6 @@ data class OperationAckMessage(
     val error: String? = null
 ) : DocumentWebSocketMessage()
 
-/**
- * Document user presence info with cursor
- * Note: Renamed to avoid conflict with UserPresenceInfo in WebSocketMessage
- */
 @Serializable
 data class DocumentUserPresence(
     val userId: String,
@@ -146,9 +125,6 @@ data class DocumentUserPresence(
     val isOnline: Boolean = true
 )
 
-/**
- * Cursor position
- */
 @Serializable
 data class CursorPosition(
     val blockId: String?,

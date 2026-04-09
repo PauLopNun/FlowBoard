@@ -10,6 +10,10 @@ import com.flowboard.data.models.crdt.*
 import com.flowboard.data.remote.websocket.ConnectionState
 import com.flowboard.data.remote.websocket.DocumentWebSocketClient
 import com.flowboard.data.repository.AuthRepository
+import com.flowboard.domain.model.GrantPermissionRequest
+import com.flowboard.domain.model.PermissionLevel
+import com.flowboard.domain.model.ResourceType
+import com.flowboard.domain.repository.PermissionRepository
 import com.flowboard.presentation.ui.components.RemoteCursor
 import com.flowboard.presentation.ui.components.getUserColor
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,7 +31,8 @@ private const val TAG = "CollaborativeDocViewModel"
 class CollaborativeDocumentViewModel @Inject constructor(
     private val crdtEngine: CRDTEngine,
     private val webSocketClient: DocumentWebSocketClient,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val permissionRepository: PermissionRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CollaborativeDocumentUiState())
@@ -377,10 +382,46 @@ class CollaborativeDocumentViewModel @Inject constructor(
     }
 
     /**
+     * Share document with another user by email
+     */
+    fun shareDocument(email: String, role: String) {
+        val documentId = _uiState.value.currentDocumentId ?: return
+        viewModelScope.launch {
+            try {
+                val level = if (role.equals("editor", ignoreCase = true)) {
+                    PermissionLevel.EDITOR
+                } else {
+                    PermissionLevel.VIEWER
+                }
+                val request = GrantPermissionRequest(
+                    resourceId = documentId,
+                    resourceType = ResourceType.DOCUMENT,
+                    userEmail = email,
+                    level = level
+                )
+                permissionRepository.grantPermission(request)
+                    .onSuccess {
+                        _uiState.update { it.copy(shareSuccessMessage = "Shared with $email") }
+                    }
+                    .onFailure { error ->
+                        _uiState.update { it.copy(error = "Failed to share: ${error.message}") }
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Share document failed", e)
+                _uiState.update { it.copy(error = "Share failed: ${e.message}") }
+            }
+        }
+    }
+
+    /**
      * Clear error
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun clearShareSuccess() {
+        _uiState.update { it.copy(shareSuccessMessage = null) }
     }
 
     override fun onCleared() {
@@ -397,5 +438,6 @@ data class CollaborativeDocumentUiState(
     val currentUserId: String? = null,
     val currentUserName: String? = null,
     val error: String? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val shareSuccessMessage: String? = null
 )

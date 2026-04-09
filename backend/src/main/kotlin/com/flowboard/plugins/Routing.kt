@@ -58,6 +58,6 @@ fun Application.configureRouting() {
             ignoreUnknownKeys = true
             encodeDefaults = true
         }
-        documentWebSocketRoutes(json)
+        documentWebSocketRoutes(json, documentPersistenceService, documentService)
     }
 }

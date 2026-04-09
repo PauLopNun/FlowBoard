@@ -1,10 +1,19 @@
 package com.flowboard
 
 import android.app.Activity
+import android.util.Log
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -12,28 +21,27 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import android.util.Log
 import com.flowboard.presentation.ui.screens.auth.LoginScreen
 import com.flowboard.presentation.ui.screens.auth.RegisterScreen
-import com.flowboard.presentation.ui.screens.dashboard.DashboardScreen
-import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
-import com.flowboard.presentation.ui.screens.tasks.CreateTaskScreen
-import com.flowboard.presentation.ui.screens.tasks.TaskDetailScreen
-import com.flowboard.presentation.ui.screens.documents.DocumentEditorScreen
-import com.flowboard.presentation.ui.screens.documents.MyDocumentsScreen
-import com.flowboard.presentation.ui.screens.notifications.NotificationCenterScreen
 import com.flowboard.presentation.ui.screens.chat.ChatListScreen
 import com.flowboard.presentation.ui.screens.chat.ChatScreen
+import com.flowboard.presentation.ui.screens.dashboard.DashboardScreen
+import com.flowboard.presentation.ui.screens.documents.CollaborativeDocumentScreenV2
+import com.flowboard.presentation.ui.screens.documents.MyDocumentsScreen
+import com.flowboard.presentation.ui.screens.notifications.NotificationCenterScreen
 import com.flowboard.presentation.ui.screens.profile.ProfileScreen
 import com.flowboard.presentation.ui.screens.settings.SettingsScreen
+import com.flowboard.presentation.ui.screens.tasks.CreateTaskScreen
+import com.flowboard.presentation.ui.screens.tasks.TaskDetailScreen
+import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
+import com.flowboard.presentation.viewmodel.ChatViewModel
+import com.flowboard.presentation.viewmodel.DocumentViewModel
 import com.flowboard.presentation.viewmodel.LoginState
 import com.flowboard.presentation.viewmodel.LoginViewModel
+import com.flowboard.presentation.viewmodel.NotificationViewModel
 import com.flowboard.presentation.viewmodel.RegisterState
 import com.flowboard.presentation.viewmodel.RegisterViewModel
 import com.flowboard.presentation.viewmodel.TaskViewModel
-import com.flowboard.presentation.viewmodel.DocumentViewModel
-import com.flowboard.presentation.viewmodel.NotificationViewModel
-import com.flowboard.presentation.viewmodel.ChatViewModel
 
 @Composable
 fun FlowBoardApp(
@@ -207,21 +215,62 @@ fun FlowBoardApp(
             )
         }
 
-        // Crear nuevo documento
+        // Crear nuevo documento: show title dialog, create via API, then open collaborative editor
         composable("document_new") {
-            DocumentEditorScreen(
-                documentId = null,
-                onNavigateBack = {
-                    navController.popBackStack()
+            val documentViewModel: DocumentViewModel = hiltViewModel()
+            var title by remember { mutableStateOf("") }
+            var isCreating by remember { mutableStateOf(false) }
+
+            AlertDialog(
+                onDismissRequest = {
+                    if (!isCreating) navController.popBackStack()
+                },
+                title = { androidx.compose.material3.Text("New Document") },
+                text = {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { androidx.compose.material3.Text("Document Title") },
+                        singleLine = true,
+                        enabled = !isCreating
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val docTitle = title.trim().ifBlank { "Untitled Document" }
+                            isCreating = true
+                            documentViewModel.createDocumentViaApi(docTitle) { documentId ->
+                                navController.navigate("document_edit/$documentId") {
+                                    popUpTo("document_new") { inclusive = true }
+                                }
+                            }
+                        },
+                        enabled = !isCreating
+                    ) {
+                        if (isCreating) {
+                            CircularProgressIndicator(modifier = androidx.compose.ui.Modifier.size(16.dp))
+                        } else {
+                            androidx.compose.material3.Text("Create")
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { navController.popBackStack() },
+                        enabled = !isCreating
+                    ) {
+                        androidx.compose.material3.Text("Cancel")
+                    }
                 }
             )
         }
 
-        // Editar documento existente
+        // Abrir documento existente en el editor colaborativo en tiempo real
         composable("document_edit/{documentId}") { backStackEntry ->
             val documentId = backStackEntry.arguments?.getString("documentId") ?: return@composable
 
-            DocumentEditorScreen(
+            CollaborativeDocumentScreenV2(
                 documentId = documentId,
                 onNavigateBack = {
                     navController.popBackStack()

@@ -99,6 +99,20 @@ class DocumentPersistenceService {
         }
     }
 
+    /**
+     * Server-side save that skips permission checks (called by WebSocket handler on session end).
+     */
+    suspend fun saveDocumentContent(documentId: String, title: String, content: String) {
+        val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        dbQuery {
+            Documents.update({ Documents.id eq UUID.fromString(documentId) }) {
+                it[Documents.title] = title
+                it[Documents.content] = content
+                it[Documents.updatedAt] = now
+            }
+        }
+    }
+
     suspend fun updateDocument(documentId: String, userId: String, title: String?, content: String?, isPublic: Boolean?): Document? {
         val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
 

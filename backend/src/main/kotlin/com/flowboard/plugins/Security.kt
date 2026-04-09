@@ -47,11 +47,12 @@ object JwtConfig {
         .withAudience(audience)
         .build()
     
-    fun makeToken(email: String, userId: String): String = JWT.create()
+    fun makeToken(email: String, userId: String, username: String = ""): String = JWT.create()
         .withSubject("Authentication")
         .withIssuer(issuer)
         .withAudience(audience)
         .withClaim("email", email)
         .withClaim("userId", userId)
+        .withClaim("username", username)
         .sign(algorithm)
 }
