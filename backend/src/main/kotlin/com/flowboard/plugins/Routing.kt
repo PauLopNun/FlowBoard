@@ -10,7 +10,6 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 
 fun Application.configureRouting() {
-    // Singleton services para toda la aplicación
     val webSocketManager = WebSocketManager()
     val documentService = InMemoryDocumentService(webSocketManager)
     val documentPersistenceService = DocumentPersistenceService()
@@ -19,45 +18,28 @@ fun Application.configureRouting() {
     val permissionService = PermissionService()
     val taskService = TaskService(webSocketManager)
 
+    val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
     routing {
         get("/") {
             call.respondText("FlowBoard API is running!")
         }
 
         route("/api/v1") {
-            // Auth routes
             authRoutes()
-
-            // Task routes
             taskRoutes(taskService)
-
-            // User routes
             userRoutes()
-
-            // Project routes
             projectRoutes()
-
-            // Document routes (with persistence)
             documentRoutes(documentPersistenceService, notificationService)
-
-            // Notification routes
             notificationRoutes(notificationService)
-
-            // Chat routes
             chatRoutes(chatService)
-
-            // Permission routes (legacy)
             permissionRoutes(permissionService)
         }
 
-        // Rutas WebSocket (sin prefijo /api/v1)
         webSocketRoutes(webSocketManager, documentService)
-
-        // Document WebSocket routes for real-time collaboration
-        val json = Json {
-            ignoreUnknownKeys = true
-            encodeDefaults = true
-        }
         documentWebSocketRoutes(json, documentPersistenceService, documentService)
     }
 }

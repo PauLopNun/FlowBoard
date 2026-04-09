@@ -1,6 +1,8 @@
 package com.flowboard.data.remote.api
 
+import com.flowboard.data.remote.ApiConfig
 import com.flowboard.data.remote.dto.*
+import com.flowboard.data.repository.AuthRepository
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -9,116 +11,87 @@ import io.ktor.http.*
 import javax.inject.Inject
 
 class PermissionApiServiceImpl @Inject constructor(
-    private val client: HttpClient
+    private val client: HttpClient,
+    private val authRepository: AuthRepository
 ) : PermissionApiService {
 
-    private val baseUrl = "http://10.0.2.2:8080" // Android emulator localhost
+    private val baseUrl = "${ApiConfig.API_BASE_URL}/permissions"
 
-    override suspend fun grantPermission(request: GrantPermissionRequestDto): Result<PermissionDto> {
-        return try {
-            val response: HttpResponse = client.post("$baseUrl/api/permissions/grant") {
+    private suspend fun authHeader() =
+        authRepository.getToken()?.let { "Bearer $it" } ?: throw Exception("Not authenticated")
+
+    override suspend fun grantPermission(request: GrantPermissionRequestDto): Result<PermissionDto> =
+        runCatching {
+            val response: HttpResponse = client.post("$baseUrl/grant") {
+                header(HttpHeaders.Authorization, authHeader())
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
-
-            if (response.status.isSuccess()) {
-                Result.success(response.body<PermissionDto>())
-            } else {
-                Result.failure(Exception("Failed to grant permission: ${response.status}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+            if (response.status.isSuccess()) response.body()
+            else throw Exception("Failed to grant permission: ${response.status}")
         }
-    }
 
-    override suspend fun updatePermission(request: UpdatePermissionRequestDto): Result<PermissionDto> {
-        return try {
-            val response: HttpResponse = client.put("$baseUrl/api/permissions/update") {
+    override suspend fun updatePermission(request: UpdatePermissionRequestDto): Result<PermissionDto> =
+        runCatching {
+            val response: HttpResponse = client.put("$baseUrl/update") {
+                header(HttpHeaders.Authorization, authHeader())
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
-
-            if (response.status.isSuccess()) {
-                Result.success(response.body<PermissionDto>())
-            } else {
-                Result.failure(Exception("Failed to update permission: ${response.status}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+            if (response.status.isSuccess()) response.body()
+            else throw Exception("Failed to update permission: ${response.status}")
         }
-    }
 
-    override suspend fun revokePermission(permissionId: String): Result<Unit> {
-        return try {
-            val response: HttpResponse = client.delete("$baseUrl/api/permissions/$permissionId")
-
-            if (response.status.isSuccess()) {
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("Failed to revoke permission: ${response.status}"))
+    override suspend fun revokePermission(permissionId: String): Result<Unit> =
+        runCatching {
+            val response: HttpResponse = client.delete("$baseUrl/$permissionId") {
+                header(HttpHeaders.Authorization, authHeader())
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+            if (!response.status.isSuccess()) throw Exception("Failed to revoke permission: ${response.status}")
         }
-    }
 
     override suspend fun getResourcePermissions(
         resourceId: String,
         resourceType: String
-    ): Result<PermissionListResponseDto> {
-        return try {
-            val response: HttpResponse = client.get("$baseUrl/api/permissions/resource/$resourceType/$resourceId")
-
-            if (response.status.isSuccess()) {
-                Result.success(response.body<PermissionListResponseDto>())
-            } else {
-                Result.failure(Exception("Failed to get resource permissions: ${response.status}"))
+    ): Result<PermissionListResponseDto> =
+        runCatching {
+            val response: HttpResponse = client.get("$baseUrl/resource/$resourceType/$resourceId") {
+                header(HttpHeaders.Authorization, authHeader())
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+            if (response.status.isSuccess()) response.body()
+            else throw Exception("Failed to get permissions: ${response.status}")
         }
-    }
 
-    override suspend fun getUserPermissions(userId: String): Result<List<PermissionDto>> {
-        return try {
-            val response: HttpResponse = client.get("$baseUrl/api/permissions/user/$userId")
-
-            if (response.status.isSuccess()) {
-                Result.success(response.body<List<PermissionDto>>())
-            } else {
-                Result.failure(Exception("Failed to get user permissions: ${response.status}"))
+    override suspend fun getUserPermissions(userId: String): Result<List<PermissionDto>> =
+        runCatching {
+            val response: HttpResponse = client.get("$baseUrl/user/$userId") {
+                header(HttpHeaders.Authorization, authHeader())
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+            if (response.status.isSuccess()) response.body()
+            else throw Exception("Failed to get user permissions: ${response.status}")
         }
-    }
 
     override suspend fun checkPermission(
         resourceId: String,
         resourceType: String,
         userId: String,
         requiredLevel: String
-    ): Result<Boolean> {
-        return try {
-            val response: HttpResponse = client.get("$baseUrl/api/permissions/check") {
+    ): Result<Boolean> =
+        runCatching {
+            val response: HttpResponse = client.get("$baseUrl/check") {
+                header(HttpHeaders.Authorization, authHeader())
                 parameter("resourceId", resourceId)
                 parameter("resourceType", resourceType)
                 parameter("userId", userId)
                 parameter("requiredLevel", requiredLevel)
             }
-
-            if (response.status.isSuccess()) {
-                Result.success(response.body<Boolean>())
-            } else {
-                Result.failure(Exception("Failed to check permission: ${response.status}"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
+            if (response.status.isSuccess()) response.body()
+            else throw Exception("Permission check failed: ${response.status}")
         }
-    }
 
     override suspend fun inviteUser(boardId: String, inviteRequest: InviteRequest) {
-        client.post("$baseUrl/boards/$boardId/invite") {
+        client.post("${ApiConfig.API_BASE_URL}/boards/$boardId/invite") {
+            header(HttpHeaders.Authorization, authHeader())
             contentType(ContentType.Application.Json)
             setBody(inviteRequest)
         }
