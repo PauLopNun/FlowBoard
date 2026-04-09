@@ -79,6 +79,71 @@ object AuthService {
         }
     }
 
+    suspend fun getUserById(userId: String): User? = dbQuery {
+        Users.select { Users.id eq java.util.UUID.fromString(userId) }
+            .singleOrNull()
+            ?.let { row ->
+                User(
+                    id = row[Users.id].toString(),
+                    email = row[Users.email],
+                    username = row[Users.username],
+                    fullName = row[Users.fullName],
+                    role = row[Users.role],
+                    profileImageUrl = row[Users.profileImageUrl],
+                    isActive = row[Users.isActive],
+                    createdAt = row[Users.createdAt],
+                    lastLoginAt = row[Users.lastLoginAt]
+                )
+            }
+    }
+
+    suspend fun getUserByEmail(email: String): User? = dbQuery {
+        Users.select { Users.email eq email }
+            .singleOrNull()
+            ?.let { row ->
+                User(
+                    id = row[Users.id].toString(),
+                    email = row[Users.email],
+                    username = row[Users.username],
+                    fullName = row[Users.fullName],
+                    role = row[Users.role],
+                    profileImageUrl = row[Users.profileImageUrl],
+                    isActive = row[Users.isActive],
+                    createdAt = row[Users.createdAt],
+                    lastLoginAt = row[Users.lastLoginAt]
+                )
+            }
+    }
+
+    suspend fun updateProfile(userId: String, fullName: String?, profileImageUrl: String?): User? = dbQuery {
+        val uuid = java.util.UUID.fromString(userId)
+        Users.update({ Users.id eq uuid }) { row ->
+            fullName?.let { row[Users.fullName] = it }
+            profileImageUrl?.let { row[Users.profileImageUrl] = it }
+        }
+        Users.select { Users.id eq uuid }.singleOrNull()?.let { row ->
+            User(
+                id = row[Users.id].toString(),
+                email = row[Users.email],
+                username = row[Users.username],
+                fullName = row[Users.fullName],
+                role = row[Users.role],
+                profileImageUrl = row[Users.profileImageUrl],
+                isActive = row[Users.isActive],
+                createdAt = row[Users.createdAt],
+                lastLoginAt = row[Users.lastLoginAt]
+            )
+        }
+    }
+
+    suspend fun updatePassword(userId: String, oldPassword: String, newPassword: String): Boolean = dbQuery {
+        val uuid = java.util.UUID.fromString(userId)
+        val row = Users.select { Users.id eq uuid }.singleOrNull() ?: return@dbQuery false
+        if (!BCrypt.checkpw(oldPassword, row[Users.passwordHash])) return@dbQuery false
+        Users.update({ Users.id eq uuid }) { it[passwordHash] = BCrypt.hashpw(newPassword, BCrypt.gensalt()) }
+        true
+    }
+
     suspend fun googleSignIn(request: GoogleSignInRequest): LoginResponse = dbQuery {
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
 
