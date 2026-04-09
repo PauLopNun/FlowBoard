@@ -13,7 +13,7 @@ services:
       - key: DATABASE_URL
         fromDatabase:
           name: flowboard-db
-          property: connectionString
+          property: externalConnectionString
       - key: PORT
         value: 8080
       - key: KTOR_ENV

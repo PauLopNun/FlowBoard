@@ -73,13 +73,12 @@ object DatabaseFactory {
                     val hostAndPort = match.groupValues[3]
                     val database = match.groupValues[4]
 
-                    // On Render, use the internal hostname directly (no domain conversion, no SSL)
-                    // Internal format: dpg-xxxxx-a (resolves via Render's internal network)
-                    this.jdbcUrl = "jdbc:postgresql://$hostAndPort/$database"
+                    // Use host+port from URL as-is (external connection string includes full domain and port)
+                    this.jdbcUrl = "jdbc:postgresql://$hostAndPort/$database?sslmode=require"
                     this.username = username
                     this.password = password
 
-                    println("✅ Database connection configured for Render (internal network)")
+                    println("✅ Database connection configured")
                     println("📍 Host: $hostAndPort")
                     println("🗄️  Database: $database")
                 } else {
