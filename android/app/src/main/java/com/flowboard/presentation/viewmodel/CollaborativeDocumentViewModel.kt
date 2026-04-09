@@ -7,13 +7,10 @@ import androidx.lifecycle.viewModelScope
 import com.flowboard.data.crdt.CRDTEngine
 import com.flowboard.data.models.*
 import com.flowboard.data.models.crdt.*
+import com.flowboard.data.remote.api.DocumentApiService
 import com.flowboard.data.remote.websocket.ConnectionState
 import com.flowboard.data.remote.websocket.DocumentWebSocketClient
 import com.flowboard.data.repository.AuthRepository
-import com.flowboard.domain.model.GrantPermissionRequest
-import com.flowboard.domain.model.PermissionLevel
-import com.flowboard.domain.model.ResourceType
-import com.flowboard.domain.repository.PermissionRepository
 import com.flowboard.presentation.ui.components.RemoteCursor
 import com.flowboard.presentation.ui.components.getUserColor
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,7 +29,7 @@ class CollaborativeDocumentViewModel @Inject constructor(
     private val crdtEngine: CRDTEngine,
     private val webSocketClient: DocumentWebSocketClient,
     private val authRepository: AuthRepository,
-    private val permissionRepository: PermissionRepository
+    private val documentApiService: DocumentApiService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CollaborativeDocumentUiState())
@@ -388,24 +385,9 @@ class CollaborativeDocumentViewModel @Inject constructor(
         val documentId = _uiState.value.currentDocumentId ?: return
         viewModelScope.launch {
             try {
-                val level = if (role.equals("editor", ignoreCase = true)) {
-                    PermissionLevel.EDITOR
-                } else {
-                    PermissionLevel.VIEWER
-                }
-                val request = GrantPermissionRequest(
-                    resourceId = documentId,
-                    resourceType = ResourceType.DOCUMENT,
-                    userEmail = email,
-                    level = level
-                )
-                permissionRepository.grantPermission(request)
-                    .onSuccess {
-                        _uiState.update { it.copy(shareSuccessMessage = "Shared with $email") }
-                    }
-                    .onFailure { error ->
-                        _uiState.update { it.copy(error = "Failed to share: ${error.message}") }
-                    }
+                val roleStr = if (role.equals("editor", ignoreCase = true)) "editor" else "viewer"
+                documentApiService.shareDocument(documentId, email, roleStr)
+                _uiState.update { it.copy(shareSuccessMessage = "Shared with $email") }
             } catch (e: Exception) {
                 Log.e(TAG, "Share document failed", e)
                 _uiState.update { it.copy(error = "Share failed: ${e.message}") }
