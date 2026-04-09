@@ -2,6 +2,8 @@ package com.flowboard.routes
 
 import com.flowboard.data.models.*
 import com.flowboard.data.models.crdt.*
+import com.flowboard.domain.DocumentPersistenceService
+import com.flowboard.domain.DocumentService
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
@@ -9,20 +11,24 @@ import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * WebSocket routes for collaborative document editing
+ * WebSocket routes for collaborative document editing.
+ * Loads initial state from DB, maintains shared in-memory CRDT state,
+ * and persists back to DB when all users leave.
  */
-fun Route.documentWebSocketRoutes(json: Json) {
+fun Route.documentWebSocketRoutes(
+    json: Json,
+    documentPersistenceService: DocumentPersistenceService,
+    documentService: DocumentService
+) {
+    // Map of documentId → (userId → session)
     val documentSessions = ConcurrentHashMap<String, MutableMap<String, DocumentWebSocketSession>>()
 
     authenticate("auth-jwt") {
@@ -37,27 +43,46 @@ fun Route.documentWebSocketRoutes(json: Json) {
                 close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Unauthorized"))
                 return@webSocket
             }
+            val userName = principal?.payload?.getClaim("username")?.asString()
+                ?.takeIf { it.isNotBlank() }
+                ?: principal?.payload?.getClaim("email")?.asString()?.substringBefore("@")
+                ?: "Anonymous"
 
-            val userName = principal?.payload?.getClaim("username")?.asString() ?: "Anonymous"
-
-            // Create session
             val session = DocumentWebSocketSession(
                 id = userId,
                 userName = userName,
                 webSocketSession = this
             )
 
-            // Add to document sessions
+            // Add to sessions map for this document
             documentSessions.computeIfAbsent(documentId) { ConcurrentHashMap() }[userId] = session
-
-            // Get all sessions for this document
             val sessions = documentSessions[documentId]!!
 
             try {
-                // Send join confirmation
-                sendJoinedMessage(session, documentId, sessions, json)
+                // Load document from DB if not yet in memory
+                if (!documentService.hasDocument(documentId)) {
+                    val dbDoc = try {
+                        documentPersistenceService.getDocumentById(documentId, userId)
+                    } catch (e: Exception) {
+                        println("Could not load document $documentId from DB: ${e.message}")
+                        null
+                    }
 
-                // Broadcast user joined
+                    val initialBlocks = if (dbDoc != null) {
+                        parseBlocksFromContent(dbDoc.content, documentId)
+                    } else {
+                        listOf(
+                            ContentBlock(id = "block-1", type = "h1", content = "Untitled Document"),
+                            ContentBlock(id = "block-2", type = "p", content = "")
+                        )
+                    }
+                    documentService.initializeDocument(documentId, initialBlocks)
+                }
+
+                // Send join confirmation with current document state
+                sendJoinedMessage(session, documentId, sessions, documentService, json)
+
+                // Broadcast that a new user joined
                 broadcastToOthers(
                     sessions = sessions,
                     excludeUserId = userId,
@@ -74,15 +99,15 @@ fun Route.documentWebSocketRoutes(json: Json) {
                     json = json
                 )
 
-                // Listen for messages
+                // Listen for incoming messages
                 for (frame in incoming) {
                     if (frame is Frame.Text) {
-                        val text = frame.readText()
                         handleIncomingMessage(
-                            text = text,
+                            text = frame.readText(),
                             session = session,
                             documentId = documentId,
                             sessions = sessions,
+                            documentService = documentService,
                             json = json
                         )
                     }
@@ -93,13 +118,15 @@ fun Route.documentWebSocketRoutes(json: Json) {
                 println("Error in WebSocket for user $userId: ${e.message}")
                 e.printStackTrace()
             } finally {
-                // Remove session
                 sessions.remove(userId)
+
+                // If last user left, persist document to DB
                 if (sessions.isEmpty()) {
                     documentSessions.remove(documentId)
+                    persistDocumentToDb(documentId, documentService, documentPersistenceService)
                 }
 
-                // Broadcast user left
+                // Notify remaining users
                 broadcastToAll(
                     sessions = sessions,
                     message = UserLeftDocumentMessage(
@@ -115,30 +142,76 @@ fun Route.documentWebSocketRoutes(json: Json) {
 }
 
 /**
- * Send joined message with document state
+ * Serialize blocks to JSON string for DB storage
+ */
+private fun serializeBlocks(blocks: List<ContentBlock>, json: Json): String {
+    return try {
+        json.encodeToString(blocks)
+    } catch (e: Exception) {
+        "[]"
+    }
+}
+
+/**
+ * Parse blocks from DB content field.
+ * Content may be a JSON array of ContentBlock or plain text.
+ */
+private fun parseBlocksFromContent(content: String, documentId: String): List<ContentBlock> {
+    if (content.isBlank()) {
+        return listOf(ContentBlock(id = "block-1", type = "p", content = ""))
+    }
+    return try {
+        val trimmed = content.trim()
+        if (trimmed.startsWith("[")) {
+            Json { ignoreUnknownKeys = true }.decodeFromString<List<ContentBlock>>(trimmed)
+        } else {
+            // Legacy plain text content — wrap in a paragraph block
+            val lines = content.split("\n").filter { it.isNotBlank() }
+            if (lines.isEmpty()) {
+                listOf(ContentBlock(id = "block-1", type = "p", content = content))
+            } else {
+                lines.mapIndexed { idx, line ->
+                    ContentBlock(id = "block-${idx + 1}", type = "p", content = line)
+                }
+            }
+        }
+    } catch (e: Exception) {
+        listOf(ContentBlock(id = "block-1", type = "p", content = content))
+    }
+}
+
+/**
+ * Persist document content back to DB (server-side, no permission check).
+ */
+private suspend fun persistDocumentToDb(
+    documentId: String,
+    documentService: DocumentService,
+    documentPersistenceService: DocumentPersistenceService
+) {
+    try {
+        val doc = documentService.getDocument(documentId)
+        val json = Json { encodeDefaults = true }
+        val contentJson = serializeBlocks(doc.blocks, json)
+        val title = doc.blocks.firstOrNull { it.type == "h1" }?.content?.takeIf { it.isNotBlank() }
+            ?: "Untitled Document"
+        documentPersistenceService.saveDocumentContent(documentId, title, contentJson)
+        println("Persisted document $documentId to DB (${doc.blocks.size} blocks)")
+    } catch (e: Exception) {
+        println("Failed to persist document $documentId: ${e.message}")
+    }
+}
+
+/**
+ * Send join confirmation with current document state
  */
 private suspend fun sendJoinedMessage(
     session: DocumentWebSocketSession,
     documentId: String,
     sessions: Map<String, DocumentWebSocketSession>,
+    documentService: DocumentService,
     json: Json
 ) {
-    // TODO: Load actual document from database
-    val document = CollaborativeDocument(
-        id = documentId,
-        blocks = listOf(
-            ContentBlock(
-                id = "block-1",
-                type = "h1",
-                content = "Welcome to FlowBoard!"
-            ),
-            ContentBlock(
-                id = "block-2",
-                type = "p",
-                content = "Start collaborating in real-time with your team."
-            )
-        )
-    )
+    val document = documentService.getDocument(documentId)
 
     val activeUsers = sessions.values.map { s ->
         DocumentUserPresence(
@@ -160,13 +233,14 @@ private suspend fun sendJoinedMessage(
 }
 
 /**
- * Handle incoming message
+ * Handle an incoming message from a client
  */
 private suspend fun handleIncomingMessage(
     text: String,
     session: DocumentWebSocketSession,
     documentId: String,
     sessions: Map<String, DocumentWebSocketSession>,
+    documentService: DocumentService,
     json: Json
 ) {
     try {
@@ -174,23 +248,31 @@ private suspend fun handleIncomingMessage(
 
         when (message) {
             is DocumentOperationMessage -> {
-                // Broadcast operation to all other users
-                val broadcast = DocumentOperationBroadcast(
-                    timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
-                    operation = message.operation,
-                    userId = message.userId,
-                    userName = session.userName
+                // Apply operation to the shared in-memory document
+                val updatedDoc = documentService.applyOperation(message.operation)
+
+                // Broadcast to all other users
+                broadcastToOthers(
+                    sessions, session.id,
+                    DocumentOperationBroadcast(
+                        timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
+                        operation = message.operation,
+                        userId = message.userId,
+                        userName = session.userName
+                    ),
+                    json
                 )
 
-                broadcastToOthers(sessions, session.id, broadcast, json)
-
-                // Send acknowledgment
-                val ack = OperationAckMessage(
-                    timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
-                    operationId = message.operation.operationId,
-                    success = true
+                // Acknowledge to sender
+                session.send(
+                    json.encodeToString<DocumentWebSocketMessage>(
+                        OperationAckMessage(
+                            timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
+                            operationId = message.operation.operationId,
+                            success = true
+                        )
+                    )
                 )
-                session.send(json.encodeToString<DocumentWebSocketMessage>(ack))
             }
 
             is CursorUpdateMessage -> {
@@ -199,13 +281,7 @@ private suspend fun handleIncomingMessage(
             }
 
             is RequestDocumentStateMessage -> {
-                // Send current document state
-                // TODO: Load from database
-                val document = CollaborativeDocument(
-                    id = documentId,
-                    blocks = emptyList()
-                )
-
+                val document = documentService.getDocument(documentId)
                 val activeUsers = sessions.values.map { s ->
                     DocumentUserPresence(
                         userId = s.id,
@@ -214,55 +290,48 @@ private suspend fun handleIncomingMessage(
                         isOnline = true
                     )
                 }
-
-                val stateMessage = DocumentStateMessage(
-                    timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
-                    document = document,
-                    activeUsers = activeUsers
+                session.send(
+                    json.encodeToString<DocumentWebSocketMessage>(
+                        DocumentStateMessage(
+                            timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
+                            document = document,
+                            activeUsers = activeUsers
+                        )
+                    )
                 )
-
-                session.send(json.encodeToString<DocumentWebSocketMessage>(stateMessage))
             }
 
             else -> {
-                println("Unknown message type: ${message::class.simpleName}")
+                println("Unhandled message type: ${message::class.simpleName}")
             }
         }
     } catch (e: Exception) {
         println("Failed to handle message: ${e.message}")
-        e.printStackTrace()
-
-        // Send error to client
-        val error = DocumentErrorMessage(
-            timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
-            error = "Failed to process message: ${e.message}",
-            code = "PROCESSING_ERROR"
-        )
-        session.send(json.encodeToString<DocumentWebSocketMessage>(error))
+        try {
+            session.send(
+                json.encodeToString<DocumentWebSocketMessage>(
+                    DocumentErrorMessage(
+                        timestamp = Clock.System.now().toLocalDateTime(TimeZone.UTC),
+                        error = "Failed to process message: ${e.message}",
+                        code = "PROCESSING_ERROR"
+                    )
+                )
+            )
+        } catch (_: Exception) {}
     }
 }
 
-/**
- * Broadcast message to all sessions
- */
 private suspend fun broadcastToAll(
     sessions: Map<String, DocumentWebSocketSession>,
     message: DocumentWebSocketMessage,
     json: Json
 ) {
     val serialized = json.encodeToString<DocumentWebSocketMessage>(message)
-    sessions.values.forEach { session ->
-        try {
-            session.send(serialized)
-        } catch (e: Exception) {
-            println("Failed to send to ${session.userName}: ${e.message}")
-        }
+    sessions.values.forEach { s ->
+        try { s.send(serialized) } catch (_: Exception) {}
     }
 }
 
-/**
- * Broadcast message to all except one user
- */
 private suspend fun broadcastToOthers(
     sessions: Map<String, DocumentWebSocketSession>,
     excludeUserId: String,
@@ -270,33 +339,20 @@ private suspend fun broadcastToOthers(
     json: Json
 ) {
     val serialized = json.encodeToString<DocumentWebSocketMessage>(message)
-    sessions.values
-        .filter { it.id != excludeUserId }
-        .forEach { session ->
-            try {
-                session.send(serialized)
-            } catch (e: Exception) {
-                println("Failed to send to ${session.userName}: ${e.message}")
-            }
-        }
+    sessions.values.filter { it.id != excludeUserId }.forEach { s ->
+        try { s.send(serialized) } catch (_: Exception) {}
+    }
 }
 
-/**
- * Get consistent color for user
- */
 private fun getUserColor(userId: String): String {
     val colors = listOf(
         "EF4444", "F97316", "FBBF24", "10B981",
         "14B8A6", "3B82F6", "6366F1", "8B5CF6", "EC4899"
     )
-    val hash = userId.hashCode()
-    val index = (hash and Int.MAX_VALUE) % colors.size
+    val index = (userId.hashCode() and Int.MAX_VALUE) % colors.size
     return colors[index]
 }
 
-/**
- * Document WebSocket session
- */
 data class DocumentWebSocketSession(
     val id: String,
     val userName: String,

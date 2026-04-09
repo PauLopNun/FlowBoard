@@ -16,12 +16,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.flowboard.presentation.viewmodel.DocumentEditorViewModel
-import java.time.format.DateTimeFormatter
-import java.time.LocalDateTime as JavaLocalDateTime
+import com.flowboard.data.local.entities.DocumentEntity
+import com.flowboard.presentation.viewmodel.DocumentViewModel
 
 /**
- * Pantalla para ver todos los documentos guardados
+ * Pantalla de lista de documentos.
+ * Carga documentos propios Y compartidos desde el servidor.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,10 +30,15 @@ fun MyDocumentsScreen(
     onCreateDocument: () -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: DocumentEditorViewModel = hiltViewModel()
+    viewModel: DocumentViewModel = hiltViewModel()
 ) {
-    val documents by viewModel.allDocuments.collectAsStateWithLifecycle()
+    val listState by viewModel.documentListState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
+
+    // Cargar documentos del servidor al entrar
+    LaunchedEffect(Unit) {
+        viewModel.fetchAllDocuments()
+    }
 
     Scaffold(
         topBar = {
@@ -42,6 +47,12 @@ fun MyDocumentsScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    // Botón de recargar
+                    IconButton(onClick = { viewModel.fetchAllDocuments() }) {
+                        Icon(Icons.Default.Refresh, "Refresh")
                     }
                 }
             )
@@ -54,12 +65,20 @@ fun MyDocumentsScreen(
             )
         }
     ) { padding ->
-        if (documents.isEmpty()) {
-            // Estado vacío
+
+        if (listState.isLoading) {
             Box(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
+
+        listState.error?.let { error ->
+            Box(
+                modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -67,18 +86,47 @@ fun MyDocumentsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Description,
+                        Icons.Default.ErrorOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(60.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Text("Could not load documents", style = MaterialTheme.typography.titleMedium)
+                    Text(error, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FilledTonalButton(onClick = { viewModel.fetchAllDocuments() }) {
+                        Text("Retry")
+                    }
+                }
+            }
+            return@Scaffold
+        }
+
+        val ownedDocs = listState.ownedDocuments
+        val sharedDocs = listState.sharedWithMe
+
+        if (ownedDocs.isEmpty() && sharedDocs.isEmpty()) {
+            Box(
+                modifier = modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Description,
                         contentDescription = null,
                         modifier = Modifier.size(80.dp),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                     )
                     Text(
-                        text = "No documents yet",
+                        "No documents yet",
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
                     Text(
-                        text = "Create your first document to get started",
+                        "Create your first document to get started",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
@@ -91,33 +139,52 @@ fun MyDocumentsScreen(
                 }
             }
         } else {
-            // Lista de documentos
             LazyColumn(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                modifier = modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                item {
-                    Text(
-                        text = "${documents.size} document${if (documents.size == 1) "" else "s"}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Spacer(Modifier.height(8.dp))
+                // Documentos propios
+                if (ownedDocs.isNotEmpty()) {
+                    item {
+                        Text(
+                            "My Documents (${ownedDocs.size})",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                    items(items = ownedDocs, key = { it.id }) { doc ->
+                        DocumentCard(
+                            title = doc.title,
+                            subtitle = "Owner • ${formatDate(doc.updatedAt)}",
+                            onClick = { onDocumentClick(doc.id) },
+                            onDelete = { showDeleteDialog = doc.id },
+                            showDelete = true
+                        )
+                    }
                 }
 
-                items(
-                    items = documents,
-                    key = { it.id }
-                ) { document ->
-                    DocumentCard(
-                        title = document.title,
-                        lastModified = document.updatedAt,
-                        onClick = { onDocumentClick(document.id) },
-                        onDelete = { showDeleteDialog = document.id }
-                    )
+                // Documentos compartidos conmigo
+                if (sharedDocs.isNotEmpty()) {
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Shared with me (${sharedDocs.size})",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                    items(items = sharedDocs, key = { "shared_${it.id}" }) { doc ->
+                        DocumentCard(
+                            title = doc.title,
+                            subtitle = "Shared by ${doc.ownerName ?: "someone"} • ${formatDate(doc.updatedAt)}",
+                            onClick = { onDocumentClick(doc.id) },
+                            onDelete = null,
+                            showDelete = false
+                        )
+                    }
                 }
             }
         }
@@ -131,7 +198,7 @@ fun MyDocumentsScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            viewModel.deleteDocument(documentId)
+                            viewModel.deleteDocumentViaApi(documentId)
                             showDeleteDialog = null
                         }
                     ) {
@@ -151,26 +218,23 @@ fun MyDocumentsScreen(
 @Composable
 private fun DocumentCard(
     title: String,
-    lastModified: String,
+    subtitle: String,
     onClick: () -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (() -> Unit)?,
+    showDelete: Boolean,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -180,14 +244,14 @@ private fun DocumentCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.Description,
+                    Icons.Default.Description,
                     contentDescription = null,
                     modifier = Modifier.size(40.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = title,
+                        title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -195,47 +259,44 @@ private fun DocumentCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = formatDateTime(lastModified),
+                        subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }
 
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, "More options")
-                }
-
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Delete") },
-                        onClick = {
-                            showMenu = false
-                            onDelete()
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Delete,
-                                null,
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    )
+            if (showDelete && onDelete != null) {
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, "More options")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Delete") },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-private fun formatDateTime(dateTime: String): String {
+private fun formatDate(dateStr: String): String {
     return try {
-        val parsed = JavaLocalDateTime.parse(dateTime)
-        val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a")
-        parsed.format(formatter)
+        // dateStr format: "2024-01-15T10:30:00"
+        val parts = dateStr.substringBefore("T").split("-")
+        if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else dateStr
     } catch (e: Exception) {
         "Recently modified"
     }

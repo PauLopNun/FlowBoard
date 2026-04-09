@@ -4,6 +4,7 @@ import android.util.Log
 import com.flowboard.data.models.*
 import com.flowboard.data.models.crdt.CollaborativeDocument
 import com.flowboard.data.models.crdt.DocumentOperation
+import com.flowboard.data.remote.ApiConfig
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
@@ -51,15 +52,13 @@ class DocumentWebSocketClient @Inject constructor(
     private var currentUserName: String? = null
 
     /**
-     * Connect to document WebSocket
+     * Connect to document WebSocket using the configured server URL.
      */
     suspend fun connect(
         documentId: String,
         userId: String,
         userName: String,
-        token: String,
-        host: String = "localhost",
-        port: Int = 8080
+        token: String
     ) {
         if (session != null && session?.isActive == true) {
             Log.d(TAG, "Already connected")
@@ -72,13 +71,13 @@ class DocumentWebSocketClient @Inject constructor(
 
         _connectionState.value = ConnectionState.Connecting
 
+        val wsUrl = "${ApiConfig.WS_BASE_URL}/ws/documents/$documentId"
+        Log.d(TAG, "Connecting to: $wsUrl")
+
         connectionJob = CoroutineScope(Dispatchers.IO).launch {
             try {
                 client.webSocket(
-                    method = HttpMethod.Get,
-                    host = host,
-                    port = port,
-                    path = "/ws/documents/$documentId",
+                    urlString = wsUrl,
                     request = {
                         header("Authorization", "Bearer $token")
                     }

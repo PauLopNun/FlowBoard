@@ -49,8 +49,8 @@ object AuthService {
         )
         
         // Generate JWT token
-        val token = JwtConfig.makeToken(request.email, userId.toString())
-        
+        val token = JwtConfig.makeToken(request.email, userId.toString(), request.username)
+
         LoginResponse(token = token, user = user)
     }
     
@@ -77,7 +77,7 @@ object AuthService {
                 lastLoginAt = now
             )
 
-            val token = JwtConfig.makeToken(request.email, userRow[Users.id].toString())
+            val token = JwtConfig.makeToken(request.email, userRow[Users.id].toString(), userRow[Users.username])
 
             LoginResponse(token = token, user = user)
         } else {
@@ -117,7 +117,7 @@ object AuthService {
                 lastLoginAt = now
             )
 
-            val token = JwtConfig.makeToken(request.email, existingUser[Users.id].toString())
+            val token = JwtConfig.makeToken(request.email, existingUser[Users.id].toString(), existingUser[Users.username])
             LoginResponse(token = token, user = user)
         } else {
             // New user - create account
@@ -157,7 +157,7 @@ object AuthService {
                 lastLoginAt = now
             )
 
-            val token = JwtConfig.makeToken(request.email, userId.toString())
+            val token = JwtConfig.makeToken(request.email, userId.toString(), finalUsername)
             LoginResponse(token = token, user = user)
         }
     }

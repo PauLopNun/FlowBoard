@@ -13,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap
 interface DocumentService {
     suspend fun getDocument(boardId: String): CollaborativeDocument
     suspend fun applyOperation(operation: DocumentOperation): CollaborativeDocument
+    fun initializeDocument(boardId: String, blocks: List<ContentBlock>)
+    fun hasDocument(boardId: String): Boolean
 }
 
 class InMemoryDocumentService(
@@ -32,6 +34,12 @@ class InMemoryDocumentService(
             )
         }
     }
+
+    override fun initializeDocument(boardId: String, blocks: List<ContentBlock>) {
+        documents.putIfAbsent(boardId, CollaborativeDocument(id = boardId, blocks = blocks))
+    }
+
+    override fun hasDocument(boardId: String): Boolean = documents.containsKey(boardId)
 
     override suspend fun applyOperation(operation: DocumentOperation): CollaborativeDocument {
         val document = getDocument(operation.boardId)

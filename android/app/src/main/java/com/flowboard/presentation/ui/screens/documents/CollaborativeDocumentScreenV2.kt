@@ -54,6 +54,15 @@ fun CollaborativeDocumentScreenV2(
 
     var showShareDialog by remember { mutableStateOf(false) }
     var showVersionHistory by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+
+    // Show share success snackbar
+    LaunchedEffect(uiState.shareSuccessMessage) {
+        uiState.shareSuccessMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearShareSuccess()
+        }
+    }
 
     // Connect to document on mount
     LaunchedEffect(documentId) {
@@ -68,6 +77,7 @@ fun CollaborativeDocumentScreenV2(
     }
 
     Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -209,17 +219,18 @@ fun CollaborativeDocumentScreenV2(
     if (showShareDialog) {
         ShareDocumentDialog(
             documentTitle = document?.blocks?.firstOrNull()?.content ?: "Untitled",
-            currentCollaborators = emptyList(), // TODO: Load from permissions
+            currentCollaborators = emptyList(),
             onInviteUser = { email, role ->
-                // TODO: Implement invitation
+                val roleStr = when (role) {
+                    CollaboratorRole.EDITOR -> "editor"
+                    CollaboratorRole.VIEWER -> "viewer"
+                    CollaboratorRole.OWNER -> "owner"
+                }
+                viewModel.shareDocument(email, roleStr)
                 showShareDialog = false
             },
-            onUpdatePermission = { userId, role ->
-                // TODO: Implement permission update
-            },
-            onRemovePermission = { userId ->
-                // TODO: Implement permission removal
-            },
+            onUpdatePermission = { _, _ -> },
+            onRemovePermission = { _ -> },
             onDismiss = { showShareDialog = false }
         )
     }
