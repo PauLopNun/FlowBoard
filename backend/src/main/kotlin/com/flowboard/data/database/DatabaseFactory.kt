@@ -73,14 +73,24 @@ object DatabaseFactory {
                     val hostAndPort = match.groupValues[3]
                     val database = match.groupValues[4]
 
-                    // Use host+port from URL as-is (external connection string includes full domain and port)
-                    this.jdbcUrl = "jdbc:postgresql://$hostAndPort/$database?sslmode=require"
+                    // Render injects the internal connection string (dpg-xxx-a) via fromDatabase.
+                    // Free tier has no private networking, so we must use the external hostname.
+                    // Build external host: dpg-xxx-a -> dpg-xxx-a.oregon-postgres.render.com:5432
+                    val externalHost = when {
+                        hostAndPort.contains(":") -> hostAndPort // already has port
+                        hostAndPort.contains(".") -> "$hostAndPort:5432" // has domain, add port
+                        hostAndPort.startsWith("dpg-") -> "$hostAndPort.oregon-postgres.render.com:5432"
+                        else -> "$hostAndPort:5432"
+                    }
+
+                    this.jdbcUrl = "jdbc:postgresql://$externalHost/$database?sslmode=require"
                     this.username = username
                     this.password = password
 
-                    println("✅ Database connection configured")
-                    println("📍 Host: $hostAndPort")
+                    println("✅ Database connection configured for Render (external)")
+                    println("📍 Host: $externalHost")
                     println("🗄️  Database: $database")
+                    println("🔗 JDBC URL: jdbc:postgresql://$externalHost/$database?sslmode=require")
                 } else {
                     throw IllegalArgumentException("Invalid DATABASE_URL format: $databaseUrl")
                 }
