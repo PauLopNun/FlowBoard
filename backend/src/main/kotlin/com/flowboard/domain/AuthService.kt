@@ -159,7 +159,7 @@ object AuthService {
                 username = finalUsername,
                 fullName = existing[Users.fullName],
                 role = existing[Users.role],
-                profileImageUrl = request.photoUrl ?: existing[Users.profileImageUrl],
+                profileImageUrl = request.profilePictureUrl ?: existing[Users.profileImageUrl],
                 isActive = existing[Users.isActive],
                 createdAt = existing[Users.createdAt],
                 lastLoginAt = now
@@ -183,7 +183,7 @@ object AuthService {
                 it[username] = finalUsername
                 it[fullName] = request.displayName ?: request.email.substringBefore("@")
                 it[passwordHash] = BCrypt.hashpw(UUID.randomUUID().toString(), BCrypt.gensalt())
-                it[profileImageUrl] = request.photoUrl
+                it[profileImageUrl] = request.profilePictureUrl
                 it[createdAt] = now
                 it[lastLoginAt] = now
             }
@@ -194,7 +194,7 @@ object AuthService {
                 username = finalUsername,
                 fullName = request.displayName ?: request.email.substringBefore("@"),
                 role = UserRole.USER,
-                profileImageUrl = request.photoUrl,
+                profileImageUrl = request.profilePictureUrl,
                 createdAt = now,
                 lastLoginAt = now
             )
