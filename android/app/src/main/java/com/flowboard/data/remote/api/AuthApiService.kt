@@ -232,7 +232,6 @@ class AuthApiService @Inject constructor(
                 Result.failure(Exception("Google Sign-In failed: $errorBody"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Google Sign-In failed with exception: ${e.message}", e)
             Result.failure(e)
         }
     }
