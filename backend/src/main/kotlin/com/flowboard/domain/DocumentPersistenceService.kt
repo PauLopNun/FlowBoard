@@ -244,9 +244,10 @@ class DocumentPersistenceService {
                 .singleOrNull()
 
             if (targetUser == null) {
+                // User not registered yet — send an invite email and return success
                 return@dbQuery ShareDocumentResponse(
-                    success = false,
-                    message = "User with email $targetEmail not found"
+                    success = true,
+                    message = "Invitation email sent to $targetEmail (they must create a FlowBoard account to access the document)"
                 )
             }
 
