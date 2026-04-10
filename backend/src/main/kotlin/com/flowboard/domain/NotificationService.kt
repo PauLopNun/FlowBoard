@@ -168,9 +168,9 @@ class NotificationService {
         }
     }
 
-    // Helper method to send a document shared notification
     suspend fun sendDocumentSharedNotification(
         recipientId: String,
+        recipientEmail: String?,
         senderName: String,
         documentTitle: String,
         documentId: String
@@ -187,5 +187,12 @@ class NotificationService {
                 deepLink = "/document_edit/$documentId"
             )
         )
+        if (!recipientEmail.isNullOrBlank()) {
+            EmailService.sendDocumentSharedEmail(
+                recipientEmail = recipientEmail,
+                senderName = senderName,
+                documentTitle = documentTitle
+            )
+        }
     }
 }

@@ -60,6 +60,11 @@ dependencies {
     // Logging
     implementation("ch.qos.logback:logback-classic:$logback_version")
     
+    // HTTP Client (for outgoing requests e.g. Resend email API)
+    implementation("io.ktor:ktor-client-core-jvm")
+    implementation("io.ktor:ktor-client-cio-jvm")
+    implementation("io.ktor:ktor-client-content-negotiation-jvm")
+
     // Testing
     testImplementation("io.ktor:ktor-server-tests-jvm")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
