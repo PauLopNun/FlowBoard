@@ -200,6 +200,16 @@ class AuthApiService @Inject constructor(
     }
 
     /**
+     * Fire-and-forget ping to wake up Render's free-tier cold start.
+     * Called on app launch; silently ignored if it fails.
+     */
+    suspend fun pingServer() {
+        try {
+            httpClient.get(ApiConfig.BASE_URL)
+        } catch (_: Exception) { /* silent — only purpose is to wake the server */ }
+    }
+
+    /**
      * Sign in with Google
      * POST /api/v1/auth/google
      */

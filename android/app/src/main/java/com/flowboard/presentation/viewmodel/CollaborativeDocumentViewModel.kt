@@ -379,6 +379,30 @@ class CollaborativeDocumentViewModel @Inject constructor(
     }
 
     /**
+     * Save the current document content via HTTP (fallback when WebSocket is offline)
+     */
+    fun saveDocument() {
+        val documentId = _uiState.value.currentDocumentId ?: return
+        val blocks = document.value?.blocks ?: return
+
+        val title = blocks.firstOrNull { it.type == "h1" }?.content
+            ?: blocks.firstOrNull()?.content
+            ?: "Untitled"
+        val content = blocks.joinToString("\n") { it.content }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+            try {
+                documentApiService.updateDocument(documentId, title = title, content = content)
+                _uiState.update { it.copy(isSaving = false, shareSuccessMessage = "Document saved") }
+            } catch (e: Exception) {
+                Log.e(TAG, "Save failed", e)
+                _uiState.update { it.copy(isSaving = false, error = "Save failed: ${e.message}") }
+            }
+        }
+    }
+
+    /**
      * Share document with another user by email
      */
     fun shareDocument(email: String, role: String) {
@@ -421,5 +445,6 @@ data class CollaborativeDocumentUiState(
     val currentUserName: String? = null,
     val error: String? = null,
     val isLoading: Boolean = false,
+    val isSaving: Boolean = false,
     val shareSuccessMessage: String? = null
 )
