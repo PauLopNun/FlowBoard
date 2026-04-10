@@ -102,6 +102,11 @@ class LoginViewModel @Inject constructor(
         }
     }
 
+    private val _googleSignInError = MutableStateFlow<String?>(null)
+    val googleSignInError: StateFlow<String?> = _googleSignInError.asStateFlow()
+
+    fun clearGoogleSignInError() { _googleSignInError.value = null }
+
     fun signInWithGoogle(activity: android.app.Activity) {
         viewModelScope.launch {
             Log.d(TAG, "Google Sign-In initiated")
@@ -118,14 +123,20 @@ class LoginViewModel @Inject constructor(
                     },
                     onFailure = { exception ->
                         Log.e(TAG, "Google Sign-In failed: ${exception.message}", exception)
-                        _loginState.value = LoginState.Error(
-                            exception.message ?: "Google Sign-In failed"
-                        )
+                        // Reset main login state so email/password form is unaffected
+                        _loginState.value = LoginState.Idle
+                        val msg = exception.message ?: ""
+                        // Only show error for real backend failures, not credential manager issues
+                        if (!msg.contains("No credential", ignoreCase = true) &&
+                            !msg.contains("Cancel", ignoreCase = true) &&
+                            !msg.contains("interrupt", ignoreCase = true)) {
+                            _googleSignInError.value = msg.ifBlank { "Google Sign-In failed" }
+                        }
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Unexpected error during Google Sign-In: ${e.message}", e)
-                _loginState.value = LoginState.Error(e.message ?: "Unknown error occurred")
+                _loginState.value = LoginState.Idle
             }
         }
     }

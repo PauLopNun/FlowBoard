@@ -7,6 +7,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,8 +72,10 @@ fun FlowBoardApp(
     ) {
         composable("login") {
             val loginState by loginViewModel.loginState.collectAsStateWithLifecycle()
+            val googleError by loginViewModel.googleSignInError.collectAsStateWithLifecycle()
             val context = LocalContext.current
             val activity = context as? Activity
+            val snackbarHostState = remember { SnackbarHostState() }
 
             // Navigate to dashboard when login successful
             LaunchedEffect(loginState) {
@@ -80,23 +86,32 @@ fun FlowBoardApp(
                 }
             }
 
-            LoginScreen(
-                onLoginClick = { email, password ->
-                    loginViewModel.login(email, password)
-                },
-                onRegisterClick = {
-                    navController.navigate("register")
-                },
-                onForgotPasswordClick = {
-                    Log.d("FlowBoardApp", "Forgot Password clicked!")
-                    // navController.navigate("forgot_password") // Uncomment when screen is implemented
-                },
-                onGoogleSignInClick = {
-                    activity?.let { loginViewModel.signInWithGoogle(it) }
-                },
-                isLoading = loginState is LoginState.Loading,
-                error = (loginState as? LoginState.Error)?.message
-            )
+            // Show Google Sign-In errors as Snackbar so they don't block the form
+            LaunchedEffect(googleError) {
+                googleError?.let {
+                    snackbarHostState.showSnackbar(it)
+                    loginViewModel.clearGoogleSignInError()
+                }
+            }
+
+            Scaffold(
+                snackbarHost = { SnackbarHost(snackbarHostState) { data -> Snackbar(data) } }
+            ) { _ ->
+                LoginScreen(
+                    onLoginClick = { email, password ->
+                        loginViewModel.login(email, password)
+                    },
+                    onRegisterClick = {
+                        navController.navigate("register")
+                    },
+                    onForgotPasswordClick = {},
+                    onGoogleSignInClick = {
+                        activity?.let { loginViewModel.signInWithGoogle(it) }
+                    },
+                    isLoading = loginState is LoginState.Loading,
+                    error = (loginState as? LoginState.Error)?.message
+                )
+            }
         }
 
         composable("register") {
