@@ -84,13 +84,54 @@ class AuthApiService @Inject constructor(
      */
     suspend fun register(request: RegisterRequest): Result<AuthResponse> {
         return try {
-            val response: AuthResponse = httpClient.post("$AUTH_ENDPOINT/register") {
+            Log.d(TAG, "Attempting register for email: ${request.email}")
+            Log.d(TAG, "Register URL: $AUTH_ENDPOINT/register")
+
+            val httpResponse = httpClient.post("$AUTH_ENDPOINT/register") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
-            }.body()
-            Result.success(response)
+            }
+
+            Log.d(TAG, "Register response status: ${httpResponse.status}")
+
+            if (httpResponse.status.value in 200..201) {
+                val response: AuthResponse = httpResponse.body()
+                Log.d(TAG, "Register successful")
+                Result.success(response)
+            } else {
+                try {
+                    val errorBody = httpResponse.body<String>()
+                    Log.e(TAG, "Register failed with status ${httpResponse.status.value}")
+                    Log.e(TAG, "Error response body: $errorBody")
+
+                    val isConflict = httpResponse.status.value == 409 ||
+                        (httpResponse.status.value == 400 && errorBody.contains("already exists"))
+                    val errorMessage = when {
+                        isConflict -> "Este email o nombre de usuario ya está registrado"
+                        httpResponse.status.value == 400 -> "Datos de registro inválidos"
+                        httpResponse.status.value == 500 ->
+                            "Error del servidor. Intenta de nuevo más tarde"
+                        else -> "Error de registro: ${httpResponse.status.value}"
+                    }
+                    Result.failure(Exception(errorMessage))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to read error body: ${e.message}", e)
+                    Result.failure(Exception("Error al procesar la respuesta del servidor"))
+                }
+            }
+        } catch (e: java.net.UnknownHostException) {
+            Log.e(TAG, "Network error - Unknown host: ${e.message}", e)
+            Result.failure(Exception("No se puede conectar al servidor. Verifica tu conexión a internet"))
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.e(TAG, "Network error - Timeout: ${e.message}", e)
+            Result.failure(Exception("El servidor no responde. Intenta de nuevo más tarde"))
+        } catch (e: java.net.ConnectException) {
+            Log.e(TAG, "Network error - Connection refused: ${e.message}", e)
+            Result.failure(Exception("No se puede conectar al servidor. Verifica tu conexión"))
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e(TAG, "Register failed with exception: ${e.message}", e)
+            Log.e(TAG, "Exception type: ${e.javaClass.simpleName}")
+            Result.failure(Exception("Error de red: ${e.message ?: "Conexión fallida"}"))
         }
     }
 
