@@ -37,6 +37,9 @@ class AuthRepository @Inject constructor(
         private val USERNAME_KEY = stringPreferencesKey("username")
     }
 
+    /** Wake up the Render backend (free tier cold-start can take ~30s). */
+    suspend fun warmupServer() = authApiService.pingServer()
+
     /**
      * Get JWT token
      * Returns null if not logged in

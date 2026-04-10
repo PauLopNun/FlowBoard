@@ -51,4 +51,38 @@ object EmailService {
             // Email failure must not break the share operation
         }
     }
+
+    suspend fun sendDocumentInviteEmail(
+        recipientEmail: String,
+        senderName: String,
+        documentTitle: String
+    ) {
+        if (apiKey.isNullOrBlank()) return
+        try {
+            client.post("https://api.resend.com/emails") {
+                header(HttpHeaders.Authorization, "Bearer $apiKey")
+                contentType(ContentType.Application.Json)
+                setBody(ResendRequest(
+                    from = "FlowBoard <onboarding@resend.dev>",
+                    to = listOf(recipientEmail),
+                    subject = "$senderName invited you to collaborate on FlowBoard",
+                    html = """
+                        <div style="font-family:sans-serif;max-width:500px;margin:auto">
+                            <h2 style="color:#4F46E5">FlowBoard</h2>
+                            <p><strong>$senderName</strong> invited you to collaborate on
+                            <em>&ldquo;$documentTitle&rdquo;</em>.</p>
+                            <p>To access the document, create a free FlowBoard account using
+                            this email address (<strong>$recipientEmail</strong>) and the
+                            document will be shared with you automatically.</p>
+                            <p style="font-size:12px;color:#666">
+                                FlowBoard — Collaborative task &amp; document management
+                            </p>
+                        </div>
+                    """.trimIndent()
+                ))
+            }
+        } catch (_: Exception) {
+            // Email failure must not break the invite operation
+        }
+    }
 }

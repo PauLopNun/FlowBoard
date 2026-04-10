@@ -172,16 +172,23 @@ fun Route.documentRoutes(
                     return@post
                 }
 
-                // Send notification to the user
-                if (response.permission != null) {
-                    val document = documentService.getDocumentById(documentId, userId)
-                    if (document != null) {
+                val document = documentService.getDocumentById(documentId, userId)
+                if (document != null) {
+                    if (response.permission != null) {
+                        // Registered user — in-app notification + email
                         notificationService.sendDocumentSharedNotification(
                             recipientId = response.permission.userId,
                             recipientEmail = response.permission.userEmail,
                             senderName = userName ?: "Someone",
                             documentTitle = document.title,
                             documentId = documentId
+                        )
+                    } else {
+                        // Non-registered user — send invite email only
+                        com.flowboard.domain.EmailService.sendDocumentInviteEmail(
+                            recipientEmail = request.email,
+                            senderName = userName ?: "Someone",
+                            documentTitle = document.title
                         )
                     }
                 }

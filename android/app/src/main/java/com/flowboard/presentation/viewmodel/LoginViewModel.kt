@@ -38,12 +38,20 @@ class LoginViewModel @Inject constructor(
 
     init {
         checkLoginStatus()
+        warmupBackend()
     }
 
     private fun checkLoginStatus() {
         viewModelScope.launch {
             _isLoggedIn.value = authRepository.isLoggedIn()
             Log.d(TAG, "Initial login status: ${_isLoggedIn.value}")
+        }
+    }
+
+    private fun warmupBackend() {
+        viewModelScope.launch {
+            Log.d(TAG, "Warming up backend (Render cold-start prevention)")
+            authRepository.warmupServer()
         }
     }
 
@@ -126,11 +134,17 @@ class LoginViewModel @Inject constructor(
                         // Reset main login state so email/password form is unaffected
                         _loginState.value = LoginState.Idle
                         val msg = exception.message ?: ""
-                        // Only show error for real backend failures, not credential manager issues
-                        if (!msg.contains("No credential", ignoreCase = true) &&
-                            !msg.contains("Cancel", ignoreCase = true) &&
-                            !msg.contains("interrupt", ignoreCase = true)) {
-                            _googleSignInError.value = msg.ifBlank { "Google Sign-In failed" }
+                        when {
+                            // User cancelled — no feedback needed
+                            msg.contains("Cancel", ignoreCase = true) ||
+                            msg.contains("interrupt", ignoreCase = true) -> { /* silent */ }
+                            // No Google account configured on device (or SHA-1 not registered)
+                            msg.contains("No credential", ignoreCase = true) ->
+                                _googleSignInError.value =
+                                    "Google Sign-In is not available on this build. Please use email and password."
+                            // Real backend or network error
+                            else ->
+                                _googleSignInError.value = msg.ifBlank { "Google Sign-In failed" }
                         }
                     }
                 )
