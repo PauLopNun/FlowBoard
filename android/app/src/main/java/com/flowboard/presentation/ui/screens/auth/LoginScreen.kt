@@ -194,14 +194,7 @@ fun LoginScreen(
                     }
                 )
 
-                // Forgot Password link
-                TextButton(
-                    onClick = onForgotPasswordClick,
-                    modifier = Modifier.align(Alignment.End),
-                    enabled = !isLoading
-                ) {
-                    Text("Forgot Password?")
-                }
+
 
                 Spacer(modifier = Modifier.height(24.dp))
 

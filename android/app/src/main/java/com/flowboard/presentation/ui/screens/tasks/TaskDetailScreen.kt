@@ -31,7 +31,9 @@ fun TaskDetailScreen(
     var isEditing by remember { mutableStateOf(false) }
     var editedTitle by remember(task) { mutableStateOf(task?.title ?: "") }
     var editedDescription by remember(task) { mutableStateOf(task?.description ?: "") }
+    var editedPriority by remember(task) { mutableStateOf(task?.priority ?: TaskPriority.MEDIUM) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showPriorityMenu by remember { mutableStateOf(false) }
 
     // Active users count (simplified - can be extended with task-specific tracking)
     val usersEditingTask = remember(activeUsers) {
@@ -221,31 +223,50 @@ fun TaskDetailScreen(
                         }
                     )
 
-                    // Priority
-                    AssistChip(
-                        onClick = { },
-                        label = { Text(task.priority.name) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = when (task.priority) {
-                                    TaskPriority.LOW -> Icons.Default.ArrowDownward
-                                    TaskPriority.MEDIUM -> Icons.Default.Remove
-                                    TaskPriority.HIGH -> Icons.Default.ArrowUpward
-                                    TaskPriority.URGENT -> Icons.Default.Warning
-                                },
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
+                    // Priority — tappable in edit mode
+                    Box {
+                        AssistChip(
+                            onClick = { if (isEditing) showPriorityMenu = true },
+                            label = { Text(editedPriority.name) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = when (editedPriority) {
+                                        TaskPriority.LOW -> Icons.Default.ArrowDownward
+                                        TaskPriority.MEDIUM -> Icons.Default.Remove
+                                        TaskPriority.HIGH -> Icons.Default.ArrowUpward
+                                        TaskPriority.URGENT -> Icons.Default.Warning
+                                    },
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            trailingIcon = if (isEditing) {
+                                { Icon(Icons.Default.ArrowDropDown, null, Modifier.size(16.dp)) }
+                            } else null,
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = when (editedPriority) {
+                                    TaskPriority.LOW -> MaterialTheme.colorScheme.tertiaryContainer
+                                    TaskPriority.MEDIUM -> MaterialTheme.colorScheme.primaryContainer
+                                    TaskPriority.HIGH -> MaterialTheme.colorScheme.secondaryContainer
+                                    TaskPriority.URGENT -> MaterialTheme.colorScheme.errorContainer
+                                }
                             )
-                        },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = when (task.priority) {
-                                TaskPriority.LOW -> MaterialTheme.colorScheme.tertiaryContainer
-                                TaskPriority.MEDIUM -> MaterialTheme.colorScheme.primaryContainer
-                                TaskPriority.HIGH -> MaterialTheme.colorScheme.secondaryContainer
-                                TaskPriority.URGENT -> MaterialTheme.colorScheme.errorContainer
-                            }
                         )
-                    )
+                        DropdownMenu(
+                            expanded = showPriorityMenu,
+                            onDismissRequest = { showPriorityMenu = false }
+                        ) {
+                            TaskPriority.entries.forEach { p ->
+                                DropdownMenuItem(
+                                    text = { Text(p.name) },
+                                    onClick = {
+                                        editedPriority = p
+                                        showPriorityMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 HorizontalDivider()
@@ -387,7 +408,8 @@ fun TaskDetailScreen(
                             onUpdateTask(
                                 task.copy(
                                     title = editedTitle,
-                                    description = editedDescription
+                                    description = editedDescription,
+                                    priority = editedPriority
                                 )
                             )
                             isEditing = false
