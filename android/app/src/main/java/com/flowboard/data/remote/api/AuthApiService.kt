@@ -104,18 +104,18 @@ class AuthApiService @Inject constructor(
                     Log.e(TAG, "Register failed with status ${httpResponse.status.value}")
                     Log.e(TAG, "Error response body: $errorBody")
 
+                    val isConflict = httpResponse.status.value == 409 ||
+                        (httpResponse.status.value == 400 && errorBody.contains("already exists"))
                     val errorMessage = when {
-                        httpResponse.status.value == 400 && errorBody.contains("already exists") ->
-                            "Este email o nombre de usuario ya está registrado"
+                        isConflict -> "Este email o nombre de usuario ya está registrado"
                         httpResponse.status.value == 400 -> "Datos de registro inválidos"
-                        httpResponse.status.value == 409 ->
-                            "Este email o nombre de usuario ya está registrado"
                         httpResponse.status.value == 500 ->
                             "Error del servidor. Intenta de nuevo más tarde"
                         else -> "Error de registro: ${httpResponse.status.value}"
                     }
                     Result.failure(Exception(errorMessage))
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to read error body: ${e.message}", e)
                     Result.failure(Exception("Error al procesar la respuesta del servidor"))
                 }
             }
