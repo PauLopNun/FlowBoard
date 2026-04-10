@@ -247,8 +247,16 @@ fun FlowBoardApp(
         // Crear nuevo documento: show title dialog, create via API, then open collaborative editor
         composable("document_new") {
             val documentViewModel: DocumentViewModel = hiltViewModel()
+            val docListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
             var title by remember { mutableStateOf("") }
             var isCreating by remember { mutableStateOf(false) }
+
+            // Reset spinner if creation failed so user can retry
+            LaunchedEffect(docListState.error) {
+                if (docListState.error != null && isCreating) {
+                    isCreating = false
+                }
+            }
 
             AlertDialog(
                 onDismissRequest = {
@@ -311,6 +319,14 @@ fun FlowBoardApp(
             val taskViewModel: TaskViewModel = hiltViewModel()
             val uiState by taskViewModel.uiState.collectAsStateWithLifecycle()
 
+            // Navigate back only after task is successfully created
+            LaunchedEffect(uiState.message) {
+                if (uiState.message == "Task created successfully") {
+                    taskViewModel.clearMessage()
+                    navController.popBackStack()
+                }
+            }
+
             CreateTaskScreen(
                 onCreateTask = { title, description, priority, dueDate, isEvent, eventStartTime, eventEndTime, location ->
                     taskViewModel.createTask(
@@ -323,7 +339,6 @@ fun FlowBoardApp(
                         eventEndTime = eventEndTime,
                         location = location
                     )
-                    navController.popBackStack()
                 },
                 onNavigateBack = {
                     navController.popBackStack()
