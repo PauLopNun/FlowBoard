@@ -58,6 +58,7 @@ fun CollaborativeDocumentScreenV2(
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val activeUsers by viewModel.activeUsers.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isSaving = uiState.isSaving
 
     var showShareDialog by remember { mutableStateOf(false) }
     var showExportMenu by remember { mutableStateOf(false) }
@@ -90,6 +91,8 @@ fun CollaborativeDocumentScreenV2(
                 connectionState = connectionState,
                 activeUsers = activeUsers,
                 onBack = onNavigateBack,
+                onSave = { viewModel.saveDocument() },
+                isSaving = isSaving,
                 onShare = { showShareDialog = true },
                 showExportMenu = showExportMenu,
                 onToggleExportMenu = { showExportMenu = !showExportMenu },
@@ -301,6 +304,8 @@ private fun DocumentTopBar(
     activeUsers: List<DocumentUserPresence>,
     showExportMenu: Boolean,
     onBack: () -> Unit,
+    onSave: () -> Unit,
+    isSaving: Boolean,
     onShare: () -> Unit,
     onToggleExportMenu: () -> Unit,
     onDismissExportMenu: () -> Unit,
@@ -362,6 +367,13 @@ private fun DocumentTopBar(
                                 style = MaterialTheme.typography.labelSmall)
                         }
                     }
+                }
+            }
+            IconButton(onClick = onSave, enabled = !isSaving) {
+                if (isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                } else {
+                    Icon(Icons.Default.Save, "Save")
                 }
             }
             IconButton(onClick = onShare) {
