@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,11 +17,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -38,8 +36,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.data.models.DocumentUserPresence
 import com.flowboard.data.models.crdt.ContentBlock
 import com.flowboard.data.remote.websocket.ConnectionState
-import com.flowboard.presentation.ui.components.ShareDocumentDialog
 import com.flowboard.presentation.ui.components.CollaboratorRole
+import com.flowboard.presentation.ui.components.ShareDocumentDialog
 import com.flowboard.presentation.ui.components.UserAvatar
 import com.flowboard.presentation.viewmodel.CollaborativeDocumentViewModel
 import java.util.UUID
@@ -55,12 +53,14 @@ fun CollaborativeDocumentScreenV2(
     modifier: Modifier = Modifier,
     viewModel: CollaborativeDocumentViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val document by viewModel.document.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val activeUsers by viewModel.activeUsers.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var showShareDialog by remember { mutableStateOf(false) }
+    var showExportMenu by remember { mutableStateOf(false) }
     var focusedBlockId by remember { mutableStateOf<String?>(null) }
     var showSlashMenu by remember { mutableStateOf(false) }
     var slashMenuBlockId by remember { mutableStateOf<String?>(null) }
@@ -82,14 +82,26 @@ fun CollaborativeDocumentScreenV2(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
+            val docTitle = blocks.firstOrNull { it.type == "h1" }?.content
+                ?: blocks.firstOrNull()?.content
+                ?: "Untitled"
             DocumentTopBar(
-                title = blocks.firstOrNull { it.type == "h1" }?.content
-                    ?: blocks.firstOrNull()?.content
-                    ?: "Untitled",
+                title = docTitle,
                 connectionState = connectionState,
                 activeUsers = activeUsers,
                 onBack = onNavigateBack,
-                onShare = { showShareDialog = true }
+                onShare = { showShareDialog = true },
+                showExportMenu = showExportMenu,
+                onToggleExportMenu = { showExportMenu = !showExportMenu },
+                onDismissExportMenu = { showExportMenu = false },
+                onExportMarkdown = {
+                    showExportMenu = false
+                    exportToMarkdown(blocks, docTitle, context)
+                },
+                onExportPdf = {
+                    showExportMenu = false
+                    exportToPdf(blocks, docTitle, context)
+                }
             )
         },
         bottomBar = {
@@ -184,6 +196,10 @@ fun CollaborativeDocumentScreenV2(
                         onSlashCommand = {
                             showSlashMenu = true
                             slashMenuBlockId = block.id
+                        },
+                        onMarkdownShortcut = { type, cleanedText ->
+                            viewModel.updateBlockType(block.id, type)
+                            viewModel.insertText(block.id, cleanedText, 0)
                         },
                         isTitle = index == 0 && block.type == "h1"
                     )
@@ -283,8 +299,13 @@ private fun DocumentTopBar(
     title: String,
     connectionState: ConnectionState,
     activeUsers: List<DocumentUserPresence>,
+    showExportMenu: Boolean,
     onBack: () -> Unit,
-    onShare: () -> Unit
+    onShare: () -> Unit,
+    onToggleExportMenu: () -> Unit,
+    onDismissExportMenu: () -> Unit,
+    onExportMarkdown: () -> Unit,
+    onExportPdf: () -> Unit
 ) {
     TopAppBar(
         title = {
@@ -305,11 +326,7 @@ private fun DocumentTopBar(
                             MaterialTheme.colorScheme.tertiary to "Connecting…"
                         else -> MaterialTheme.colorScheme.error to "Offline"
                     }
-                    Box(
-                        Modifier
-                            .size(6.dp)
-                            .background(color, CircleShape)
-                    )
+                    Box(Modifier.size(6.dp).background(color, CircleShape))
                     Text(label,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -327,24 +344,17 @@ private fun DocumentTopBar(
             }
         },
         actions = {
-            // Overlapping user avatars
             if (activeUsers.isNotEmpty()) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy((-10).dp),
                     modifier = Modifier.padding(end = 4.dp)
                 ) {
                     activeUsers.take(4).forEach { user ->
-                        UserAvatar(
-                            username = user.userName,
-                            isOnline = true,
-                            size = 28.dp
-                        )
+                        UserAvatar(username = user.userName, isOnline = true, size = 28.dp)
                     }
                     if (activeUsers.size > 4) {
                         Box(
-                            Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
+                            Modifier.size(28.dp).clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.tertiaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
@@ -356,6 +366,26 @@ private fun DocumentTopBar(
             }
             IconButton(onClick = onShare) {
                 Icon(Icons.Default.PersonAdd, "Share")
+            }
+            Box {
+                IconButton(onClick = onToggleExportMenu) {
+                    Icon(Icons.Default.MoreVert, "More options")
+                }
+                DropdownMenu(
+                    expanded = showExportMenu,
+                    onDismissRequest = onDismissExportMenu
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Export as Markdown") },
+                        leadingIcon = { Icon(Icons.Default.Code, null) },
+                        onClick = onExportMarkdown
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Export as PDF") },
+                        leadingIcon = { Icon(Icons.Default.PictureAsPdf, null) },
+                        onClick = onExportPdf
+                    )
+                }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -379,6 +409,7 @@ private fun DocumentBlock(
     onEnterPressed: () -> Unit,
     onDeleteBlock: () -> Unit,
     onSlashCommand: () -> Unit,
+    onMarkdownShortcut: (type: String, cleanedText: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var textFieldValue by remember(block.id) {
@@ -424,6 +455,38 @@ private fun DocumentBlock(
                 vertical = verticalPadding
             )
     ) {
+        fun handleValueChange(new: TextFieldValue, allowDelete: Boolean) {
+            // Markdown shortcut detection (only on paragraph blocks)
+            if (block.type == "p") {
+                val shortcut = when {
+                    new.text.startsWith("### ") -> "h3" to new.text.removePrefix("### ")
+                    new.text.startsWith("## ") -> "h2" to new.text.removePrefix("## ")
+                    new.text.startsWith("# ") -> "h1" to new.text.removePrefix("# ")
+                    new.text.startsWith("- ") || new.text.startsWith("* ") ->
+                        "bullet" to new.text.drop(2)
+                    new.text.startsWith("1. ") -> "numbered" to new.text.drop(3)
+                    new.text == "```" -> "code" to ""
+                    else -> null
+                }
+                if (shortcut != null) {
+                    textFieldValue = TextFieldValue(shortcut.second)
+                    onMarkdownShortcut(shortcut.first, shortcut.second)
+                    return
+                }
+            }
+            if (new.text == "/" && textFieldValue.text.isEmpty()) {
+                onSlashCommand()
+                return
+            }
+            if (allowDelete && new.text.isEmpty() && textFieldValue.text.isEmpty()) {
+                onDeleteBlock()
+                return
+            }
+            textFieldValue = new
+            onTextChange(new.text)
+            onCursorChange(new.selection.start)
+        }
+
         if (block.type == "bullet" || block.type == "numbered") {
             Row(verticalAlignment = Alignment.Top) {
                 Text(
@@ -437,20 +500,7 @@ private fun DocumentBlock(
                     placeholder = placeholder,
                     modifier = Modifier.weight(1f),
                     onFocusChange = onFocusChange,
-                    onValueChange = { new ->
-                        // Detect "/" command
-                        if (new.text == "/" && textFieldValue.text.isEmpty()) {
-                            onSlashCommand()
-                        }
-                        // Handle backspace on empty block
-                        if (new.text.isEmpty() && textFieldValue.text.isEmpty()) {
-                            onDeleteBlock()
-                            return@BlockTextField
-                        }
-                        textFieldValue = new
-                        onTextChange(new.text)
-                        onCursorChange(new.selection.start)
-                    },
+                    onValueChange = { new -> handleValueChange(new, allowDelete = true) },
                     onEnterPressed = onEnterPressed
                 )
             }
@@ -460,18 +510,7 @@ private fun DocumentBlock(
                 textStyle = textStyle,
                 placeholder = placeholder,
                 onFocusChange = onFocusChange,
-                onValueChange = { new ->
-                    if (new.text == "/" && textFieldValue.text.isEmpty()) {
-                        onSlashCommand()
-                    }
-                    if (new.text.isEmpty() && textFieldValue.text.isEmpty() && !isTitle) {
-                        onDeleteBlock()
-                        return@BlockTextField
-                    }
-                    textFieldValue = new
-                    onTextChange(new.text)
-                    onCursorChange(new.selection.start)
-                },
+                onValueChange = { new -> handleValueChange(new, allowDelete = !isTitle) },
                 onEnterPressed = onEnterPressed
             )
         }

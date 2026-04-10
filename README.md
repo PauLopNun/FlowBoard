@@ -1,7 +1,6 @@
+# FlowBoard
 
-# FlowBoard 📋✨
-
-**Editor Colaborativo en Tiempo Real + Gestión Avanzada de Tareas**
+Collaborative document editor and task management platform for Android.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://android.com)
@@ -11,617 +10,183 @@
 [![Material3](https://img.shields.io/badge/UI-Material%203-purple.svg)](https://m3.material.io)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-success.svg)]()
 
-> **🎉 NUEVO:** **Editor Colaborativo Completo Implementado!** Documentos en tiempo real tipo Google Docs
->
-> **📚 Documentación Completa:**
-> - 📖 [Índice de Documentación](INDICE_DOCUMENTACION.md) - Encuentra todo aquí
-> - 🚀 [Proyecto Finalizado](PROYECTO_FINALIZADO.md) - Resumen completo
-> - ⚡ [Guía Rápida](QUICK_GUIDE.md) - Aprende a usar la app
-> - ✅ [Checklist Presentación](CHECKLIST_PRESENTACION.md) - Prepara tu demo
-> - 🔧 [Implementación Técnica](COLLABORATIVE_EDITOR_IMPLEMENTATION.md) - Detalles técnicos
+## Overview
 
-## 📋 Descripción
+FlowBoard is an Android application that lets users create and edit documents collaboratively in real time, manage tasks, and share workspaces with teammates. The backend is deployed on Render and serves a REST API and WebSocket connections.
 
-**FlowBoard** es una plataforma colaborativa revolucionaria que combina:
+**Live backend:** `https://flowboard-api-phrk.onrender.com`
 
-🎯 **Gestión Avanzada de Tareas** - CRUD completo con sincronización en tiempo real  
-📝 **Editor Colaborativo de Documentos** - Similar a Google Docs, con formato rico  
-👥 **Colaboración en Tiempo Real** - WebSockets para sincronización instantánea  
-✨ **Material Design 3** - Interfaz moderna y profesional  
-🔐 **Autenticación Segura** - Sistema completo de login/registro con JWT  
+## Features
 
-Diseñada para estudiantes, equipos y profesionales que necesitan colaborar eficientemente.
+- **Authentication** — Email/password registration and login with JWT. Google Sign-In via Credential Manager available on both login and registration screens.
+- **Collaborative documents** — Block-based editor (Notion-style) with CRDT synchronization over WebSockets. Multiple users see each other's changes instantly. Markdown shortcuts supported. Export to PDF or Markdown.
+- **Document sharing** — Share any document with a registered user by email. The recipient receives an in-app notification and an email (via Resend).
+- **Task management** — Full CRUD with priorities (Low/Medium/High/Urgent), due dates, and completion tracking.
+- **Chat** — Direct messages and group chats with real-time delivery, unread counts, archive, and mute.
+- **Permissions** — Owner, editor, and viewer roles per document.
+- **Notifications** — In-app notification feed with mark-read and delete. Email delivery via Resend.
 
-## ✨ Editor Colaborativo en Tiempo Real (NUEVO) ⭐
+## Tech Stack
 
-### 📝 Documentos Colaborativos
-
-FlowBoard ahora incluye un **editor colaborativo completo** similar a Google Docs:
-
-#### Características del Editor:
-- ✍️ **Editor de Texto Rico** - Negrita, cursiva, subrayado, listas
-- 👥 **Colaboración en Vivo** - Ver quién está editando en tiempo real
-- 💾 **Auto-guardado Inteligente** - Guardado automático cada 500ms con debouncing
-- 🎨 **Toolbar de Formato** - Barra de herramientas completa y expandible
-- 📜 **Historial de Versiones** - Sidebar con todos los cambios
-- 🔗 **Sistema de Compartir** - Permisos granulares (Viewer/Editor)
-- 👤 **Avatares de Usuarios** - Ver quién está conectado con indicadores visuales
-- 🔄 **Sincronización Real** - Cambios instantáneos vía WebSockets
-
-### 🚀 Gestión de Tareas Mejorada
-
-- 🔄 **Sincronización instantánea** - Los cambios se reflejan en tiempo real
-- 👥 **Presencia de usuarios** - Ve quién está viendo cada tarea
-- 🎯 **Prioridades Visuales** - LOW, MEDIUM, HIGH, URGENT con colores
-- 📅 **Modo Evento** - Tareas que se integran con calendario
-- 📍 **Ubicaciones** - Para eventos con lugar físico
-- 🔔 **Notificaciones en vivo** - Actualizaciones instantáneas
-- 🌐 **Offline-first** - Funciona sin conexión
-- 🔌 **Reconexión automática** - Manejo robusto de desconexiones
-- 🔐 **Seguro** - Autenticación JWT sobre WebSocket
-
-**Ver documentación completa:**
-- 📖 [Arquitectura WebSocket](docs/websocket-architecture.md)
-- 🔧 [Guía de Implementación](docs/websocket-implementation-guide.md)
-- 📝 [Schema de Eventos](docs/websocket-events-schema.kt)
-- 🎯 [Implementación Completa](COLLABORATIVE_EDITOR_IMPLEMENTATION.md)
-
-### 🎯 Objetivo
-
-Mejorar la productividad y organización de estudiantes y equipos pequeños mediante una herramienta intuitiva que permita:
-- Gestión individual y colaborativa de tareas
-- Organización de eventos y calendario compartido
-- Seguimiento del progreso con métricas detalladas
-- Exportación de reportes profesionales
-
-### 🌍 Impacto Social y ODS
-
-FlowBoard contribuye directamente a los Objetivos de Desarrollo Sostenible:
-
-- **ODS 4 - Educación de Calidad**: Mejora la organización académica de estudiantes
-- **ODS 8 - Trabajo Decente y Crecimiento Económico**: Optimiza la productividad de equipos pequeños
-- **Sostenibilidad Tecnológica**: Diseño eficiente, bajo consumo de datos, accesibilidad universal
-
-## 👥 Usuarios Destinatarios
-
-- **Estudiantes universitarios y de secundaria**
-- **Equipos pequeños** (startups, ONGs, asociaciones)
-- **Profesionales independientes**
-- **Grupos de estudio y proyectos académicos**
-
-## ⚡ Funcionalidades Principales
-
-### 📱 Módulos Implementados
-
-#### 💾 Acceso a Datos
-- **Base de datos local**: Room/SQLite para funcionamiento offline
-- **Base de datos remota**: PostgreSQL para sincronización
-- **CRUD completo**: Crear, leer, actualizar, eliminar tareas/eventos
-- **Import/Export**: Soporte JSON/XML para backup y migración
-
-#### 🎨 Interfaz de Usuario
-- **Tecnología**: Kotlin + Jetpack Compose
-- **Pantallas principales**:
-  - Login/Registro con autenticación JWT
-  - Lista de tareas con filtros avanzados
-  - Detalle de tareas/eventos
-  - Calendario interactivo
-  - Dashboard con métricas
-  - Configuración y perfil
-
-#### 🔧 Servicios y Procesos
-- **API REST**: Backend Ktor con endpoints completos
-- **Autenticación**: JWT con roles (admin/usuario)
-- **Sincronización**: Hilos en background para datos
-- **Notificaciones**: Push notifications para recordatorios
-
-#### 📱 Multimedia y Móvil
-- **Adjuntos**: Soporte para imágenes en tareas
-- **Export PDF**: Generación de reportes profesionales
-- **Notificaciones**: Sistema completo de alertas
-- **Responsive**: Diseño adaptativo
-
-#### 🏢 Gestión Empresarial
-- **Control de usuarios**: Gestión de equipos y permisos
-- **Reportes**: Métricas de productividad
-- **Dashboard**: Visualización de estadísticas
-- **Incidencias**: Sistema de seguimiento de problemas
-
-#### ♻️ Sostenibilidad
-- **Eficiencia**: Arquitectura optimizada
-- **Modularidad**: Código reutilizable y mantenible
-- **Escalabilidad**: Preparado para crecimiento
-
-## 🏗️ Arquitectura del Sistema
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        FRONTEND (Android)                       │
-├─────────────────────────────────────────────────────────────────┤
-│  Presentation Layer (Jetpack Compose + ViewModels)             │
-│  ├── Auth Screens (Login/Register)                             │
-│  ├── Task Management (List/Detail/Create)                      │
-│  ├── Calendar & Events                                         │
-│  └── Dashboard & Reports                                       │
-├─────────────────────────────────────────────────────────────────┤
-│  Domain Layer (Use Cases + Repositories)                       │
-│  ├── Task Repository                                           │
-│  ├── User Repository                                           │
-│  └── Project Repository                                        │
-├─────────────────────────────────────────────────────────────────┤
-│  Data Layer                                                     │
-│  ├── Local Database (Room/SQLite)                              │
-│  ├── Remote API (Ktor Client)                                  │
-│  └── Sync Manager                                              │
-└─────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │ HTTP/REST API
-                                    │
-┌─────────────────────────────────────────────────────────────────┐
-│                         BACKEND (Ktor)                         │
-├─────────────────────────────────────────────────────────────────┤
-│  API Layer (REST Endpoints)                                    │
-│  ├── /auth (Login/Register/Logout)                             │
-│  ├── /tasks (CRUD + Query operations)                          │
-│  ├── /users (Profile management)                               │
-│  └── /projects (Team collaboration)                            │
-├─────────────────────────────────────────────────────────────────┤
-│  Business Logic Layer                                          │
-│  ├── Authentication Service (JWT)                              │
-│  ├── Task Service                                              │
-│  └── User Service                                              │
-├─────────────────────────────────────────────────────────────────┤
-│  Data Access Layer                                             │
-│  ├── Exposed ORM                                               │
-│  └── PostgreSQL Database                                       │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## 🛠️ Stack Tecnológico
-
-### Frontend (Android)
-- **Lenguaje**: Kotlin 1.9.22
-- **UI Framework**: Jetpack Compose
-- **Arquitectura**: MVVM + Clean Architecture
-- **Inyección de dependencias**: Hilt
-- **Base de datos local**: Room/SQLite
-- **Networking**: Ktor Client
-- **Navegación**: Navigation Compose
-- **Gestión de estado**: StateFlow/Compose State
+### Android
+| Component | Library |
+|---|---|
+| Language | Kotlin 1.9 |
+| UI | Jetpack Compose + Material 3 |
+| Architecture | MVVM + Clean Architecture |
+| DI | Hilt |
+| Networking | Ktor Client |
+| Local DB | Room / SQLite |
+| Auth | Google Credential Manager |
+| State | StateFlow |
 
 ### Backend
-- **Framework**: Ktor 2.3.7
-- **Lenguaje**: Kotlin
-- **Base de datos**: PostgreSQL
-- **ORM**: Exposed
-- **Autenticación**: JWT
-- **Serialización**: Kotlinx Serialization
+| Component | Library |
+|---|---|
+| Framework | Ktor 2.3.7 |
+| Language | Kotlin |
+| Database | PostgreSQL (Render) |
+| ORM | Exposed |
+| Auth | JWT (HMAC256) |
+| Serialization | kotlinx.serialization |
+| Email | Resend API |
 
-### DevOps y Testing
-- **Build**: Gradle Kotlin DSL
-- **Testing**: JUnit, Mockito, Coroutines Test
-- **CI/CD**: GitHub Actions (configuración futura)
+## Architecture
 
-## 🚀 MVP (Mínimo Viable)
+```
+Android App
+├── Presentation (Compose screens + ViewModels)
+├── Domain (repositories, use cases)
+└── Data
+    ├── Local  (Room)
+    ├── Remote (Ktor Client → REST API)
+    └── WebSocket (real-time document sync)
 
-### ✅ Funcionalidades Básicas Implementadas
-- [x] Base de datos local con CRUD completo
-- [x] Pantallas esenciales en Jetpack Compose
-- [x] Backend Ktor con autenticación y CRUD
-- [x] Arquitectura Clean con Hilt
-- [x] Sincronización básica offline/online
-- [x] Gestión de tareas y eventos
-- [x] Sistema de notificaciones
-- [x] Export PDF básico
-
-### 📊 Dashboard Simple
-- Vista resumen de tareas
-- Estadísticas básicas de productividad
-- Filtros por estado y prioridad
-
-## 🔮 Roadmap - Ampliación Profesional
-
-### Fase 2: Colaboración Avanzada ✅ (COMPLETADO)
-- [x] **Sincronización bidireccional en tiempo real con WebSockets** ✨
-- [x] **Presencia de usuarios en tiempo real** ✨
-- [x] **Broadcasting de eventos (crear/actualizar/eliminar)** ✨
-- [x] **Reconexión automática robusta** ✨
-- [x] **Arquitectura offline-first** ✨
-- [ ] Roles y permisos granulares por proyecto
-- [ ] Chat integrado en proyectos
-- [ ] Plantillas de tareas/eventos
-- [ ] Notificaciones push avanzadas
-
-### Fase 3: Analytics y Business Intelligence
-- [ ] Dashboard web para métricas avanzadas
-- [ ] Reports automáticos por email
-- [ ] Integración con herramientas externas (Slack, Trello)
-- [ ] API pública para integraciones
-
-### Fase 4: Escalabilidad Enterprise
-- [ ] Vistas Kanban y Gantt
-- [ ] Gestión de recursos y capacidad
-- [ ] Auditoría y logs detallados
-- [ ] Single Sign-On (SSO)
-- [ ] Backup automático en la nube
-
-## 🏃‍♂️ Inicio Rápido
-
-### Prerrequisitos
-- Android Studio Hedgehog o superior
-- JDK 17+
-- PostgreSQL 13+ (para backend)
-- Git
-
-### 🛠️ Instalación y Configuración
-
-#### 1. Clonar el Repositorio
-```bash
-git clone https://github.com/tu-usuario/flowboard.git
-cd flowboard
+Backend (Ktor on Render)
+├── REST API  (/api/v1/*)
+├── WebSocket (/ws/*, /document-ws/*)
+├── PostgreSQL (Render managed DB)
+└── Resend    (transactional email)
 ```
 
-#### 2. Abrir el Proyecto en Android Studio
+## REST API
 
-**Opción A: Abrir el módulo Android directamente (✅ Recomendado)**
-```
-Android Studio → File → Open → .../FlowBoard/android
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/auth/register` | Register new user |
+| POST | `/api/v1/auth/login` | Login, returns JWT |
+| POST | `/api/v1/auth/google` | Google Sign-In |
+| GET | `/api/v1/users/me` | Current user profile |
+| PUT | `/api/v1/users/me` | Update profile |
+| GET | `/api/v1/users/search?email=` | Find user by email |
+| GET | `/api/v1/documents` | List owned + shared documents |
+| POST | `/api/v1/documents` | Create document |
+| GET | `/api/v1/documents/{id}` | Get document |
+| PUT | `/api/v1/documents/{id}` | Update document |
+| DELETE | `/api/v1/documents/{id}` | Delete document |
+| POST | `/api/v1/documents/{id}/share` | Share with user by email |
+| GET | `/api/v1/tasks` | List tasks |
+| POST | `/api/v1/tasks` | Create task |
+| PUT | `/api/v1/tasks/{id}` | Update task |
+| DELETE | `/api/v1/tasks/{id}` | Delete task |
+| PATCH | `/api/v1/tasks/{id}/toggle` | Toggle completion |
+| GET | `/api/v1/chat/rooms` | List chat rooms |
+| POST | `/api/v1/chat/rooms` | Create chat room (direct or group) |
+| GET | `/api/v1/chat/rooms/{id}/messages` | Get messages |
+| POST | `/api/v1/chat/rooms/{id}/messages` | Send message |
+| GET | `/api/v1/notifications` | List notifications |
+| PATCH | `/api/v1/notifications/{id}/read` | Mark as read |
+| PATCH | `/api/v1/notifications/read-all` | Mark all as read |
 
-**Opción B: Abrir desde la raíz (Composite Build)**
-```
-Android Studio → File → Open → .../FlowBoard
-```
+All endpoints except `/auth/*` require `Authorization: Bearer <token>`.
 
-#### 3. Configurar Backend (Opcional)
-```bash
-cd backend
-
-# Crear base de datos PostgreSQL
-createdb flowboard
-
-# Configurar variables de entorno
-export DATABASE_URL="jdbc:postgresql://localhost:5432/flowboard"
-export DATABASE_USER="tu_usuario"
-export DATABASE_PASSWORD="tu_contraseña"
-export JWT_SECRET="tu_secreto_jwt"
-
-# Ejecutar backend
-./gradlew run
-```
-
-#### 4. Compilar y Ejecutar Android App
-
-**Desde Android Studio:**
-- Click en Run ▶️ (Shift+F10)
-
-**Desde línea de comandos:**
-```bash
-# Usando el script de utilidades (✅ Recomendado)
-./flow.sh build      # Linux/Mac
-flow.bat build       # Windows
-
-# O directamente con Gradle
-./gradlew -p android assembleDebug   # Desde raíz
-cd android && ./gradlew assembleDebug # Desde android/
-```
-
-**💡 Script de Utilidades:**
-```bash
-# Ver todos los comandos disponibles
-./flow.sh help      # Linux/Mac
-flow.bat help       # Windows
-
-# Comandos útiles:
-./flow.sh build     # Compilar app
-./flow.sh run       # Instalar y ejecutar
-./flow.sh test      # Ejecutar tests
-./flow.sh backend   # Iniciar backend
-./flow.sh clean     # Limpiar builds
-```
-
-#### 5. Configurar Base de Datos Local
-La app creará automáticamente la base de datos SQLite local en el primer arranque.
-
-### 🧪 Ejecutar Tests
-```bash
-# Tests de Android (desde raíz)
-./gradlew -p android test
-
-# Tests de Backend (desde raíz)
-./gradlew -p backend test
-
-# O desde cada carpeta directamente
-cd android && ./gradlew test
-cd backend && ./gradlew test
-```
-
-### 🔧 Troubleshooting - Problemas Comunes
-
-#### Error: "Metadata instance has version 2.1.0, while maximum supported version is 2.0.0"
-
-Este error ocurre por un conflicto de versiones de Kotlin. **Solución:**
-
-```bash
-# Opción 1: Usar script de compilación limpia (RECOMENDADO)
-chmod +x compile-android.sh
-./compile-android.sh
-
-# Opción 2: Limpieza manual
-cd android
-./gradlew --stop
-./gradlew clean --no-daemon
-rm -rf app/build build .gradle
-./gradlew assembleDebug --no-daemon
-```
-
-📖 **Ver documentación completa:** [SOLUCION_KOTLIN_VERSION.md](SOLUCION_KOTLIN_VERSION.md)
-
-#### Error: "SDK location not found"
-
-Asegúrate de tener configurado `android/local.properties`:
-```properties
-sdk.dir=/ruta/a/tu/Android/Sdk
-```
-
-#### Daemon de Gradle no responde
-
-```bash
-cd android
-./gradlew --stop
-pkill -f gradle  # En Linux/Mac
-./gradlew assembleDebug --no-daemon
-```
-
-#### Cache corrupta
-
-```bash
-cd android
-rm -rf ~/.gradle/caches/
-rm -rf ~/.gradle/daemon/
-./gradlew clean --no-daemon
-```
-
-### 📱 Usar la Aplicación
-
-#### Credenciales de Demo
-- **Email**: demo@flowboard.com
-- **Password**: demo123
-
-#### Flujo de Uso Básico
-1. **Registro/Login**: Crear cuenta o usar credenciales demo
-2. **Crear Tarea**: Tap en '+' para nueva tarea
-3. **Gestionar**: Marcar completada, editar, eliminar
-4. **Calendario**: Ver eventos en vista calendario
-5. **Dashboard**: Revisar estadísticas de productividad
-6. **Sync**: Pull para sincronizar con backend
-
-## 📁 Estructura del Proyecto
+## Project Structure
 
 ```
 FlowBoard/
-├── android/                           # Aplicación Android
-│   ├── app/src/main/java/com/flowboard/
-│   │   ├── data/                      # Capa de datos
-│   │   │   ├── local/                 # Room database
-│   │   │   │   ├── dao/               # Data Access Objects
-│   │   │   │   ├── entities/          # Entidades de base de datos
-│   │   │   │   └── FlowBoardDatabase.kt
-│   │   │   ├── remote/                # API remota
-│   │   │   │   ├── api/               # Servicios API
-│   │   │   │   └── dto/               # Data Transfer Objects
-│   │   │   └── repository/            # Implementaciones de repositorios
-│   │   ├── domain/                    # Capa de dominio
-│   │   │   ├── model/                 # Modelos de dominio
-│   │   │   ├── repository/            # Interfaces de repositorios
-│   │   │   └── usecase/               # Casos de uso
-│   │   ├── presentation/              # Capa de presentación
-│   │   │   ├── ui/
-│   │   │   │   ├── screens/           # Pantallas Compose
-│   │   │   │   ├── components/        # Componentes reutilizables
-│   │   │   │   └── theme/             # Tema y estilos
-│   │   │   └── viewmodel/             # ViewModels
-│   │   ├── di/                        # Módulos de inyección de dependencias
-│   │   └── utils/                     # Utilidades y mappers
-│   └── build.gradle                   # Configuración de build Android
-├── backend/                           # Backend Ktor
-│   ├── src/main/kotlin/com/flowboard/
-│   │   ├── data/
-│   │   │   ├── database/              # Configuración de base de datos
-│   │   │   └── models/                # Modelos de datos
-│   │   ├── domain/                    # Lógica de negocio
-│   │   ├── plugins/                   # Plugins de Ktor
-│   │   ├── routes/                    # Endpoints de API
-│   │   └── Application.kt             # Punto de entrada
-│   └── build.gradle.kts               # Configuración de build Backend
-├── docs/                              # Documentación
-├── .gitignore
-└── README.md                          # Este archivo
+├── android/
+│   └── app/src/main/java/com/flowboard/
+│       ├── data/
+│       │   ├── auth/          # Google Sign-In
+│       │   ├── local/         # Room entities, DAOs
+│       │   ├── remote/        # API services, DTOs
+│       │   └── repository/    # AuthRepository, etc.
+│       ├── di/                # Hilt modules
+│       └── presentation/
+│           ├── ui/screens/    # Compose screens
+│           ├── ui/components/ # Shared composables
+│           └── viewmodel/     # ViewModels
+└── backend/
+    └── src/main/kotlin/com/flowboard/
+        ├── data/
+        │   ├── database/      # Exposed table definitions
+        │   └── models/        # Request/response models
+        ├── domain/            # Business logic services
+        ├── plugins/           # Ktor plugins (auth, routing, serialization)
+        └── routes/            # API route handlers
 ```
 
-## 🤝 Contribuir
+## Getting Started
 
-### Proceso de Desarrollo
-1. Fork del repositorio
-2. Crear rama para feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit cambios (`git commit -am 'Agregar nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Crear Pull Request
+### Prerequisites
+- Android Studio Hedgehog or newer
+- JDK 17+
 
-### Estándares de Código
-- Seguir las convenciones de Kotlin
-- Documentar funciones públicas
-- Escribir tests para nuevas funcionalidades
-- Usar Clean Architecture principles
+### Build the Android app
 
-## 📊 Métricas y Análisis
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/PauLopNun/FlowBoard.git
+   ```
 
-### KPIs del Proyecto
-- **Productividad**: Tareas completadas por usuario/día
-- **Engagement**: Tiempo promedio en la app
-- **Colaboración**: Proyectos compartidos activos
-- **Retención**: Usuarios activos mensuales
+2. Open `FlowBoard/android` in Android Studio.
 
-### Herramientas de Monitoreo (Futuro)
-- Firebase Analytics
-- Crashlytics para estabilidad
-- Performance Monitoring
+3. Run on a device or emulator (Shift+F10).
 
-## 🔐 Seguridad
+The app connects to the production backend by default. No local backend setup is required.
 
-- **Autenticación**: JWT con refresh tokens
-- **Datos**: Encriptación local con SQLCipher (futura implementación)
-- **Comunicación**: HTTPS obligatorio
-- **Validación**: Input sanitization en backend
-- **Permisos**: Control granular de acceso
+### Run the backend locally (optional)
 
-## 📝 Licencia
+```bash
+cd backend
 
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+export DATABASE_URL="jdbc:postgresql://localhost:5432/flowboard"
+export DATABASE_USER="postgres"
+export DATABASE_PASSWORD="your_password"
+export JWT_SECRET="your_secret"
+export JWT_ISSUER="flowboard-api"
+export JWT_AUDIENCE="flowboard-app"
+export RESEND_API_KEY="re_your_key"   # optional, for emails
 
-## 👨‍💻 Desarrollador
+./gradlew run
+```
 
-**Tu Nombre**
+### Backend environment variables (Render)
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `DATABASE_USER` | DB username |
+| `DATABASE_PASSWORD` | DB password |
+| `JWT_SECRET` | HMAC256 signing secret |
+| `JWT_ISSUER` | Token issuer (e.g. `flowboard-api`) |
+| `JWT_AUDIENCE` | Token audience (e.g. `flowboard-app`) |
+| `RESEND_API_KEY` | Resend API key for email notifications |
+
+### Google Sign-In setup
+
+To enable Google Sign-In:
+
+1. Create an Android OAuth credential in Google Cloud Console:
+   - Package name: `com.flowboard`
+   - SHA-1: your debug/release keystore fingerprint
+2. Create a Web OAuth credential and copy the client ID.
+3. Update `webClientId` in `GoogleAuthManager.kt`.
+4. Enable the **Identity Toolkit API** in the Google Cloud project.
+
+## Contact
+
+**Pau López Núñez**
 - Email: paulopeznunez@gmail.com
-- LinkedIn: [Pau López Núñez](https://www.linkedin.com/in/paulopnun)
+- LinkedIn: [paulopnun](https://www.linkedin.com/in/paulopnun)
 - GitHub: [@PauLopNun](https://github.com/PauLopNun)
-
-## 🙏 Agradecimientos
-
-- Comunidad de Kotlin y Android
-- Equipo de Ktor por el excelente framework
-- Contribuidores de bibliotecas open source utilizadas
-- Beta testers y usuarios early adopters
-
-## 📧 Soporte
-
-¿Tienes preguntas o problemas?
-
-- 🐛 **Bugs**: [GitHub Issues](https://github.com/PauLopNun/FlowBoard/issues)
-- 💡 **Features**: [Feature Requests](https://github.com/PauLopNun/FlowBoard/discussions)
-- 📧 **Email**: paulopeznunez@gmail.com
-- 💼 **LinkedIn**: [Pau López Núñez](https://www.linkedin.com/in/paulopnun)
-
-## 🚀 Deployment y Publicación
-
-### Deploy del Backend en Render
-
-FlowBoard backend puede desplegarse fácilmente en Render (plan gratuito disponible):
-
-**Ver guía completa:** [docs/deployment-guide-render.md](docs/deployment-guide-render.md)
-
-**Características:**
-- ✅ Plan gratuito disponible
-- ✅ PostgreSQL incluida
-- ✅ Deploy automático desde Git
-- ✅ HTTPS y WSS configurados
-- ✅ Variables de entorno seguras
-
-### Publicación en Google Play Store
-
-FlowBoard está preparado para publicación en Play Store con:
-
-**Ver guía completa:** [docs/play-store-publishing-guide.md](docs/play-store-publishing-guide.md)
-
-**Incluye:**
-- ✅ Configuración de keystore
-- ✅ Build de release firmado
-- ✅ Assets y screenshots
-- ✅ Proceso completo paso a paso
-- ✅ Políticas y privacidad
-- ✅ Post-publicación y actualizaciones
-
-**Costo:** $25 USD (pago único)
-
-## 📚 Documentación Completa
-
-### Implementación WebSocket
-- [Resumen Final](FINAL_IMPLEMENTATION_SUMMARY.md) - Todo lo implementado
-- [Arquitectura](docs/websocket-architecture.md) - Diseño completo del sistema
-- [Guía de Implementación](docs/websocket-implementation-guide.md) - Paso a paso
-- [Schema de Eventos](docs/websocket-events-schema.kt) - Modelos de mensajes
-
-### Deployment
-- [Guía Render](docs/deployment-guide-render.md) - Deploy del backend
-- [Guía Play Store](docs/play-store-publishing-guide.md) - Publicación Android
-
-### Código
-Ver comentarios inline en el código para detalles de implementación.
-
-## 🔧 Solución de Problemas
-
-### Error: "SDK location not found"
-
-Si encuentras el error `SDK location not found. Define a valid SDK location with an ANDROID_HOME environment variable...`:
-
-📖 **[Ver Guía Completa de Configuración del SDK](SETUP_ANDROID_SDK.md)**
-
-**Solución Rápida (Automática):**
-```bash
-# Ejecutar el script de configuración automática
-chmod +x setup-android-sdk.sh
-./setup-android-sdk.sh
-```
-
-**Solución Manual:**
-
-1. **Verificar que Android Studio está instalado**
-   - Android Studio incluye el SDK en: `~/Android/Sdk` (Linux/Mac) o `C:\Users\<usuario>\AppData\Local\Android\Sdk` (Windows)
-
-2. **Crear/Editar el archivo `android/local.properties`:**
-   ```properties
-   sdk.dir=/home/tu-usuario/Android/Sdk
-   ```
-   
-   En Windows:
-   ```properties
-   sdk.dir=C\:\\Users\\tu-usuario\\AppData\\Local\\Android\\Sdk
-   ```
-
-3. **Configurar variables de entorno (opcional pero recomendado):**
-   
-   Linux/Mac (`~/.bashrc` o `~/.zshrc`):
-   ```bash
-   export ANDROID_HOME=$HOME/Android/Sdk
-   export ANDROID_SDK_ROOT=$ANDROID_HOME
-   export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools
-   ```
-   
-   Windows (Variables de Sistema):
-   - `ANDROID_HOME`: `C:\Users\<usuario>\AppData\Local\Android\Sdk`
-   - Agregar a PATH: `%ANDROID_HOME%\platform-tools`
-
-4. **Verificar la instalación:**
-   ```bash
-   # Debe mostrar la versión de adb
-   adb --version
-   ```
-
-### Otros Problemas Comunes
-
-**Gradle build failed:**
-```bash
-# Limpiar y reconstruir
-./flow.sh clean
-./flow.sh build
-
-# O manualmente:
-cd android && ./gradlew clean build
-```
-
-**Backend no conecta:**
-- Verificar que el backend esté ejecutándose en el puerto correcto
-- Revisar la URL en la configuración de la app
-- Comprobar firewall y reglas de red
-
-**Base de datos local corrupta:**
-```bash
-# Limpiar datos de la app desde ajustes del dispositivo
-# O desinstalar y reinstalar la app
-```
-
----
-
-**FlowBoard** - *Organizando el futuro, una tarea a la vez* 🚀✨
-
-**Status:** Production Ready | **Versión:** 1.0.0 | **WebSockets:** ✅ Implementado

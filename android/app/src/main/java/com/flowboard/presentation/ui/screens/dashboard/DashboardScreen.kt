@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.presentation.ui.theme.*
 import com.flowboard.presentation.viewmodel.DocumentViewModel
 import com.flowboard.presentation.viewmodel.LoginViewModel
+import com.flowboard.presentation.viewmodel.ProfileViewModel
 import kotlinx.coroutines.launch
 
 import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
@@ -51,9 +52,11 @@ fun DashboardScreen(
     onEditorDemoClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     documentViewModel: DocumentViewModel = hiltViewModel(),
-    loginViewModel: LoginViewModel = hiltViewModel()
+    loginViewModel: LoginViewModel = hiltViewModel(),
+    profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
     val documentListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
+    val currentUser by profileViewModel.user.collectAsStateWithLifecycle()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
@@ -165,6 +168,9 @@ fun DashboardScreen(
                     searchQuery = searchQuery,
                     onSearchQueryChange = { searchQuery = it },
                     documentListState = documentListState,
+                    currentUserName = currentUser?.fullName?.takeIf { it.isNotBlank() }
+                        ?: currentUser?.username
+                        ?: "there",
                     onDocumentClick = onDocumentClick,
                     onDeleteDocument = { docId ->
                         documentViewModel.deleteDocumentViaApi(docId)
@@ -295,15 +301,6 @@ fun DashboardSidebar(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-         // Shared
-        Text(
-            "SHARED",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        NavigationItem(Icons.Outlined.Group, "Team Updates", false) {}
-
         Spacer(modifier = Modifier.weight(1f))
 
         // Bottom Actions
@@ -363,6 +360,7 @@ fun DashboardContent(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     documentListState: com.flowboard.presentation.viewmodel.DocumentListState,
+    currentUserName: String = "there",
     onDocumentClick: (String) -> Unit,
     onDeleteDocument: (String) -> Unit
 ) {
@@ -402,7 +400,7 @@ fun DashboardContent(
                 )
             } else if (currentView == DashboardView.HOME) {
                 Text(
-                    "Good morning, User",
+                    "Good morning, $currentUserName",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

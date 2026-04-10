@@ -101,12 +101,21 @@ fun FlowBoardApp(
         composable("register") {
             val registerViewModel: RegisterViewModel = hiltViewModel()
             val registerState by registerViewModel.registerState.collectAsStateWithLifecycle()
+            val loginState by loginViewModel.loginState.collectAsStateWithLifecycle()
+            val context = LocalContext.current
+            val activity = context as? Activity
 
-            // Navigate to dashboard when registration successful
+            // Navigate to dashboard when registration or Google sign-in successful
             LaunchedEffect(registerState) {
                 if (registerState is RegisterState.Success) {
                     navController.navigate("dashboard") {
-                        popUpTo("register") { inclusive = true }
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            }
+            LaunchedEffect(loginState) {
+                if (loginState is LoginState.Success) {
+                    navController.navigate("dashboard") {
                         popUpTo("login") { inclusive = true }
                     }
                 }
@@ -119,8 +128,12 @@ fun FlowBoardApp(
                 onLoginClick = {
                     navController.popBackStack()
                 },
-                isLoading = registerState is RegisterState.Loading,
+                onGoogleSignInClick = {
+                    activity?.let { loginViewModel.signInWithGoogle(it) }
+                },
+                isLoading = registerState is RegisterState.Loading || loginState is LoginState.Loading,
                 error = (registerState as? RegisterState.Error)?.message
+                    ?: (loginState as? LoginState.Error)?.message
             )
         }
 
@@ -177,7 +190,7 @@ fun FlowBoardApp(
                     navController.navigate("create_task")
                 },
                 onDocumentsClick = {
-                    navController.navigate("documents")
+                    navController.navigate("my_documents")
                 },
                 onNotificationsClick = {
                     navController.navigate("notifications")
@@ -369,9 +382,6 @@ fun FlowBoardApp(
                 viewModel = chatViewModel,
                 onChatClick = { chatId ->
                     navController.navigate("chat/$chatId")
-                },
-                onCreateChat = {
-                    navController.navigate("chat_create")
                 }
             )
         }

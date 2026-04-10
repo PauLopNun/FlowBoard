@@ -1,5 +1,7 @@
 package com.flowboard.presentation.ui.screens.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,10 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.presentation.viewmodel.SettingsViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,8 +27,18 @@ fun SettingsScreen(
 ) {
     val darkModeEnabled by viewModel.darkModeEnabled.collectAsStateWithLifecycle()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
+    val notifDocsEnabled by viewModel.notifDocsEnabled.collectAsStateWithLifecycle()
+    val notifChatEnabled by viewModel.notifChatEnabled.collectAsStateWithLifecycle()
+    val notifTasksEnabled by viewModel.notifTasksEnabled.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    val flowboardUrl = "https://github.com/PauLopNun/FlowBoard"
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
@@ -115,8 +129,8 @@ fun SettingsScreen(
                         supportingContent = { Text("When someone shares a document with you") },
                         trailingContent = {
                             Switch(
-                                checked = notificationsEnabled, // TODO: Individual settings
-                                onCheckedChange = { /* TODO */ }
+                                checked = notifDocsEnabled,
+                                onCheckedChange = { viewModel.setNotifDocsEnabled(it) }
                             )
                         }
                     )
@@ -129,8 +143,8 @@ fun SettingsScreen(
                         supportingContent = { Text("New messages in your chats") },
                         trailingContent = {
                             Switch(
-                                checked = notificationsEnabled, // TODO: Individual settings
-                                onCheckedChange = { /* TODO */ }
+                                checked = notifChatEnabled,
+                                onCheckedChange = { viewModel.setNotifChatEnabled(it) }
                             )
                         }
                     )
@@ -143,8 +157,8 @@ fun SettingsScreen(
                         supportingContent = { Text("Changes to tasks you're watching") },
                         trailingContent = {
                             Switch(
-                                checked = notificationsEnabled, // TODO: Individual settings
-                                onCheckedChange = { /* TODO */ }
+                                checked = notifTasksEnabled,
+                                onCheckedChange = { viewModel.setNotifTasksEnabled(it) }
                             )
                         }
                     )
@@ -167,23 +181,6 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp)
             ) {
                 Column {
-                    // Sync Data
-                    ListItem(
-                        headlineContent = { Text("Sync Data") },
-                        supportingContent = { Text("Automatically sync with server") },
-                        leadingContent = {
-                            Icon(Icons.Default.CloudSync, contentDescription = null)
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = true, // TODO: Implement
-                                onCheckedChange = { /* TODO */ }
-                            )
-                        }
-                    )
-
-                    Divider()
-
                     // Clear Cache
                     ListItem(
                         headlineContent = { Text("Clear Cache") },
@@ -195,7 +192,10 @@ fun SettingsScreen(
                             Icon(Icons.Default.ChevronRight, contentDescription = null)
                         },
                         modifier = Modifier.clickable {
-                            // TODO: Implement clear cache
+                            context.cacheDir.deleteRecursively()
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Cache cleared")
+                            }
                         }
                     )
                 }
@@ -238,7 +238,9 @@ fun SettingsScreen(
                             Icon(Icons.Default.OpenInNew, contentDescription = null)
                         },
                         modifier = Modifier.clickable {
-                            // TODO: Open privacy policy
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse(flowboardUrl))
+                            )
                         }
                     )
 
@@ -254,7 +256,9 @@ fun SettingsScreen(
                             Icon(Icons.Default.OpenInNew, contentDescription = null)
                         },
                         modifier = Modifier.clickable {
-                            // TODO: Open terms
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse(flowboardUrl))
+                            )
                         }
                     )
 
@@ -270,7 +274,9 @@ fun SettingsScreen(
                             Icon(Icons.Default.ChevronRight, contentDescription = null)
                         },
                         modifier = Modifier.clickable {
-                            // TODO: Open support
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse(flowboardUrl))
+                            )
                         }
                     )
                 }

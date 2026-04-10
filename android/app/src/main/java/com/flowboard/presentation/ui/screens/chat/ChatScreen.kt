@@ -40,6 +40,7 @@ fun ChatScreen(
     val participants by viewModel.participants.collectAsState()
     val typingIndicators by viewModel.typingIndicators.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val currentUserId by viewModel.currentUserId.collectAsState()
 
     var messageText by remember { mutableStateOf("") }
     var replyingTo by remember { mutableStateOf<Message?>(null) }
@@ -176,6 +177,7 @@ fun ChatScreen(
                     ) { message ->
                         MessageBubble(
                             message = message,
+                            currentUserId = currentUserId,
                             onReply = {
                                 replyingTo = message
                             },
@@ -215,6 +217,7 @@ fun ChatScreen(
 @Composable
 fun MessageBubble(
     message: Message,
+    currentUserId: String?,
     onReply: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -222,8 +225,7 @@ fun MessageBubble(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    // TODO: Get current user ID from auth
-    val isOwnMessage = true // Placeholder
+    val isOwnMessage = currentUserId != null && message.senderId == currentUserId
 
     Column(
         modifier = Modifier.fillMaxWidth(),

@@ -27,8 +27,7 @@ import java.util.*
 @Composable
 fun ChatListScreen(
     viewModel: ChatViewModel = hiltViewModel(),
-    onChatClick: (String) -> Unit,
-    onCreateChat: () -> Unit
+    onChatClick: (String) -> Unit
 ) {
     val chatRooms by viewModel.chatRooms.collectAsState()
     val archivedChatRooms by viewModel.archivedChatRooms.collectAsState()
@@ -36,6 +35,7 @@ fun ChatListScreen(
 
     var selectedTab by remember { mutableStateOf(0) }
     var showArchived by remember { mutableStateOf(false) }
+    var showCreateDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -70,12 +70,9 @@ fun ChatListScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onCreateChat
+                onClick = { showCreateDialog = true }
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "New Chat"
-                )
+                Icon(Icons.Default.Add, "New Chat")
             }
         }
     ) { padding ->
@@ -87,26 +84,9 @@ fun ChatListScreen(
             // Tabs for filtering
             if (!showArchived) {
                 TabRow(selectedTabIndex = selectedTab) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        text = { Text("All") }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        text = { Text("Direct") }
-                    )
-                    Tab(
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
-                        text = { Text("Groups") }
-                    )
-                    Tab(
-                        selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
-                        text = { Text("Projects") }
-                    )
+                    Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("All") })
+                    Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("Direct") })
+                    Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("Groups") })
                 }
             }
 
@@ -153,6 +133,17 @@ fun ChatListScreen(
                 }
             }
         }
+    }
+
+    if (showCreateDialog) {
+        CreateChatDialog(
+            viewModel = viewModel,
+            onDismiss = { showCreateDialog = false },
+            onChatCreated = { chatId ->
+                showCreateDialog = false
+                onChatClick(chatId)
+            }
+        )
     }
 }
 

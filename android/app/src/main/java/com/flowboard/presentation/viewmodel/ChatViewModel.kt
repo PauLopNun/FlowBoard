@@ -2,6 +2,7 @@ package com.flowboard.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.flowboard.data.repository.AuthRepository
 import com.flowboard.domain.model.*
 import com.flowboard.domain.repository.ChatRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,13 +12,23 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     // ==================== State ====================
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    private val _currentUserId = MutableStateFlow<String?>(null)
+    val currentUserId: StateFlow<String?> = _currentUserId.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _currentUserId.value = authRepository.getUserId()
+        }
+    }
 
     private val _activeChatId = MutableStateFlow<String?>(null)
     val activeChatId: StateFlow<String?> = _activeChatId.asStateFlow()
@@ -112,6 +123,45 @@ class ChatViewModel @Inject constructor(
     fun deselectChat() {
         _activeChatId.value?.let { disconnectFromChat(it) }
         _activeChatId.value = null
+    }
+
+    fun searchAndCreateDirectChat(
+        email: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+
+            val searchResult = authRepository.searchUserByEmail(email)
+
+            searchResult.fold(
+                onSuccess = { userData ->
+                    val chatResult = chatRepository.createChatRoom(
+                        type = ChatType.DIRECT,
+                        name = userData.fullName.ifBlank { userData.username },
+                        participantIds = listOf(userData.id)
+                    )
+                    chatResult.fold(
+                        onSuccess = { chatRoom ->
+                            _activeChatId.value = chatRoom.id
+                            _uiState.update {
+                                it.copy(isLoading = false, successMessage = "Chat created successfully")
+                            }
+                            onSuccess()
+                        },
+                        onFailure = { error ->
+                            _uiState.update { it.copy(isLoading = false) }
+                            onError(error.message ?: "Failed to create chat")
+                        }
+                    )
+                },
+                onFailure = { error ->
+                    _uiState.update { it.copy(isLoading = false) }
+                    onError("User not found for \"$email\"")
+                }
+            )
+        }
     }
 
     fun createDirectChat(userId: String, userName: String) {
