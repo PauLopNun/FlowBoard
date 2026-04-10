@@ -18,12 +18,13 @@ FlowBoard is an Android application that lets users create and edit documents co
 
 ## Features
 
-- **Authentication** — Email/password registration and login with JWT. Google Sign-In via Credential Manager.
-- **Collaborative documents** — Block-based editor (Notion-style) with CRDT synchronization over WebSockets. Multiple users see each other's changes instantly.
-- **Document sharing** — Share any document with a registered user by email. The recipient receives an in-app notification and an email.
-- **Task management** — Full CRUD with real-time sync, priorities, due dates, and project grouping.
+- **Authentication** — Email/password registration and login with JWT. Google Sign-In via Credential Manager available on both login and registration screens.
+- **Collaborative documents** — Block-based editor (Notion-style) with CRDT synchronization over WebSockets. Multiple users see each other's changes instantly. Markdown shortcuts supported. Export to PDF or Markdown.
+- **Document sharing** — Share any document with a registered user by email. The recipient receives an in-app notification and an email (via Resend).
+- **Task management** — Full CRUD with priorities (Low/Medium/High/Urgent), due dates, and completion tracking.
+- **Chat** — Direct messages and group chats with real-time delivery, unread counts, archive, and mute.
 - **Permissions** — Owner, editor, and viewer roles per document.
-- **Notifications** — In-app notification feed and email delivery via Resend.
+- **Notifications** — In-app notification feed with mark-read and delete. Email delivery via Resend.
 
 ## Tech Stack
 
@@ -88,8 +89,14 @@ Backend (Ktor on Render)
 | POST | `/api/v1/tasks` | Create task |
 | PUT | `/api/v1/tasks/{id}` | Update task |
 | DELETE | `/api/v1/tasks/{id}` | Delete task |
+| PATCH | `/api/v1/tasks/{id}/toggle` | Toggle completion |
+| GET | `/api/v1/chat/rooms` | List chat rooms |
+| POST | `/api/v1/chat/rooms` | Create chat room (direct or group) |
+| GET | `/api/v1/chat/rooms/{id}/messages` | Get messages |
+| POST | `/api/v1/chat/rooms/{id}/messages` | Send message |
 | GET | `/api/v1/notifications` | List notifications |
-| PUT | `/api/v1/notifications/{id}/read` | Mark as read |
+| PATCH | `/api/v1/notifications/{id}/read` | Mark as read |
+| PATCH | `/api/v1/notifications/read-all` | Mark all as read |
 
 All endpoints except `/auth/*` require `Authorization: Bearer <token>`.
 

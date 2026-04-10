@@ -27,8 +27,7 @@ import java.util.*
 @Composable
 fun ChatListScreen(
     viewModel: ChatViewModel = hiltViewModel(),
-    onChatClick: (String) -> Unit,
-    onCreateChat: () -> Unit
+    onChatClick: (String) -> Unit
 ) {
     val chatRooms by viewModel.chatRooms.collectAsState()
     val archivedChatRooms by viewModel.archivedChatRooms.collectAsState()

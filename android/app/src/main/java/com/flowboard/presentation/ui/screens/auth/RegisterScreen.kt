@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 fun RegisterScreen(
     onRegisterClick: (String, String, String, String) -> Unit,
     onLoginClick: () -> Unit,
+    onGoogleSignInClick: () -> Unit = {},
     isLoading: Boolean = false,
     error: String? = null,
     modifier: Modifier = Modifier
@@ -230,7 +231,7 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Divider
+                // Divider with "OR"
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -243,6 +244,22 @@ fun RegisterScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     HorizontalDivider(modifier = Modifier.weight(1f))
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Google Sign-In button
+                OutlinedButton(
+                    onClick = onGoogleSignInClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Sign up with Google")
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
