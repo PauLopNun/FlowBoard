@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -262,7 +263,7 @@ fun FlowBoardApp(
                         enabled = !isCreating
                     ) {
                         if (isCreating) {
-                            CircularProgressIndicator(modifier = androidx.compose.ui.Modifier.size(16.dp))
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp))
                         } else {
                             androidx.compose.material3.Text("Create")
                         }
