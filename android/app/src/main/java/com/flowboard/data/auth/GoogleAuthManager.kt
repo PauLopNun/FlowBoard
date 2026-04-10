@@ -24,7 +24,7 @@ class GoogleAuthManager @Inject constructor(
 ) {
     // Google Cloud Web Client ID for OAuth 2.0
     // From: https://console.cloud.google.com/apis/credentials
-    private val webClientId = "387871911602-3ps8i85m95609nepmoboaaqcf7n40kos.apps.googleusercontent.com"
+    private val webClientId = "387871911602-cu1k74j3m3qltnih0763b44ooo6jdosi.apps.googleusercontent.com"
 
     /**
      * Sign in with Google and return the ID token
