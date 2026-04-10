@@ -178,6 +178,7 @@ fun Route.documentRoutes(
                     if (document != null) {
                         notificationService.sendDocumentSharedNotification(
                             recipientId = response.permission.userId,
+                            recipientEmail = response.permission.userEmail,
                             senderName = userName ?: "Someone",
                             documentTitle = document.title,
                             documentId = documentId
