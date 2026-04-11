@@ -62,39 +62,23 @@ class LoginViewModel @Inject constructor(
 
             try {
                 val result = authRepository.login(email, password)
-
                 result.fold(
-                    onSuccess = { response ->
-                        Log.d(TAG, "Login successful for user: ${response.username}")
-                        _loginState.value = LoginState.Success
+                    onSuccess = {
+                        Log.d(TAG, "Login successful")
                         _isLoggedIn.value = true
+                        _loginState.value = LoginState.Success
                     },
                     onFailure = { exception ->
                         Log.e(TAG, "Login failed: ${exception.message}", exception)
-
-                        // Mensajes de error más específicos
-                        val errorMessage = when {
-                            exception.message?.contains("No se puede conectar") == true ->
-                                "No se puede conectar al servidor. Verifica tu conexión a internet"
-                            exception.message?.contains("contraseña") == true ->
-                                "Email o contraseña incorrectos"
-                            exception.message?.contains("Usuario no encontrado") == true ->
-                                "Usuario no encontrado. ¿Necesitas registrarte?"
-                            exception.message?.contains("servidor") == true ->
-                                "Error del servidor. Intenta de nuevo en unos minutos"
-                            exception.message?.isNotBlank() == true ->
-                                exception.message!!
-                            else ->
-                                "Error de conexión. Verifica tu internet e intenta de nuevo"
-                        }
-
-                        _loginState.value = LoginState.Error(errorMessage)
+                        _loginState.value = LoginState.Error(
+                            exception.message ?: "Error al iniciar sesión"
+                        )
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Unexpected error during login: ${e.message}", e)
+                Log.e(TAG, "Unexpected login error: ${e.message}", e)
                 _loginState.value = LoginState.Error(
-                    "Error inesperado: ${e.message ?: "Por favor intenta de nuevo"}"
+                    "Error inesperado: ${e.message ?: "Intenta de nuevo"}"
                 )
             }
         }

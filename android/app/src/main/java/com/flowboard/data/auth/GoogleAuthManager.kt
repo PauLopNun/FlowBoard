@@ -6,6 +6,9 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
@@ -50,6 +53,15 @@ class GoogleAuthManager @Inject constructor(
             )
 
             handleSignInResult(result)
+        } catch (e: GetCredentialCancellationException) {
+            // User dismissed the picker — treat as a silent cancel
+            Result.failure(Exception("Cancelled"))
+        } catch (e: NoCredentialException) {
+            // No Google account on the device or the app's SHA-1 fingerprint is not registered
+            // in Google Cloud Console / Firebase for this build variant.
+            Result.failure(Exception("No credential available: ${e.message}"))
+        } catch (e: GetCredentialException) {
+            Result.failure(Exception("Google Sign-In error: ${e.message}"))
         } catch (e: Exception) {
             Result.failure(e)
         }
