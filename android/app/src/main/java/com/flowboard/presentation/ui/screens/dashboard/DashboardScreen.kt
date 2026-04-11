@@ -174,7 +174,8 @@ fun DashboardScreen(
                     onDocumentClick = onDocumentClick,
                     onDeleteDocument = { docId ->
                         documentViewModel.deleteDocumentViaApi(docId)
-                    }
+                    },
+                    onCreateDocument = onCreateDocument
                 )
             }
         }
@@ -362,7 +363,8 @@ fun DashboardContent(
     documentListState: com.flowboard.presentation.viewmodel.DocumentListState,
     currentUserName: String = "there",
     onDocumentClick: (String) -> Unit,
-    onDeleteDocument: (String) -> Unit
+    onDeleteDocument: (String) -> Unit,
+    onCreateDocument: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -446,15 +448,42 @@ fun DashboardContent(
                 }
             } else if (filteredDocs.isEmpty()) {
                 item {
-                     EmptyState(
-                         message = when(currentView) {
-                             DashboardView.SEARCH -> "Type to search..."
-                             DashboardView.TRASH -> "Trash is empty"
-                             DashboardView.INBOX -> "No shared documents"
-                             DashboardView.MY_DOCUMENTS -> "No documents created yet"
-                             else -> "No documents yet"
-                         }
-                     )
+                    if (currentView == DashboardView.HOME || currentView == DashboardView.MY_DOCUMENTS) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Outlined.NoteAdd,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                "No documents yet",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            FilledTonalButton(onClick = onCreateDocument) {
+                                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Create your first page")
+                            }
+                        }
+                    } else {
+                        EmptyState(
+                            message = when(currentView) {
+                                DashboardView.SEARCH -> "Type to search..."
+                                DashboardView.TRASH -> "Trash is empty"
+                                DashboardView.INBOX -> "No shared documents"
+                                else -> "No documents yet"
+                            }
+                        )
+                    }
                 }
             } else {
                 items(filteredDocs) { doc ->

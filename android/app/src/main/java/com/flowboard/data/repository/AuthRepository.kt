@@ -234,6 +234,11 @@ class AuthRepository @Inject constructor(
         return result.isSuccess
     }
 
+    suspend fun forgotPassword(email: String): Result<Unit> = authApiService.forgotPassword(email)
+
+    suspend fun resetPassword(email: String, code: String, newPassword: String): Result<Unit> =
+        authApiService.resetPassword(email, code, newPassword)
+
     /**
      * Sign in with Google
      * Requires Activity context for Credential Manager

@@ -250,6 +250,37 @@ class AuthApiService @Inject constructor(
         } catch (_: Exception) { /* silent — only purpose is to wake the server */ }
     }
 
+    /** Request a password reset OTP email. */
+    suspend fun forgotPassword(email: String): Result<Unit> {
+        return try {
+            val httpResponse = httpClient.post("$AUTH_ENDPOINT/forgot-password") {
+                contentType(ContentType.Application.Json)
+                setBody(mapOf("email" to email))
+            }
+            if (httpResponse.status.isSuccess()) Result.success(Unit)
+            else Result.failure(Exception("Request failed"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Confirm a password reset with the OTP and new password. */
+    suspend fun resetPassword(email: String, code: String, newPassword: String): Result<Unit> {
+        return try {
+            val httpResponse = httpClient.post("$AUTH_ENDPOINT/reset-password") {
+                contentType(ContentType.Application.Json)
+                setBody(ResetPasswordRequest(email, code, newPassword))
+            }
+            if (httpResponse.status.isSuccess()) Result.success(Unit)
+            else {
+                val body = httpResponse.body<String>()
+                Result.failure(Exception(body.ifBlank { "Invalid or expired code" }))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Sign in with Google
      * POST /api/v1/auth/google
@@ -394,4 +425,11 @@ data class LogoutResponse(
 @kotlinx.serialization.Serializable
 data class UpdatePasswordResponse(
     val message: String
+)
+
+@kotlinx.serialization.Serializable
+data class ResetPasswordRequest(
+    val email: String,
+    val code: String,
+    val newPassword: String
 )
