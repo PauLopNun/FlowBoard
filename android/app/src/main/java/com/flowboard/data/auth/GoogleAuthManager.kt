@@ -30,17 +30,37 @@ class GoogleAuthManager @Inject constructor(
     private val webClientId = "387871911602-cu1k74j3m3qltnih0763b44ooo6jdosi.apps.googleusercontent.com"
 
     /**
-     * Sign in with Google and return the ID token
-     * Requires Activity context for Credential Manager
+     * Sign in with Google and return the ID token.
+     * Uses a two-step approach:
+     * 1. Try accounts already authorized with this app (silent / one-tap)
+     * 2. Fall back to showing the full account picker for any Google account on the device
+     *    — only if step 1 returned NoCredentialException (not on cancel or other errors)
      */
     suspend fun signInWithGoogle(activity: Activity): Result<GoogleSignInResult> = withContext(Dispatchers.IO) {
-        try {
-            val credentialManager = CredentialManager.create(activity)
+        val credentialManager = CredentialManager.create(activity)
 
+        // Step 1: try accounts already authorized with this app
+        val authorizedResult = attemptSignIn(credentialManager, activity, filterByAuthorized = true)
+        if (authorizedResult.isSuccess) return@withContext authorizedResult
+
+        // Only fall back to step 2 when there are simply no authorized accounts yet
+        val step1Error = authorizedResult.exceptionOrNull()
+        if (step1Error !is NoCredentialException) return@withContext authorizedResult
+
+        // Step 2: show full account picker (all Google accounts on device)
+        attemptSignIn(credentialManager, activity, filterByAuthorized = false)
+    }
+
+    private suspend fun attemptSignIn(
+        credentialManager: CredentialManager,
+        activity: Activity,
+        filterByAuthorized: Boolean
+    ): Result<GoogleSignInResult> {
+        return try {
             val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
+                .setFilterByAuthorizedAccounts(filterByAuthorized)
                 .setServerClientId(webClientId)
-                .setAutoSelectEnabled(false)  // Changed to false to always show account picker
+                .setAutoSelectEnabled(false)
                 .build()
 
             val request = GetCredentialRequest.Builder()
@@ -57,9 +77,8 @@ class GoogleAuthManager @Inject constructor(
             // User dismissed the picker — treat as a silent cancel
             Result.failure(Exception("Cancelled"))
         } catch (e: NoCredentialException) {
-            // No Google account on the device or the app's SHA-1 fingerprint is not registered
-            // in Google Cloud Console / Firebase for this build variant.
-            Result.failure(Exception("No credential available: ${e.message}"))
+            // No credentials for this filter level — caller decides whether to retry
+            Result.failure(e)
         } catch (e: GetCredentialException) {
             Result.failure(Exception("Google Sign-In error: ${e.message}"))
         } catch (e: Exception) {

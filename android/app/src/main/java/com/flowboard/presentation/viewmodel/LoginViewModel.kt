@@ -122,13 +122,13 @@ class LoginViewModel @Inject constructor(
                             // User cancelled — no feedback needed
                             msg.contains("Cancel", ignoreCase = true) ||
                             msg.contains("interrupt", ignoreCase = true) -> { /* silent */ }
-                            // No Google account configured on device (or SHA-1 not registered)
+                            // No Google account found after both filter steps
                             msg.contains("No credential", ignoreCase = true) ->
                                 _googleSignInError.value =
-                                    "Google Sign-In is not available on this build. Please use email and password."
+                                    "No se encontró ninguna cuenta de Google en el dispositivo. Asegúrate de tener una cuenta configurada e intenta de nuevo."
                             // Real backend or network error
                             else ->
-                                _googleSignInError.value = msg.ifBlank { "Google Sign-In failed" }
+                                _googleSignInError.value = msg.ifBlank { "Google Sign-In failed. Please try again." }
                         }
                     }
                 )

@@ -17,7 +17,7 @@ object AuthService {
     suspend fun register(request: RegisterRequest): LoginResponse = dbQuery {
         val existing = Users
             .select { Users.email eq request.email or (Users.username eq request.username) }
-            .singleOrNull()
+            .firstOrNull()
 
         if (existing != null) {
             throw IllegalArgumentException("User with this email or username already exists")
@@ -26,12 +26,13 @@ object AuthService {
         val hashedPassword = BCrypt.hashpw(request.password, BCrypt.gensalt())
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
         val userId = UUID.randomUUID()
+        val resolvedFullName = request.fullName?.takeIf { it.isNotBlank() } ?: request.username
 
         Users.insert {
             it[id] = userId
             it[email] = request.email
             it[username] = request.username
-            it[fullName] = request.fullName
+            it[fullName] = resolvedFullName
             it[passwordHash] = hashedPassword
             it[createdAt] = now
         }
