@@ -38,6 +38,7 @@ class LoginViewModel @Inject constructor(
 
     init {
         checkLoginStatus()
+        warmupBackend()
     }
 
     private fun checkLoginStatus() {
@@ -121,16 +122,10 @@ class LoginViewModel @Inject constructor(
                             // User cancelled — no feedback needed
                             msg.contains("Cancel", ignoreCase = true) ||
                             msg.contains("interrupt", ignoreCase = true) -> { /* silent */ }
-                            // No Google account configured on device or SHA-1 fingerprint not
-                            // registered in Google Cloud Console / Firebase for this build.
-                            // To fix: run `keytool -list -v -keystore ~/.android/debug.keystore
-                            //   -alias androiddebugkey -storepass android -keypass android`
-                            // and register the SHA-1 in Firebase → Project Settings → Android App.
+                            // No Google account configured on device (or SHA-1 not registered)
                             msg.contains("No credential", ignoreCase = true) ->
                                 _googleSignInError.value =
-                                    "No se encontró ninguna cuenta de Google disponible. " +
-                                    "Asegúrate de tener una cuenta de Google configurada en el dispositivo " +
-                                    "o usa email y contraseña."
+                                    "Google Sign-In is not available on this build. Please use email and password."
                             // Real backend or network error
                             else ->
                                 _googleSignInError.value = msg.ifBlank { "Google Sign-In failed" }
