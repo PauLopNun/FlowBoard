@@ -101,6 +101,14 @@ object Notifications : UUIDTable("notifications") {
     val expiresAt = datetime("expires_at").nullable()
 }
 
+// Password reset tokens (6-digit OTP, expires in 15 min)
+object PasswordResetTokens : UUIDTable("password_reset_tokens") {
+    val email = varchar("email", 255).index()
+    val code = varchar("code", 6)
+    val expiresAt = datetime("expires_at")
+    val used = bool("used").default(false)
+}
+
 // Chat rooms table
 object ChatRooms : UUIDTable("chat_rooms") {
     val type = varchar("type", 50) // DIRECT, GROUP, PROJECT, TASK_THREAD

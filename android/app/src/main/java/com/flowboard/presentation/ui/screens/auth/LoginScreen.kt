@@ -196,7 +196,18 @@ fun LoginScreen(
 
 
 
-                Spacer(modifier = Modifier.height(24.dp))
+                // Forgot password
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                    TextButton(
+                        onClick = onForgotPasswordClick,
+                        enabled = !isLoading,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("Forgot password?", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Login button
                 Button(

@@ -26,6 +26,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.flowboard.presentation.ui.screens.auth.ForgotPasswordScreen
 import com.flowboard.presentation.ui.screens.auth.LoginScreen
 import com.flowboard.presentation.ui.screens.auth.RegisterScreen
 import com.flowboard.presentation.ui.screens.chat.ChatListScreen
@@ -55,6 +57,9 @@ fun FlowBoardApp(
     val navController = rememberNavController()
     val loginViewModel: LoginViewModel = hiltViewModel()
     val isLoggedIn by loginViewModel.isLoggedIn.collectAsStateWithLifecycle()
+    // Shared DocumentViewModel — hoisted so all screens see the same state instantly
+    val documentViewModel: DocumentViewModel = hiltViewModel()
+    val currentRoute by navController.currentBackStackEntryAsState()
 
     // Navigate to dashboard if already logged in
     LaunchedEffect(isLoggedIn) {
@@ -104,7 +109,9 @@ fun FlowBoardApp(
                     onRegisterClick = {
                         navController.navigate("register")
                     },
-                    onForgotPasswordClick = {},
+                    onForgotPasswordClick = {
+                        navController.navigate("forgot_password")
+                    },
                     onGoogleSignInClick = {
                         activity?.let { loginViewModel.signInWithGoogle(it) }
                     },
@@ -153,8 +160,24 @@ fun FlowBoardApp(
             )
         }
 
+        composable("forgot_password") {
+            ForgotPasswordScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onPasswordReset = {
+                    navController.navigate("login") {
+                        popUpTo("forgot_password") { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable("dashboard") {
-            val documentViewModel: DocumentViewModel = hiltViewModel()
+            // Re-fetch documents whenever the dashboard becomes the active destination
+            LaunchedEffect(currentRoute?.destination?.route) {
+                if (currentRoute?.destination?.route == "dashboard") {
+                    documentViewModel.fetchAllDocuments()
+                }
+            }
 
             DashboardScreen(
                 onDocumentClick = { documentId ->
@@ -240,13 +263,14 @@ fun FlowBoardApp(
                 },
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                viewModel = documentViewModel
             )
         }
 
         // Crear nuevo documento: show title dialog, create via API, then open collaborative editor
         composable("document_new") {
-            val documentViewModel: DocumentViewModel = hiltViewModel()
+            // Use the shared documentViewModel so the new doc is immediately visible everywhere
             val docListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
             var title by remember { mutableStateOf("") }
             var isCreating by remember { mutableStateOf(false) }

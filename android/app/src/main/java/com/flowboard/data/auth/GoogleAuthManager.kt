@@ -10,6 +10,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -48,7 +49,36 @@ class GoogleAuthManager @Inject constructor(
         if (step1Error !is NoCredentialException) return@withContext authorizedResult
 
         // Step 2: show full account picker (all Google accounts on device)
-        attemptSignIn(credentialManager, activity, filterByAuthorized = false)
+        val allAccountsResult = attemptSignIn(credentialManager, activity, filterByAuthorized = false)
+        if (allAccountsResult.isSuccess) return@withContext allAccountsResult
+        val step2Error = allAccountsResult.exceptionOrNull()
+        if (step2Error !is NoCredentialException) return@withContext allAccountsResult
+
+        // Step 3: use GetSignInWithGoogleOption — the official "Sign in with Google" button flow
+        // that always shows the Google account chooser regardless of prior authorization state
+        attemptSignInWithGoogleOption(credentialManager, activity)
+    }
+
+    private suspend fun attemptSignInWithGoogleOption(
+        credentialManager: CredentialManager,
+        activity: Activity
+    ): Result<GoogleSignInResult> {
+        return try {
+            val signInWithGoogleOption = GetSignInWithGoogleOption.Builder(webClientId).build()
+
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(signInWithGoogleOption)
+                .build()
+
+            val result = credentialManager.getCredential(context = activity, request = request)
+            handleSignInResult(result)
+        } catch (e: GetCredentialCancellationException) {
+            Result.failure(Exception("Cancelled"))
+        } catch (e: GetCredentialException) {
+            Result.failure(Exception("Google Sign-In error: ${e.message}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     private suspend fun attemptSignIn(
