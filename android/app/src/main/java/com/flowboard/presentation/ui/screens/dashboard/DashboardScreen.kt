@@ -27,8 +27,6 @@ import com.flowboard.presentation.viewmodel.LoginViewModel
 import com.flowboard.presentation.viewmodel.ProfileViewModel
 import kotlinx.coroutines.launch
 
-import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
-
 enum class DashboardView {
     HOME,
     INBOX,
@@ -81,6 +79,10 @@ fun DashboardScreen(
                         currentView = view
                         scope.launch { drawerState.close() }
                     },
+                    onTasksNavigate = {
+                        scope.launch { drawerState.close() }
+                        onTasksClick()
+                    },
                     onCreateDocument = {
                         scope.launch { drawerState.close() }
                         onCreateDocument()
@@ -101,31 +103,7 @@ fun DashboardScreen(
             }
         }
     ) {
-        if (currentView == DashboardView.TASKS) {
-            // Temporarily wrapping TaskListScreen to allow drawer access if we modify it later, 
-            // or just letting it be a full screen experience within the dashboard context.
-            // For better UX, we might want to pass a navigation icon to TaskListScreen in the future.
-            TaskListScreen(
-                onTaskClick = { /* Handle task click */ },
-                onCreateTaskClick = { /* Handle create */ },
-                onNotificationsClick = onNotificationsClick,
-                onChatClick = onChatClick,
-                onProfileClick = onProfileClick,
-                onSettingsClick = onSettingsClick,
-                onLogout = onLogout
-            )
-            // Add a floating button to open drawer if TaskListScreen doesn't support it?
-            // For now, let's stick to the requested functional access.
-             Box(modifier = Modifier.fillMaxSize()) {
-                IconButton(
-                    onClick = { scope.launch { drawerState.open() } },
-                    modifier = Modifier.padding(top = 8.dp, start = 4.dp)
-                ) {
-                    Icon(Icons.Default.Menu, contentDescription = "Menu")
-                }
-             }
-        } else {
-            Scaffold(
+        Scaffold(
                 topBar = {
                     CenterAlignedTopAppBar(
                         title = {
@@ -178,7 +156,6 @@ fun DashboardScreen(
                     onCreateDocument = onCreateDocument
                 )
             }
-        }
     }
 }
 
@@ -187,6 +164,7 @@ fun DashboardScreen(
 fun DashboardSidebar(
     currentView: DashboardView,
     onNavigate: (DashboardView) -> Unit,
+    onTasksNavigate: () -> Unit = {},
     onCreateDocument: () -> Unit,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -242,10 +220,10 @@ fun DashboardSidebar(
             onClick = { onNavigate(DashboardView.INBOX) }
         )
         NavigationItem(
-            icon = Icons.Outlined.CheckCircle, 
-            label = "Tasks", 
-            isSelected = currentView == DashboardView.TASKS,
-            onClick = { onNavigate(DashboardView.TASKS) }
+            icon = Icons.Outlined.CheckCircle,
+            label = "Tasks",
+            isSelected = false,
+            onClick = onTasksNavigate
         )
         NavigationItem(
             icon = Icons.Outlined.Search, 

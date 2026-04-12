@@ -32,21 +32,14 @@ fun ConnectionStatusBanner(
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
-        visible = connectionState !is WebSocketState.Connected,
+        visible = connectionState is WebSocketState.Reconnecting ||
+                  connectionState is WebSocketState.Disconnected ||
+                  connectionState is WebSocketState.Error,
         enter = slideInVertically() + fadeIn(),
         exit = slideOutVertically() + fadeOut(),
         modifier = modifier
     ) {
         when (connectionState) {
-            is WebSocketState.Connecting -> {
-                StatusBanner(
-                    message = "Conectando al servidor...",
-                    icon = Icons.Default.CloudSync,
-                    color = MaterialTheme.colorScheme.primary,
-                    showProgress = true
-                )
-            }
-
             is WebSocketState.Reconnecting -> {
                 StatusBanner(
                     message = "Reconectando (intento ${connectionState.attempt}/${connectionState.maxAttempts})...",

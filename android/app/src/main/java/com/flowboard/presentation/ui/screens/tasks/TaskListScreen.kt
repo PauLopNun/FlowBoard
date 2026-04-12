@@ -6,12 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,12 +26,8 @@ import com.flowboard.presentation.viewmodel.TaskViewModel
 fun TaskListScreen(
     onTaskClick: (String) -> Unit,
     onCreateTaskClick: () -> Unit,
-    onDocumentsClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onChatClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {},
-    onLogout: () -> Unit = {},
     viewModel: TaskViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -55,7 +46,6 @@ fun TaskListScreen(
     val boardId by viewModel.boardId.collectAsStateWithLifecycle()
 
     var selectedFilter by remember { mutableStateOf(TaskFilter.ALL) }
-    var showMenu by remember { mutableStateOf(false) }
 
     // Connect to WebSocket when screen mounts (only if auth data is available)
     LaunchedEffect(boardId, token, userId) {
@@ -118,60 +108,6 @@ fun TaskListScreen(
 
                         IconButton(onClick = { viewModel.syncTasks() }) {
                             Icon(Icons.Default.Sync, contentDescription = "Sync")
-                        }
-
-                        // More options menu
-                        Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "More options")
-                            }
-                            DropdownMenu(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Profile") },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Person, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        onProfileClick()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Settings") },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Settings, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        onSettingsClick()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Collaborative Documents") },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Description, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        onDocumentsClick()
-                                    }
-                                )
-                                Divider()
-                                DropdownMenuItem(
-                                    text = { Text("Logout") },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Logout, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        viewModel.logout()
-                                        onLogout()
-                                    }
-                                )
-                            }
                         }
                     }
                 )

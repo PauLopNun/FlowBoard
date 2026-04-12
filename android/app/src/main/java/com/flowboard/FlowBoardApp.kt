@@ -219,8 +219,6 @@ fun FlowBoardApp(
         }
 
         composable("tasks") {
-            val taskViewModel: TaskViewModel = hiltViewModel()
-
             TaskListScreen(
                 onTaskClick = { taskId ->
                     navController.navigate("task_detail/$taskId")
@@ -228,26 +226,11 @@ fun FlowBoardApp(
                 onCreateTaskClick = {
                     navController.navigate("create_task")
                 },
-                onDocumentsClick = {
-                    navController.navigate("my_documents")
-                },
                 onNotificationsClick = {
                     navController.navigate("notifications")
                 },
                 onChatClick = {
                     navController.navigate("chat_list")
-                },
-                onProfileClick = {
-                    navController.navigate("profile")
-                },
-                onSettingsClick = {
-                    navController.navigate("settings")
-                },
-                onLogout = {
-                    loginViewModel.logout()
-                    navController.navigate("login") {
-                        popUpTo("tasks") { inclusive = true }
-                    }
                 }
             )
         }
