@@ -200,6 +200,40 @@ class AuthApiService @Inject constructor(
     }
 
     /**
+     * Request password reset OTP
+     * POST /api/v1/auth/forgot-password
+     */
+    suspend fun forgotPassword(email: String): Result<Unit> {
+        return try {
+            val httpResponse = httpClient.post("$AUTH_ENDPOINT/forgot-password") {
+                contentType(ContentType.Application.Json)
+                setBody(ForgotPasswordRequest(email))
+            }
+            if (httpResponse.status.isSuccess()) Result.success(Unit)
+            else Result.failure(Exception("Failed to send reset code"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Confirm password reset with OTP code
+     * POST /api/v1/auth/reset-password
+     */
+    suspend fun resetPassword(email: String, code: String, newPassword: String): Result<Unit> {
+        return try {
+            val httpResponse = httpClient.post("$AUTH_ENDPOINT/reset-password") {
+                contentType(ContentType.Application.Json)
+                setBody(ResetPasswordRequest(email, code, newPassword))
+            }
+            if (httpResponse.status.isSuccess()) Result.success(Unit)
+            else Result.failure(Exception("Invalid or expired code"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Fire-and-forget ping to wake up Render's free-tier cold start.
      * Called on app launch; silently ignored if it fails.
      */
@@ -354,4 +388,22 @@ data class LogoutResponse(
 @kotlinx.serialization.Serializable
 data class UpdatePasswordResponse(
     val message: String
+)
+
+/**
+ * Forgot password request body
+ */
+@kotlinx.serialization.Serializable
+data class ForgotPasswordRequest(
+    val email: String
+)
+
+/**
+ * Reset password request body
+ */
+@kotlinx.serialization.Serializable
+data class ResetPasswordRequest(
+    val email: String,
+    val code: String,
+    val newPassword: String
 )

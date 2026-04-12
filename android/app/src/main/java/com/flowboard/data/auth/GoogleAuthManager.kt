@@ -6,7 +6,9 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -27,29 +29,22 @@ class GoogleAuthManager @Inject constructor(
     private val webClientId = "387871911602-cu1k74j3m3qltnih0763b44ooo6jdosi.apps.googleusercontent.com"
 
     /**
-     * Sign in with Google and return the ID token
-     * Requires Activity context for Credential Manager
+     * Sign in with Google and return the ID token.
+     * Uses GetSignInWithGoogleOption which always shows the account picker.
      */
     suspend fun signInWithGoogle(activity: Activity): Result<GoogleSignInResult> = withContext(Dispatchers.IO) {
+        val credentialManager = CredentialManager.create(activity)
         try {
-            val credentialManager = CredentialManager.create(activity)
-
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(webClientId)
-                .setAutoSelectEnabled(false)  // Changed to false to always show account picker
-                .build()
-
+            val signInWithGoogleOption = GetSignInWithGoogleOption.Builder(webClientId).build()
             val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
+                .addCredentialOption(signInWithGoogleOption)
                 .build()
-
-            val result = credentialManager.getCredential(
-                context = activity,
-                request = request
-            )
-
+            val result = credentialManager.getCredential(context = activity, request = request)
             handleSignInResult(result)
+        } catch (e: GetCredentialCancellationException) {
+            Result.failure(Exception("Cancelled"))
+        } catch (e: GetCredentialException) {
+            Result.failure(Exception("Google Sign-In error: ${e.message}"))
         } catch (e: Exception) {
             Result.failure(e)
         }

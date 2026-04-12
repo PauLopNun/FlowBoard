@@ -34,7 +34,8 @@ object DatabaseFactory {
                     Notifications,
                     ChatRooms,
                     ChatParticipants,
-                    Messages
+                    Messages,
+                    PasswordResetTokens
                 )
             }
             initialized = true

@@ -235,6 +235,18 @@ class AuthRepository @Inject constructor(
     }
 
     /**
+     * Request a password reset OTP to be sent by email.
+     */
+    suspend fun forgotPassword(email: String): Result<Unit> =
+        authApiService.forgotPassword(email)
+
+    /**
+     * Confirm password reset with the OTP code from email.
+     */
+    suspend fun resetPassword(email: String, code: String, newPassword: String): Result<Unit> =
+        authApiService.resetPassword(email, code, newPassword)
+
+    /**
      * Sign in with Google
      * Requires Activity context for Credential Manager
      */
