@@ -83,6 +83,10 @@ fun DashboardScreen(
                         scope.launch { drawerState.close() }
                         onTasksClick()
                     },
+                    onChatNavigate = {
+                        scope.launch { drawerState.close() }
+                        onChatClick()
+                    },
                     onCreateDocument = {
                         scope.launch { drawerState.close() }
                         onCreateDocument()
@@ -165,6 +169,7 @@ fun DashboardSidebar(
     currentView: DashboardView,
     onNavigate: (DashboardView) -> Unit,
     onTasksNavigate: () -> Unit = {},
+    onChatNavigate: () -> Unit = {},
     onCreateDocument: () -> Unit,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -226,8 +231,14 @@ fun DashboardSidebar(
             onClick = onTasksNavigate
         )
         NavigationItem(
-            icon = Icons.Outlined.Search, 
-            label = "Search", 
+            icon = Icons.Outlined.Chat,
+            label = "Chat",
+            isSelected = false,
+            onClick = onChatNavigate
+        )
+        NavigationItem(
+            icon = Icons.Outlined.Search,
+            label = "Search",
             isSelected = currentView == DashboardView.SEARCH,
             onClick = { onNavigate(DashboardView.SEARCH) }
         )
@@ -283,6 +294,7 @@ fun DashboardSidebar(
         Spacer(modifier = Modifier.weight(1f))
 
         // Bottom Actions
+        NavigationItem(Icons.Outlined.Person, "Profile", false, onProfileClick)
         NavigationItem(Icons.Outlined.Settings, "Settings", false, onSettingsClick)
         NavigationItem(
             icon = Icons.Outlined.Delete, 

@@ -27,7 +27,8 @@ import java.util.*
 @Composable
 fun ChatListScreen(
     viewModel: ChatViewModel = hiltViewModel(),
-    onChatClick: (String) -> Unit
+    onChatClick: (String) -> Unit,
+    onNavigateBack: () -> Unit = {}
 ) {
     val chatRooms by viewModel.chatRooms.collectAsState()
     val archivedChatRooms by viewModel.archivedChatRooms.collectAsState()
@@ -45,6 +46,11 @@ fun ChatListScreen(
                         text = "Messages",
                         style = MaterialTheme.typography.headlineMedium
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
                 },
                 actions = {
                     // Unread badge

@@ -231,6 +231,9 @@ fun FlowBoardApp(
                 },
                 onChatClick = {
                     navController.navigate("chat_list")
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }
@@ -420,6 +423,9 @@ fun FlowBoardApp(
                 viewModel = chatViewModel,
                 onChatClick = { chatId ->
                     navController.navigate("chat/$chatId")
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }
