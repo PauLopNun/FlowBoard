@@ -46,6 +46,8 @@ fun DashboardScreen(
     onProfileClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onTasksClick: () -> Unit = {},
+    onCalendarClick: () -> Unit = {},
+    onWorkspaceClick: () -> Unit = {},
     onViewAllDocuments: () -> Unit = {},
     onEditorDemoClick: () -> Unit = {},
     onLogout: () -> Unit = {},
@@ -82,6 +84,18 @@ fun DashboardScreen(
                     onTasksNavigate = {
                         scope.launch { drawerState.close() }
                         onTasksClick()
+                    },
+                    onChatNavigate = {
+                        scope.launch { drawerState.close() }
+                        onChatClick()
+                    },
+                    onCalendarNavigate = {
+                        scope.launch { drawerState.close() }
+                        onCalendarClick()
+                    },
+                    onWorkspaceNavigate = {
+                        scope.launch { drawerState.close() }
+                        onWorkspaceClick()
                     },
                     onCreateDocument = {
                         scope.launch { drawerState.close() }
@@ -152,7 +166,8 @@ fun DashboardScreen(
                     onDocumentClick = onDocumentClick,
                     onDeleteDocument = { docId ->
                         documentViewModel.deleteDocumentViaApi(docId)
-                    }
+                    },
+                    onCreateDocument = onCreateDocument
                 )
             }
     }
@@ -164,6 +179,9 @@ fun DashboardSidebar(
     currentView: DashboardView,
     onNavigate: (DashboardView) -> Unit,
     onTasksNavigate: () -> Unit = {},
+    onChatNavigate: () -> Unit = {},
+    onCalendarNavigate: () -> Unit = {},
+    onWorkspaceNavigate: () -> Unit = {},
     onCreateDocument: () -> Unit,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -225,8 +243,26 @@ fun DashboardSidebar(
             onClick = onTasksNavigate
         )
         NavigationItem(
-            icon = Icons.Outlined.Search, 
-            label = "Search", 
+            icon = Icons.Outlined.Chat,
+            label = "Chat",
+            isSelected = false,
+            onClick = onChatNavigate
+        )
+        NavigationItem(
+            icon = Icons.Outlined.CalendarMonth,
+            label = "Calendar",
+            isSelected = false,
+            onClick = onCalendarNavigate
+        )
+        NavigationItem(
+            icon = Icons.Outlined.Group,
+            label = "Workspaces",
+            isSelected = false,
+            onClick = onWorkspaceNavigate
+        )
+        NavigationItem(
+            icon = Icons.Outlined.Search,
+            label = "Search",
             isSelected = currentView == DashboardView.SEARCH,
             onClick = { onNavigate(DashboardView.SEARCH) }
         )
@@ -258,21 +294,22 @@ fun DashboardSidebar(
             onClick = { onNavigate(DashboardView.MY_DOCUMENTS) }
         )
 
-        // Dynamic list of private documents
-        if (documents.isEmpty()) {
-             Text(
-                "No recent pages",
+        // Page tree — root pages with expandable children
+        val rootDocs = documents.filter { it.parentId == null }
+        if (rootDocs.isEmpty()) {
+            Text(
+                "No pages yet",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.padding(start = 12.dp, top = 8.dp)
             )
         } else {
-            documents.take(5).forEach { doc ->
-                NavigationItem(
-                    icon = Icons.Outlined.Description,
-                    label = doc.title,
-                    isSelected = false,
-                    onClick = { onDocumentClick(doc.id) }
+            rootDocs.take(8).forEach { doc ->
+                val children = documents.filter { it.parentId == doc.id }
+                PageTreeItem(
+                    doc = doc,
+                    children = children,
+                    onDocumentClick = onDocumentClick
                 )
             }
         }
@@ -282,6 +319,7 @@ fun DashboardSidebar(
         Spacer(modifier = Modifier.weight(1f))
 
         // Bottom Actions
+        NavigationItem(Icons.Outlined.Person, "Profile", false, onProfileClick)
         NavigationItem(Icons.Outlined.Settings, "Settings", false, onSettingsClick)
         NavigationItem(
             icon = Icons.Outlined.Delete, 
@@ -340,7 +378,8 @@ fun DashboardContent(
     documentListState: com.flowboard.presentation.viewmodel.DocumentListState,
     currentUserName: String = "there",
     onDocumentClick: (String) -> Unit,
-    onDeleteDocument: (String) -> Unit
+    onDeleteDocument: (String) -> Unit,
+    onCreateDocument: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -424,15 +463,42 @@ fun DashboardContent(
                 }
             } else if (filteredDocs.isEmpty()) {
                 item {
-                     EmptyState(
-                         message = when(currentView) {
-                             DashboardView.SEARCH -> "Type to search..."
-                             DashboardView.TRASH -> "Trash is empty"
-                             DashboardView.INBOX -> "No shared documents"
-                             DashboardView.MY_DOCUMENTS -> "No documents created yet"
-                             else -> "No documents yet"
-                         }
-                     )
+                    if (currentView == DashboardView.HOME || currentView == DashboardView.MY_DOCUMENTS) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Outlined.NoteAdd,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                "No documents yet",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            FilledTonalButton(onClick = onCreateDocument) {
+                                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Create your first page")
+                            }
+                        }
+                    } else {
+                        EmptyState(
+                            message = when(currentView) {
+                                DashboardView.SEARCH -> "Type to search..."
+                                DashboardView.TRASH -> "Trash is empty"
+                                DashboardView.INBOX -> "No shared documents"
+                                else -> "No documents yet"
+                            }
+                        )
+                    }
                 }
             } else {
                 items(filteredDocs) { doc ->
@@ -532,6 +598,80 @@ fun SimpleDocumentItem(
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun PageTreeItem(
+    doc: com.flowboard.data.local.entities.DocumentEntity,
+    children: List<com.flowboard.data.local.entities.DocumentEntity>,
+    onDocumentClick: (String) -> Unit,
+    depth: Int = 0
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        Surface(
+            color = Color.Transparent,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 1.dp)
+                .clickable { onDocumentClick(doc.id) }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(
+                    start = (12 + depth * 16).dp,
+                    end = 4.dp,
+                    top = 6.dp,
+                    bottom = 6.dp
+                )
+            ) {
+                if (children.isNotEmpty()) {
+                    IconButton(
+                        onClick = { expanded = !expanded },
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.width(4.dp))
+                } else {
+                    Spacer(Modifier.width(24.dp))
+                }
+                Icon(
+                    Icons.Outlined.Description,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = doc.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        if (expanded && children.isNotEmpty()) {
+            children.forEach { child ->
+                PageTreeItem(
+                    doc = child,
+                    children = emptyList(), // one level deep in sidebar
+                    onDocumentClick = onDocumentClick,
+                    depth = depth + 1
+                )
             }
         }
     }

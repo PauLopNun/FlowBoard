@@ -58,24 +58,31 @@ fun Route.authRoutes() {
             call.respond(HttpStatusCode.OK, mapOf("message" to "Logged out successfully"))
         }
 
+        // Request a password reset — sends a 6-digit OTP to the user's email
         post("/forgot-password") {
+            @Serializable data class ForgotPasswordRequest(val email: String)
             try {
-                val body = call.receive<ForgotPasswordBody>()
-                AuthService.requestPasswordReset(body.email)
-                call.respond(HttpStatusCode.OK, mapOf("message" to "If this email is registered, a reset code has been sent"))
+                val req = call.receive<ForgotPasswordRequest>()
+                AuthService.requestPasswordReset(req.email)
+                // Always return 200 — no user enumeration
+                call.respond(HttpStatusCode.OK,
+                    mapOf("message" to "If that email is registered you will receive a reset code"))
             } catch (e: Exception) {
-                call.respond(HttpStatusCode.OK, mapOf("message" to "If this email is registered, a reset code has been sent"))
+                call.respond(HttpStatusCode.InternalServerError, mapOf("error" to e.message))
             }
         }
 
+        // Confirm password reset with OTP + new password
         post("/reset-password") {
+            @Serializable data class ResetPasswordRequest(val email: String, val code: String, val newPassword: String)
             try {
-                val body = call.receive<ResetPasswordBody>()
-                val success = AuthService.confirmPasswordReset(body.email, body.code, body.newPassword)
+                val req = call.receive<ResetPasswordRequest>()
+                val success = AuthService.confirmPasswordReset(req.email, req.code, req.newPassword)
                 if (success) {
-                    call.respond(HttpStatusCode.OK, mapOf("message" to "Password reset successfully"))
+                    call.respond(HttpStatusCode.OK, mapOf("message" to "Password updated successfully"))
                 } else {
-                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid or expired code"))
+                    call.respond(HttpStatusCode.BadRequest,
+                        mapOf("error" to "Invalid or expired reset code"))
                 }
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, mapOf("error" to e.message))
@@ -83,13 +90,3 @@ fun Route.authRoutes() {
         }
     }
 }
-
-@Serializable
-private data class ForgotPasswordBody(val email: String)
-
-@Serializable
-private data class ResetPasswordBody(
-    val email: String,
-    val code: String,
-    val newPassword: String
-)

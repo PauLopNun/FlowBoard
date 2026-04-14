@@ -70,6 +70,7 @@ object Documents : UUIDTable("documents") {
     val title = varchar("title", 500)
     val content = text("content")
     val ownerId = uuid("owner_id")
+    val parentId = uuid("parent_id").nullable()
     val isPublic = bool("is_public").default(false)
     val createdAt = datetime("created_at")
     val updatedAt = datetime("updated_at")
@@ -99,6 +100,32 @@ object Notifications : UUIDTable("notifications") {
     val isRead = bool("is_read").default(false)
     val createdAt = datetime("created_at")
     val expiresAt = datetime("expires_at").nullable()
+}
+
+// Password reset tokens (6-digit OTP, expires in 15 min)
+object PasswordResetTokens : UUIDTable("password_reset_tokens") {
+    val email = varchar("email", 255).index()
+    val code = varchar("code", 6)
+    val expiresAt = datetime("expires_at")
+    val used = bool("used").default(false)
+}
+
+// Workspaces table — shared team spaces
+object Workspaces : UUIDTable("workspaces") {
+    val name = varchar("name", 255)
+    val description = text("description").nullable()
+    val ownerId = uuid("owner_id")
+    val inviteCode = varchar("invite_code", 12).uniqueIndex()
+    val createdAt = datetime("created_at")
+    val updatedAt = datetime("updated_at")
+}
+
+// Workspace members
+object WorkspaceMembers : UUIDTable("workspace_members") {
+    val workspaceId = uuid("workspace_id")
+    val userId = uuid("user_id")
+    val role = varchar("role", 50).default("MEMBER") // OWNER, ADMIN, MEMBER
+    val joinedAt = datetime("joined_at")
 }
 
 // Chat rooms table

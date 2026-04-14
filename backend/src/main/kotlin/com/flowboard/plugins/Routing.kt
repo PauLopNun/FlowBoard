@@ -17,6 +17,7 @@ fun Application.configureRouting() {
     val chatService = ChatService()
     val permissionService = PermissionService()
     val taskService = TaskService(webSocketManager)
+    val workspaceService = com.flowboard.domain.WorkspaceService()
 
     val json = Json {
         ignoreUnknownKeys = true
@@ -37,6 +38,7 @@ fun Application.configureRouting() {
             notificationRoutes(notificationService)
             chatRoutes(chatService)
             permissionRoutes(permissionService)
+            workspaceRoutes(workspaceService)
         }
 
         webSocketRoutes(webSocketManager, documentService)

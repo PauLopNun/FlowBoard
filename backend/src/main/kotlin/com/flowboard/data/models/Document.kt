@@ -11,6 +11,7 @@ data class Document(
     val ownerId: String,
     val ownerName: String? = null,
     val isPublic: Boolean = false,
+    val parentId: String? = null,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime,
     val lastEditedBy: String? = null,
@@ -34,7 +35,8 @@ data class DocumentPermissionResponse(
 data class CreateDocumentRequest(
     val title: String,
     val content: String = "",
-    val isPublic: Boolean = false
+    val isPublic: Boolean = false,
+    val parentId: String? = null
 )
 
 @Serializable

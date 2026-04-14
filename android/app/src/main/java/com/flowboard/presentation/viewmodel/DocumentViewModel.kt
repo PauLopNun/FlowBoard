@@ -362,6 +362,31 @@ class DocumentViewModel @Inject constructor(
     }
 
     /**
+     * Create a sub-page under a parent document
+     */
+    fun createSubPageViaApi(parentId: String, title: String, onSuccess: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            _documentListState.update { it.copy(isLoading = true) }
+            documentRepositoryImpl.createDocument(title = title, parentId = parentId)
+                .onSuccess { document ->
+                    _documentListState.update { state ->
+                        state.copy(
+                            ownedDocuments = state.ownedDocuments + document,
+                            isLoading = false,
+                            error = null
+                        )
+                    }
+                    onSuccess(document.id)
+                }
+                .onFailure { error ->
+                    _documentListState.update {
+                        it.copy(isLoading = false, error = error.message ?: "Failed to create sub-page")
+                    }
+                }
+        }
+    }
+
+    /**
      * Create new document via API
      */
     fun createDocumentViaApi(title: String, content: String = "", isPublic: Boolean = false, onSuccess: (String) -> Unit = {}) {

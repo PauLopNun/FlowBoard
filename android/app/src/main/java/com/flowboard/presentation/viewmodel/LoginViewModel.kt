@@ -62,39 +62,23 @@ class LoginViewModel @Inject constructor(
 
             try {
                 val result = authRepository.login(email, password)
-
                 result.fold(
-                    onSuccess = { response ->
-                        Log.d(TAG, "Login successful for user: ${response.username}")
-                        _loginState.value = LoginState.Success
+                    onSuccess = {
+                        Log.d(TAG, "Login successful")
                         _isLoggedIn.value = true
+                        _loginState.value = LoginState.Success
                     },
                     onFailure = { exception ->
                         Log.e(TAG, "Login failed: ${exception.message}", exception)
-
-                        // Mensajes de error más específicos
-                        val errorMessage = when {
-                            exception.message?.contains("No se puede conectar") == true ->
-                                "No se puede conectar al servidor. Verifica tu conexión a internet"
-                            exception.message?.contains("contraseña") == true ->
-                                "Email o contraseña incorrectos"
-                            exception.message?.contains("Usuario no encontrado") == true ->
-                                "Usuario no encontrado. ¿Necesitas registrarte?"
-                            exception.message?.contains("servidor") == true ->
-                                "Error del servidor. Intenta de nuevo en unos minutos"
-                            exception.message?.isNotBlank() == true ->
-                                exception.message!!
-                            else ->
-                                "Error de conexión. Verifica tu internet e intenta de nuevo"
-                        }
-
-                        _loginState.value = LoginState.Error(errorMessage)
+                        _loginState.value = LoginState.Error(
+                            exception.message ?: "Error al iniciar sesión"
+                        )
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Unexpected error during login: ${e.message}", e)
+                Log.e(TAG, "Unexpected login error: ${e.message}", e)
                 _loginState.value = LoginState.Error(
-                    "Error inesperado: ${e.message ?: "Por favor intenta de nuevo"}"
+                    "Error inesperado: ${e.message ?: "Intenta de nuevo"}"
                 )
             }
         }
@@ -138,13 +122,13 @@ class LoginViewModel @Inject constructor(
                             // User cancelled — no feedback needed
                             msg.contains("Cancel", ignoreCase = true) ||
                             msg.contains("interrupt", ignoreCase = true) -> { /* silent */ }
-                            // No Google account configured on device (or SHA-1 not registered)
+                            // No Google account found after both filter steps
                             msg.contains("No credential", ignoreCase = true) ->
                                 _googleSignInError.value =
-                                    "Google Sign-In is not available on this build. Please use email and password."
+                                    "No se encontró ninguna cuenta de Google en el dispositivo. Asegúrate de tener una cuenta configurada e intenta de nuevo."
                             // Real backend or network error
                             else ->
-                                _googleSignInError.value = msg.ifBlank { "Google Sign-In failed" }
+                                _googleSignInError.value = msg.ifBlank { "Google Sign-In failed. Please try again." }
                         }
                     }
                 )

@@ -1,11 +1,16 @@
 package com.flowboard.domain
 
 import com.flowboard.data.database.DatabaseFactory.dbQuery
+import com.flowboard.data.database.PasswordResetTokens
 import com.flowboard.data.database.Users
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import com.flowboard.data.models.*
 import com.flowboard.plugins.JwtConfig
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -17,7 +22,7 @@ object AuthService {
     suspend fun register(request: RegisterRequest): LoginResponse = dbQuery {
         val existing = Users
             .select { Users.email eq request.email or (Users.username eq request.username) }
-            .singleOrNull()
+            .firstOrNull()
 
         if (existing != null) {
             throw IllegalArgumentException("User with this email or username already exists")
@@ -26,12 +31,13 @@ object AuthService {
         val hashedPassword = BCrypt.hashpw(request.password, BCrypt.gensalt())
         val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
         val userId = UUID.randomUUID()
+        val resolvedFullName = request.fullName?.takeIf { it.isNotBlank() } ?: request.username
 
         Users.insert {
             it[id] = userId
             it[email] = request.email
             it[username] = request.username
-            it[fullName] = request.fullName
+            it[fullName] = resolvedFullName
             it[passwordHash] = hashedPassword
             it[createdAt] = now
         }
@@ -204,5 +210,75 @@ object AuthService {
                 user = user
             )
         }
+    }
+
+    /**
+     * Request a password reset. Generates a 6-digit OTP and emails it.
+     * Returns true even when the email is unknown (security: no user enumeration).
+     */
+    suspend fun requestPasswordReset(email: String): Boolean = dbQuery {
+        val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        val expires = Clock.System.now().plus(15, DateTimeUnit.MINUTE).toLocalDateTime(TimeZone.UTC)
+
+        // Only proceed if the email exists, but always return true
+        val userExists = Users.select { Users.email eq email }.count() > 0
+
+        if (userExists) {
+            // Invalidate any previous tokens for this email
+            PasswordResetTokens.update({ PasswordResetTokens.email eq email }) {
+                it[PasswordResetTokens.used] = true
+            }
+
+            val code = (100000..999999).random().toString()
+
+            PasswordResetTokens.insert {
+                it[PasswordResetTokens.id] = UUID.randomUUID()
+                it[PasswordResetTokens.email] = email
+                it[PasswordResetTokens.code] = code
+                it[PasswordResetTokens.expiresAt] = expires
+                it[PasswordResetTokens.used] = false
+            }
+
+            // Kick off email outside the transaction (fire-and-forget)
+            kotlinx.coroutines.GlobalScope.launch {
+                EmailService.sendPasswordResetEmail(email, code)
+            }
+        }
+
+        true
+    }
+
+    /**
+     * Confirm a password reset using the OTP code.
+     * Returns false when the code is invalid, expired, or already used.
+     */
+    suspend fun confirmPasswordReset(email: String, code: String, newPassword: String): Boolean = dbQuery {
+        val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+
+        val token = PasswordResetTokens
+            .select {
+                (PasswordResetTokens.email eq email) and
+                (PasswordResetTokens.code eq code) and
+                (PasswordResetTokens.used eq false)
+            }
+            .singleOrNull()
+
+        if (token == null || token[PasswordResetTokens.expiresAt] < now) {
+            return@dbQuery false
+        }
+
+        // Mark token used
+        PasswordResetTokens.update({
+            (PasswordResetTokens.email eq email) and (PasswordResetTokens.code eq code)
+        }) {
+            it[PasswordResetTokens.used] = true
+        }
+
+        // Update password
+        Users.update({ Users.email eq email }) {
+            it[Users.passwordHash] = BCrypt.hashpw(newPassword, BCrypt.gensalt())
+        }
+
+        true
     }
 }

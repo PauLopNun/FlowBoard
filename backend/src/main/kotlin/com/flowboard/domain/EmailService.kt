@@ -52,7 +52,10 @@ object EmailService {
         }
     }
 
-    suspend fun sendPasswordResetEmail(recipientEmail: String, resetCode: String) {
+    suspend fun sendPasswordResetEmail(
+        recipientEmail: String,
+        resetCode: String
+    ) {
         if (apiKey.isNullOrBlank()) return
         try {
             client.post("https://api.resend.com/emails") {
@@ -65,19 +68,19 @@ object EmailService {
                     html = """
                         <div style="font-family:sans-serif;max-width:500px;margin:auto">
                             <h2 style="color:#4F46E5">FlowBoard</h2>
-                            <p>You requested a password reset. Use the code below:</p>
-                            <div style="background:#F3F4F6;border-radius:8px;padding:24px;text-align:center;margin:24px 0">
-                                <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#4F46E5">$resetCode</span>
-                            </div>
-                            <p style="color:#666">This code expires in <strong>15 minutes</strong>.</p>
-                            <p style="color:#666">If you didn&rsquo;t request a password reset, you can safely ignore this email.</p>
+                            <p>We received a request to reset the password for your account.</p>
+                            <p>Your reset code is:</p>
+                            <div style="font-size:32px;font-weight:bold;letter-spacing:8px;
+                                        text-align:center;padding:24px;background:#F3F4F6;
+                                        border-radius:8px;margin:16px 0">$resetCode</div>
+                            <p>This code expires in <strong>15 minutes</strong>.</p>
+                            <p>If you did not request a password reset, you can safely ignore this email.</p>
+                            <p style="font-size:12px;color:#666">FlowBoard — Collaborative task &amp; document management</p>
                         </div>
                     """.trimIndent()
                 ))
             }
-        } catch (_: Exception) {
-            // Email failure must not break the reset flow
-        }
+        } catch (_: Exception) { }
     }
 
     suspend fun sendDocumentInviteEmail(
