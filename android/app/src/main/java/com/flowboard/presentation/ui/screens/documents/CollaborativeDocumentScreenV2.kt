@@ -51,6 +51,7 @@ import java.util.UUID
 fun CollaborativeDocumentScreenV2(
     documentId: String,
     onNavigateBack: () -> Unit,
+    onNavigateToDocument: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: CollaborativeDocumentViewModel = hiltViewModel()
 ) {
@@ -271,6 +272,7 @@ fun CollaborativeDocumentScreenV2(
                                     viewModel.updateBlockType(block.id, type)
                                     viewModel.insertText(block.id, cleanedText, 0)
                                 },
+                                onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
                                 isTitle = true,
                                 modifier = Modifier.weight(1f)
                             )
@@ -293,6 +295,7 @@ fun CollaborativeDocumentScreenV2(
                                 viewModel.updateBlockType(block.id, type)
                                 viewModel.insertText(block.id, cleanedText, 0)
                             },
+                            onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
                             isTitle = false
                         )
                     }
@@ -376,7 +379,14 @@ fun CollaborativeDocumentScreenV2(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.createSubPage(documentId, subPageTitle.trim().ifBlank { "Untitled" })
+                        val sourceBlockId = slashMenuBlockId
+                        val finalTitle = subPageTitle.trim().ifBlank { "Untitled" }
+                        viewModel.createSubPage(documentId, finalTitle, afterBlockId = sourceBlockId)
+                        // Clear the "/" character left by the slash command trigger
+                        sourceBlockId?.let { id ->
+                            val src = blocks.find { it.id == id }
+                            if (src?.content == "/") viewModel.insertText(id, "", 0)
+                        }
                         showSubPageDialog = false
                         subPageTitle = ""
                     }
@@ -671,6 +681,7 @@ private fun DocumentBlock(
     onDeleteBlock: () -> Unit,
     onSlashCommand: () -> Unit,
     onMarkdownShortcut: (type: String, cleanedText: String) -> Unit,
+    onNavigateToSubPage: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var textFieldValue by remember(block.id) {
@@ -696,6 +707,48 @@ private fun DocumentBlock(
         block.type == "todo" -> "To-do"
         isFocused -> "Type '/' for commands"
         else -> ""
+    }
+
+    // Subpage block — clickable inline page-link card (Notion-style)
+    if (block.type == "subpage") {
+        val parts = block.content.split("||", limit = 2)
+        val subDocId = parts[0]
+        val pageTitle = parts.getOrElse(1) { "Untitled" }
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .then(
+                    if (onNavigateToSubPage != null && subDocId.isNotEmpty())
+                        Modifier.clickable { onNavigateToSubPage(subDocId) }
+                    else Modifier
+                )
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                Icons.Default.Article,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                pageTitle,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        return
     }
 
     // Divider block — no text field, just a line
@@ -920,16 +973,21 @@ private fun buildTextStyle(block: ContentBlock, isTitle: Boolean): TextStyle {
         )
         else -> MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = 26.sp)
     }
+    // Empty / "#000000" / "default" → follow the current theme (white in dark, dark in light)
+    val defaultTextColor = MaterialTheme.colorScheme.onBackground
+    val resolvedColor = when {
+        block.color.isEmpty() || block.color == "default" || block.color == "#000000" -> defaultTextColor
+        else -> try {
+            Color(android.graphics.Color.parseColor(
+                if (block.color.startsWith("#")) block.color else "#${block.color}"
+            ))
+        } catch (_: Exception) { defaultTextColor }
+    }
     return base.copy(
         fontWeight = if (block.fontWeight == "bold") FontWeight.Bold else base.fontWeight,
         fontStyle = if (block.fontStyle == "italic") FontStyle.Italic else FontStyle.Normal,
         textDecoration = if (block.textDecoration == "underline") TextDecoration.Underline else null,
-        color = if (block.color.isNotEmpty() && block.color != "#000000" && block.color != "default")
-            try { Color(android.graphics.Color.parseColor(
-                if (block.color.startsWith("#")) block.color else "#${block.color}"
-            )) }
-            catch (_: Exception) { Color.Unspecified }
-        else Color.Unspecified
+        color = resolvedColor
     )
 }
 
@@ -947,16 +1005,35 @@ private fun FormattingToolbar(
     onColorChange: (String) -> Unit
 ) {
     val textColors = listOf(
-        "#000000" to Color(0xFF000000),
-        "#EF4444" to Color(0xFFEF4444),
-        "#F97316" to Color(0xFFF97316),
-        "#FBBF24" to Color(0xFFFBBF24),
-        "#10B981" to Color(0xFF10B981),
-        "#3B82F6" to Color(0xFF3B82F6),
-        "#8B5CF6" to Color(0xFF8B5CF6),
-        "#6B7280" to Color(0xFF6B7280),
+        // Row 1 — Neutrals
+        "" to Color.Transparent,            // Auto (follows theme)
+        "#1F2937" to Color(0xFF1F2937),     // Near-black
+        "#6B7280" to Color(0xFF6B7280),     // Gray
+        "#9CA3AF" to Color(0xFF9CA3AF),     // Light gray
+        // Row 2 — Warm
+        "#EF4444" to Color(0xFFEF4444),     // Red
+        "#F97316" to Color(0xFFF97316),     // Orange
+        "#F59E0B" to Color(0xFFF59E0B),     // Amber
+        "#FBBF24" to Color(0xFFFBBF24),     // Yellow
+        // Row 3 — Cool
+        "#10B981" to Color(0xFF10B981),     // Emerald
+        "#14B8A6" to Color(0xFF14B8A6),     // Teal
+        "#06B6D4" to Color(0xFF06B6D4),     // Cyan
+        "#3B82F6" to Color(0xFF3B82F6),     // Blue
+        // Row 4 — Purple/Pink
+        "#6366F1" to Color(0xFF6366F1),     // Indigo
+        "#8B5CF6" to Color(0xFF8B5CF6),     // Violet
+        "#A855F7" to Color(0xFFA855F7),     // Purple
+        "#EC4899" to Color(0xFFEC4899),     // Pink
+        // Row 5 — Dark/Earth
+        "#92400E" to Color(0xFF92400E),     // Brown
+        "#065F46" to Color(0xFF065F46),     // Dark green
+        "#1E40AF" to Color(0xFF1E40AF),     // Dark blue
+        "#7F1D1D" to Color(0xFF7F1D1D),     // Dark red
     )
-    val currentColor = currentBlock?.color?.takeIf { it.isNotBlank() } ?: "#000000"
+    // Empty / "#000000" / "default" all mean "auto" in the new system
+    val currentColor = currentBlock?.color
+        ?.takeIf { it.isNotBlank() && it != "#000000" && it != "default" } ?: ""
     var showColorDropdown by remember { mutableStateOf(false) }
 
     Surface(
@@ -1020,9 +1097,9 @@ private fun FormattingToolbar(
 
             // Color picker dropdown — same level as other format buttons
             Box {
-                val selectedColor = try {
-                    Color(android.graphics.Color.parseColor(currentColor))
-                } catch (_: Exception) { Color.Black }
+                val indicatorColor = if (currentColor.isEmpty()) MaterialTheme.colorScheme.onBackground
+                    else try { Color(android.graphics.Color.parseColor(currentColor)) }
+                    catch (_: Exception) { MaterialTheme.colorScheme.onBackground }
                 IconButton(
                     onClick = { showColorDropdown = !showColorDropdown },
                     modifier = Modifier.size(36.dp)
@@ -1041,7 +1118,7 @@ private fun FormattingToolbar(
                             modifier = Modifier
                                 .size(width = 14.dp, height = 3.dp)
                                 .clip(RoundedCornerShape(1.dp))
-                                .background(selectedColor)
+                                .background(indicatorColor)
                         )
                     }
                 }
@@ -1056,21 +1133,39 @@ private fun FormattingToolbar(
                                 modifier = Modifier.padding(bottom = 8.dp)
                             ) {
                                 rowColors.forEach { (hex, color) ->
-                                    val isSelected = currentColor.equals(hex, ignoreCase = true)
+                                    val isAuto = hex.isEmpty()
+                                    val isSelected = if (isAuto) currentColor.isEmpty()
+                                        else currentColor.equals(hex, ignoreCase = true)
                                     Box(
                                         modifier = Modifier
                                             .size(if (isSelected) 28.dp else 24.dp)
                                             .clip(CircleShape)
-                                            .background(color)
-                                            .then(
-                                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                                else Modifier
+                                            .background(
+                                                if (isAuto) MaterialTheme.colorScheme.surface
+                                                else color
+                                            )
+                                            .border(
+                                                width = if (isSelected) 2.dp else 1.dp,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                                    else if (isAuto) MaterialTheme.colorScheme.outlineVariant
+                                                    else Color.Transparent,
+                                                shape = CircleShape
                                             )
                                             .clickable {
                                                 onColorChange(hex)
                                                 showColorDropdown = false
-                                            }
-                                    )
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isAuto) {
+                                            Text(
+                                                "A",
+                                                style = MaterialTheme.typography.labelSmall
+                                                    .copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

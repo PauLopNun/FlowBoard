@@ -118,8 +118,8 @@ class LoginViewModel @Inject constructor(
                         _loginState.value = LoginState.Idle
                         val msg = exception.message ?: ""
                         when {
-                            // User explicitly cancelled — no feedback needed
-                            msg.contains("Cancel", ignoreCase = true) -> { /* silent */ }
+                            // User explicitly cancelled (GetCredentialCancellationException → "Cancelled") — no feedback needed
+                            msg == "Cancelled" -> { /* silent */ }
                             // No Google account configured on device
                             msg.contains("No credential", ignoreCase = true) ->
                                 _googleSignInError.value =
