@@ -328,7 +328,11 @@ fun FlowBoardApp(
             CollaborativeDocumentScreenV2(
                 documentId = documentId,
                 onNavigateBack = {
-                    navController.popBackStack()
+                    if (!navController.popBackStack()) {
+                        navController.navigate("dashboard") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
                 }
             )
         }

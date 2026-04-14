@@ -180,9 +180,10 @@ class AuthApiService @Inject constructor(
         }
     }
 
-    suspend fun searchUserByEmail(email: String): Result<UserData> {
+    suspend fun searchUserByEmail(email: String, token: String): Result<UserData> {
         return try {
             val response: UserData = httpClient.get("${ApiConfig.API_BASE_URL}/users/search") {
+                header("Authorization", "Bearer $token")
                 parameter("email", email)
             }.body()
             Result.success(response)

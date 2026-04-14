@@ -176,7 +176,8 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun searchUserByEmail(email: String): Result<com.flowboard.data.remote.api.UserData> {
-        return authApiService.searchUserByEmail(email)
+        val token = getToken() ?: return Result.failure(Exception("Not authenticated"))
+        return authApiService.searchUserByEmail(email, token)
     }
 
     /**
