@@ -21,7 +21,10 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.flowboard.domain.model.*
 import com.flowboard.presentation.viewmodel.ChatViewModel
 import kotlinx.coroutines.delay
@@ -178,6 +181,7 @@ fun ChatScreen(
                         MessageBubble(
                             message = message,
                             currentUserId = currentUserId,
+                            participants = participants,
                             onReply = {
                                 replyingTo = message
                             },
@@ -218,17 +222,57 @@ fun ChatScreen(
 fun MessageBubble(
     message: Message,
     currentUserId: String?,
+    participants: List<ChatParticipant> = emptyList(),
     onReply: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onReaction: (String) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val isOwnMessage = currentUserId != null && message.senderId == currentUserId
+    val senderParticipant = participants.find { it.userId == message.senderId }
+    val senderAvatarUrl = senderParticipant?.avatarUrl
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isOwnMessage) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        // Avatar for other users (left side)
+        if (!isOwnMessage) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!senderAvatarUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(senderAvatarUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = message.senderName,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Text(
+                        text = message.senderName.firstOrNull()?.uppercase() ?: "?",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.weight(1f, fill = false),
         horizontalAlignment = if (isOwnMessage) Alignment.End else Alignment.Start
     ) {
         // Reply indicator
@@ -418,7 +462,8 @@ fun MessageBubble(
                 }
             }
         }
-    }
+    } // end inner Column
+    } // end outer Row
 }
 
 @Composable

@@ -112,9 +112,14 @@ fun DashboardScreen(
                         onLogout()
                     },
                     documents = documentListState.ownedDocuments,
+                    sharedDocuments = documentListState.sharedWithMe,
                     onDocumentClick = { docId ->
                         scope.launch { drawerState.close() }
                         onDocumentClick(docId)
+                    },
+                    onCreateSharedDocument = {
+                        scope.launch { drawerState.close() }
+                        onCreateDocument()
                     },
                     onCreateSubPage = { parentId, title ->
                         documentViewModel.createSubPageViaApi(parentId, title) { docId ->
@@ -196,7 +201,9 @@ fun DashboardSidebar(
     onSettingsClick: () -> Unit,
     onLogout: () -> Unit,
     documents: List<com.flowboard.data.local.entities.DocumentEntity>,
+    sharedDocuments: List<com.flowboard.data.local.entities.DocumentEntity> = emptyList(),
     onDocumentClick: (String) -> Unit,
+    onCreateSharedDocument: () -> Unit = {},
     onCreateSubPage: ((parentId: String, title: String) -> Unit)? = null
 ) {
     var createSubPageParentId by remember { mutableStateOf<String?>(null) }
@@ -320,35 +327,75 @@ fun DashboardSidebar(
             onClick = onCreateDocument
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Favorites / Private
-        Text(
-            "PRIVATE",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp, start = 12.dp)
-        )
-        
+        // ── WORKSPACE section (shared / public docs) ──────────────────────────
+        val workspaceDocs = (sharedDocuments + documents.filter { it.isPublic })
+            .distinctBy { it.id }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "WORKSPACE",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onCreateSharedDocument, modifier = Modifier.size(20.dp)) {
+                Icon(Icons.Default.Add, "New shared page",
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        val workspaceRoots = workspaceDocs.filter { it.parentId == null }
+        if (workspaceRoots.isEmpty()) {
+            Text(
+                "No shared pages yet",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 8.dp)
+            )
+        } else {
+            workspaceRoots.take(6).forEach { doc ->
+                val children = workspaceDocs.filter { it.parentId == doc.id }
+                PageTreeItem(doc = doc, children = children, onDocumentClick = onDocumentClick)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ── PRIVATE section (user's own non-public docs) ───────────────────────
+        val privateDocs = documents.filter { !it.isPublic }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "PRIVATE",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+        }
         NavigationItem(
-            icon = Icons.Outlined.Folder, 
-            label = "My Documents", 
+            icon = Icons.Outlined.Folder,
+            label = "My Documents",
             isSelected = currentView == DashboardView.MY_DOCUMENTS,
             onClick = { onNavigate(DashboardView.MY_DOCUMENTS) }
         )
-
-        // Page tree — root pages with expandable children
-        val rootDocs = documents.filter { it.parentId == null }
+        // Page tree — root private pages with expandable children
+        val rootDocs = privateDocs.filter { it.parentId == null }
         if (rootDocs.isEmpty()) {
             Text(
                 "No pages yet",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.padding(start = 12.dp, top = 8.dp)
+                modifier = Modifier.padding(start = 12.dp, top = 4.dp)
             )
         } else {
             rootDocs.take(8).forEach { doc ->
-                val children = documents.filter { it.parentId == doc.id }
+                val children = privateDocs.filter { it.parentId == doc.id }
                 PageTreeItem(
                     doc = doc,
                     children = children,
@@ -359,8 +406,8 @@ fun DashboardSidebar(
                 )
             }
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
+
+        Spacer(modifier = Modifier.height(16.dp))
         
         Spacer(modifier = Modifier.weight(1f))
 

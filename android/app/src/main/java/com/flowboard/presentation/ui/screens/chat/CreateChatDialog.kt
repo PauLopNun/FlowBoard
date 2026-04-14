@@ -179,8 +179,10 @@ fun GroupChatForm(
 
             Button(
                 onClick = {
-                    viewModel.createGroupChat(groupName, emptyList())
-                    onDismiss()
+                    viewModel.createGroupChat(groupName, emptyList()) { chatId ->
+                        onChatCreated(chatId)
+                        onDismiss()
+                    }
                 },
                 enabled = groupName.isNotBlank() && !uiState.isLoading
             ) {

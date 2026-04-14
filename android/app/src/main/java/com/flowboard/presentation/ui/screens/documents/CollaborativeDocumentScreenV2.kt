@@ -202,14 +202,26 @@ fun CollaborativeDocumentScreenV2(
             }
         }
     ) { padding ->
+        // Auto-seed a title block for new/empty documents after the server responds with nothing
+        LaunchedEffect(connectionState) {
+            if (connectionState is ConnectionState.Connected) {
+                kotlinx.coroutines.delay(2000L)
+                if (document.value?.blocks.isNullOrEmpty()) {
+                    viewModel.addBlock(
+                        ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
+                        null
+                    )
+                }
+            }
+        }
+
         if (blocks.isEmpty()) {
-            // Empty state while loading
+            // Empty state while connecting / loading
             Box(
                 Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center
             ) {
                 when (connectionState) {
-                    is ConnectionState.Connecting -> CircularProgressIndicator()
                     is ConnectionState.Error -> {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -225,7 +237,20 @@ fun CollaborativeDocumentScreenV2(
                             }
                         }
                     }
-                    else -> CircularProgressIndicator()
+                    else -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator()
+                            Text(
+                                if (connectionState is ConnectionState.Connected) "Loading document…"
+                                else "Connecting…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         } else {

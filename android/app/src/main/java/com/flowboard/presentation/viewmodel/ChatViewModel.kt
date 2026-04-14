@@ -196,7 +196,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun createGroupChat(name: String, participantIds: List<String>) {
+    fun createGroupChat(name: String, participantIds: List<String>, onSuccess: (String) -> Unit = {}) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
@@ -215,6 +215,7 @@ class ChatViewModel @Inject constructor(
                             successMessage = "Group created successfully"
                         )
                     }
+                    onSuccess(chatRoom.id)
                 },
                 onFailure = { error ->
                     _uiState.update {

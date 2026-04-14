@@ -486,7 +486,27 @@ fun FlowBoardApp(
             WorkspaceScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onWorkspaceClick = { workspaceId ->
+                    navController.navigate("workspace_docs/$workspaceId")
                 }
+            )
+        }
+
+        // Workspace documents — shows docs for a specific workspace
+        composable("workspace_docs/{workspaceId}") { backStackEntry ->
+            val workspaceId = backStackEntry.arguments?.getString("workspaceId") ?: return@composable
+            MyDocumentsScreen(
+                onDocumentClick = { documentId ->
+                    navController.navigate("document_edit/$documentId")
+                },
+                onCreateDocument = {
+                    navController.navigate("document_new")
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                viewModel = documentViewModel
             )
         }
 
