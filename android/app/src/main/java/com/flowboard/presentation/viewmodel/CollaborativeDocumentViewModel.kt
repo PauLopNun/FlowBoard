@@ -496,13 +496,23 @@ class CollaborativeDocumentViewModel @Inject constructor(
     }
 
     /**
-     * Create a sub-page under this document
+     * Create a sub-page under this document and insert an inline reference block.
+     * @param afterBlockId insert the reference block after this block (null = append to end)
      */
-    fun createSubPage(parentId: String, title: String) {
+    fun createSubPage(parentId: String, title: String, afterBlockId: String? = null) {
         viewModelScope.launch {
             try {
-                documentApiService.createDocument(title = title, parentId = parentId)
-                _uiState.update { it.copy(shareSuccessMessage = "Sub-page '$title' created") }
+                val subPage = documentApiService.createDocument(title = title, parentId = parentId)
+                // Insert an inline subpage-link block so it appears inside the current document
+                addBlock(
+                    ContentBlock(
+                        id = UUID.randomUUID().toString(),
+                        type = "subpage",
+                        content = "${subPage.id}||${subPage.title}"
+                    ),
+                    afterBlockId ?: document.value?.blocks?.lastOrNull()?.id
+                )
+                _uiState.update { it.copy(shareSuccessMessage = "Sub-page '${subPage.title}' created") }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Failed to create sub-page: ${e.message}") }
             }

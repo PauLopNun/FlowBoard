@@ -339,6 +339,9 @@ fun FlowBoardApp(
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                },
+                onNavigateToDocument = { newDocId ->
+                    navController.navigate("document_edit/$newDocId")
                 }
             )
         }
