@@ -26,7 +26,10 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    val darkModeEnabled by viewModel.darkModeEnabled.collectAsStateWithLifecycle()
+    val darkModePreference by viewModel.darkModeEnabled.collectAsStateWithLifecycle()
+    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    // null = follow system; show toggle state as the effective value
+    val darkModeEnabled = darkModePreference ?: systemDark
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
     val notifDocsEnabled by viewModel.notifDocsEnabled.collectAsStateWithLifecycle()
     val notifChatEnabled by viewModel.notifChatEnabled.collectAsStateWithLifecycle()
@@ -74,7 +77,16 @@ fun SettingsScreen(
                     // Dark Mode Toggle
                     ListItem(
                         headlineContent = { Text("Dark Mode") },
-                        supportingContent = { Text("Enable dark theme") },
+                        supportingContent = {
+                            Text(
+                                if (darkModePreference == null)
+                                    "Siguiendo el sistema"
+                                else if (darkModePreference == true)
+                                    "Modo oscuro activado"
+                                else
+                                    "Modo claro activado"
+                            )
+                        },
                         leadingContent = {
                             Icon(
                                 if (darkModeEnabled) Icons.Default.DarkMode else Icons.Default.LightMode,

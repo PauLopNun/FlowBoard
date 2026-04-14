@@ -43,6 +43,7 @@ import com.flowboard.presentation.ui.screens.tasks.CreateTaskScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskDetailScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
 import com.flowboard.presentation.ui.screens.workspace.WorkspaceScreen
+import com.flowboard.presentation.ui.theme.FlowBoardTheme
 import com.flowboard.presentation.viewmodel.ChatViewModel
 import com.flowboard.presentation.viewmodel.DocumentViewModel
 import com.flowboard.presentation.viewmodel.LoginState
@@ -50,12 +51,17 @@ import com.flowboard.presentation.viewmodel.LoginViewModel
 import com.flowboard.presentation.viewmodel.NotificationViewModel
 import com.flowboard.presentation.viewmodel.RegisterState
 import com.flowboard.presentation.viewmodel.RegisterViewModel
+import com.flowboard.presentation.viewmodel.SettingsViewModel
 import com.flowboard.presentation.viewmodel.TaskViewModel
 
 @Composable
 fun FlowBoardApp(
     modifier: Modifier = Modifier
 ) {
+    // Hoist SettingsViewModel here so FlowBoardTheme and SettingsScreen share the SAME instance
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
+
+    FlowBoardTheme(settingsViewModel = settingsViewModel) {
     val navController = rememberNavController()
     val loginViewModel: LoginViewModel = hiltViewModel()
     val isLoggedIn by loginViewModel.isLoggedIn.collectAsStateWithLifecycle()
@@ -490,13 +496,15 @@ fun FlowBoardApp(
             )
         }
 
-        // Settings screen
+        // Settings screen — reuses the same SettingsViewModel instance as FlowBoardTheme
         composable("settings") {
             SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                viewModel = settingsViewModel
             )
         }
     }
+    } // end FlowBoardTheme
 }

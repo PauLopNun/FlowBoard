@@ -27,14 +27,15 @@ class SettingsViewModel @Inject constructor(
         private val NOTIF_TASKS_KEY = booleanPreferencesKey("notif_tasks")
     }
 
-    val darkModeEnabled: StateFlow<Boolean> = dataStore.data
-        .map { preferences ->
-            preferences[DARK_MODE_KEY] ?: false
-        }
+    // null  = user never set a preference → follow system
+    // true  = user explicitly chose dark
+    // false = user explicitly chose light
+    val darkModeEnabled: StateFlow<Boolean?> = dataStore.data
+        .map { preferences -> preferences[DARK_MODE_KEY] }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = false
+            initialValue = null
         )
 
     val notificationsEnabled: StateFlow<Boolean> = dataStore.data
