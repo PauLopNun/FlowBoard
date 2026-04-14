@@ -7,6 +7,7 @@ import com.flowboard.data.repository.AuthRepository
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,9 +27,13 @@ class DocumentApiService @Inject constructor(
 
     suspend fun getAllDocuments(): DocumentListResponse {
         val token = getAuthToken() ?: throw Exception("Not authenticated")
-        return httpClient.get(DOCUMENTS_ENDPOINT) {
+        val response = httpClient.get(DOCUMENTS_ENDPOINT) {
             header(HttpHeaders.Authorization, "Bearer $token")
-        }.body<DocumentListResponse>()
+        }
+        if (!response.status.isSuccess()) {
+            throw Exception("Server error ${response.status.value}")
+        }
+        return response.body<DocumentListResponse>()
     }
 
     suspend fun getDocumentById(id: String): DocumentEntity {

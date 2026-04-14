@@ -28,7 +28,7 @@ FlowBoard is an Android + Kotlin backend application inspired by Notion. Users c
 ### Collaborative Document Editor
 - Block-based Notion-style editor (CRDT over WebSockets, multi-user real time)
 - **11 block types:** Heading 1/2/3, Paragraph, Bullet list, Numbered list, To-do (checkbox), Quote, Callout, Code block, Divider
-- Slash command menu (`/`) to insert any block type
+- Slash command menu (`/`) — bottom sheet picker for all block types
 - Markdown shortcuts: `# `, `## `, `### `, `- `, `1. `, `` ``` ``, `> `, `[] `
 - Formatting toolbar: Bold, Italic, Underline, block-type chips
 - **Page emoji** — tappable icon above the title with a 30-emoji picker
@@ -51,6 +51,8 @@ FlowBoard is an Android + Kotlin backend application inspired by Notion. Users c
 - Full CRUD with priorities (Low / Medium / High / Urgent)
 - Due dates, assignees, tags
 - Toggle completion with a single tap
+- **List view** with filter tabs (All / Pending / Completed / Overdue)
+- **Kanban board view** — toggle between list and board; columns for To Do, Overdue, and Done
 - Calendar view — monthly grid with task dots per day
 
 ### Chat
@@ -75,6 +77,11 @@ FlowBoard is an Android + Kotlin backend application inspired by Notion. Users c
 - Email delivery via Resend for document shares, task assignments, etc.
 
 ---
+
+### UI / UX
+- Animated splash screen on launch
+- Slide + fade transitions between all screens
+- Complete Material 3 typography scale across the entire app
 
 ## Tech Stack
 

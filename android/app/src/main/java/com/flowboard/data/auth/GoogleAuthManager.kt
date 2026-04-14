@@ -8,6 +8,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
@@ -41,6 +42,9 @@ class GoogleAuthManager @Inject constructor(
                 .build()
             val result = credentialManager.getCredential(context = activity, request = request)
             handleSignInResult(result)
+        } catch (e: NoCredentialException) {
+            // No Google account on device, or framework couldn't get credentials
+            Result.failure(Exception("No credential available"))
         } catch (e: GetCredentialCancellationException) {
             Result.failure(Exception("UserCancelled"))
         } catch (e: GetCredentialException) {

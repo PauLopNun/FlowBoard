@@ -2,13 +2,17 @@ package com.flowboard.presentation.ui.screens.tasks
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.ViewColumn
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.flowboard.domain.model.Task
 import com.flowboard.presentation.ui.components.TaskCard
 import com.flowboard.presentation.ui.components.ActiveUsersList
 import com.flowboard.presentation.ui.components.ConnectionStatusBanner
@@ -48,6 +53,7 @@ fun TaskListScreen(
     val boardId by viewModel.boardId.collectAsStateWithLifecycle()
 
     var selectedFilter by remember { mutableStateOf(TaskFilter.ALL) }
+    var isKanbanView by remember { mutableStateOf(false) }
 
     // Connect to WebSocket when screen mounts (only if auth data is available)
     LaunchedEffect(boardId, token, userId) {
@@ -103,6 +109,14 @@ fun TaskListScreen(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
+                        // Toggle List / Kanban view
+                        IconButton(onClick = { isKanbanView = !isKanbanView }) {
+                            Icon(
+                                if (isKanbanView) Icons.Default.ViewList else Icons.Default.ViewColumn,
+                                contentDescription = if (isKanbanView) "List View" else "Board View"
+                            )
+                        }
+
                         // Notifications button
                         IconButton(onClick = onNotificationsClick) {
                             Icon(Icons.Default.Notifications, contentDescription = "Notifications")
@@ -140,79 +154,199 @@ fun TaskListScreen(
             }
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
-        ) {
-            // Filter Tabs
-            ScrollableTabRow(
-                selectedTabIndex = selectedFilter.ordinal,
-                modifier = Modifier.fillMaxWidth()
+        if (isKanbanView) {
+            KanbanBoard(
+                allTasks = allTasks,
+                pendingTasks = pendingTasks,
+                completedTasks = completedTasks,
+                overdueTasks = overdueTasks,
+                isLoading = uiState.isLoading,
+                onTaskClick = onTaskClick,
+                onToggleComplete = { viewModel.toggleTaskStatus(it) },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp)
             ) {
-                TaskFilter.entries.forEach { filter ->
-                    Tab(
-                        selected = selectedFilter == filter,
-                        onClick = { selectedFilter = filter },
-                        text = { 
-                            Text(
-                                text = filter.displayName,
-                                fontWeight = if (selectedFilter == filter) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Loading indicator
-            if (uiState.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                // Filter Tabs
+                ScrollableTabRow(
+                    selectedTabIndex = selectedFilter.ordinal,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            // Task list
-            if (filteredTasks.isEmpty() && !uiState.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "No ${selectedFilter.displayName.lowercase()} tasks",
-                            style = MaterialTheme.typography.bodyLarge
+                    TaskFilter.entries.forEach { filter ->
+                        Tab(
+                            selected = selectedFilter == filter,
+                            onClick = { selectedFilter = filter },
+                            text = {
+                                Text(
+                                    text = filter.displayName,
+                                    fontWeight = if (selectedFilter == filter) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
                         )
-                        if (selectedFilter == TaskFilter.ALL) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (uiState.isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                if (filteredTasks.isEmpty() && !uiState.isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Create your first task!",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "No ${selectedFilter.displayName.lowercase()} tasks",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            if (selectedFilter == TaskFilter.ALL) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Tap + to create your first task",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(items = filteredTasks, key = { it.id }) { task ->
+                            TaskCard(
+                                task = task,
+                                onClick = { onTaskClick(task.id) },
+                                onToggleComplete = { viewModel.toggleTaskStatus(task.id) }
                             )
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// ─── Kanban Board ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun KanbanBoard(
+    allTasks: List<Task>,
+    pendingTasks: List<Task>,
+    completedTasks: List<Task>,
+    overdueTasks: List<Task>,
+    isLoading: Boolean,
+    onTaskClick: (String) -> Unit,
+    onToggleComplete: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val columns = listOf(
+        Triple("To Do", MaterialTheme.colorScheme.primary, pendingTasks),
+        Triple("Overdue", MaterialTheme.colorScheme.error, overdueTasks),
+        Triple("Done", MaterialTheme.colorScheme.tertiary, completedTasks),
+    )
+
+    if (isLoading) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    LazyRow(
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(columns) { (title, headerColor, tasks) ->
+            KanbanColumn(
+                title = title,
+                headerColor = headerColor,
+                tasks = tasks,
+                onTaskClick = onTaskClick,
+                onToggleComplete = onToggleComplete
+            )
+        }
+    }
+}
+
+@Composable
+private fun KanbanColumn(
+    title: String,
+    headerColor: androidx.compose.ui.graphics.Color,
+    tasks: List<Task>,
+    onTaskClick: (String) -> Unit,
+    onToggleComplete: (String) -> Unit
+) {
+    Surface(
+        modifier = Modifier.width(280.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 1.dp
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Column header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 12.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(10.dp),
+                    color = headerColor,
+                    shape = CircleShape
+                ) {}
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.weight(1f))
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        text = tasks.size.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (tasks.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No tasks",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.heightIn(max = 600.dp)
                 ) {
-                    items(
-                        items = filteredTasks,
-                        key = { it.id }
-                    ) { task ->
+                    items(tasks, key = { it.id }) { task ->
                         TaskCard(
                             task = task,
                             onClick = { onTaskClick(task.id) },
-                            onToggleComplete = { viewModel.toggleTaskStatus(task.id) }
+                            onToggleComplete = { onToggleComplete(task.id) }
                         )
                     }
                 }

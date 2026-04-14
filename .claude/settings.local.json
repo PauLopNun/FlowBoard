@@ -48,7 +48,8 @@
       "Bash(keytool:*)",
       "Bash(/home/paulopnun/Escritorio/FlowBoard/get-sha1.sh)",
       "WebSearch",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

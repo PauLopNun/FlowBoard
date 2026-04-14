@@ -239,10 +239,28 @@ class TaskWebSocketClient @Inject constructor(
 
     /**
      * Envía un mensaje genérico
+     *
+     * Encodes using the concrete type to avoid kotlinx.serialization's polymorphic
+     * discriminator conflicting with the existing `type` property on each subclass.
      */
     suspend fun send(message: WebSocketMessage) {
         try {
-            val jsonText = json.encodeToString(message)
+            val jsonText = when (message) {
+                is JoinRoomMessage -> json.encodeToString(message)
+                is LeaveRoomMessage -> json.encodeToString(message)
+                is TypingIndicatorMessage -> json.encodeToString(message)
+                is PingMessage -> json.encodeToString(message)
+                is RoomJoinedMessage -> json.encodeToString(message)
+                is TaskCreatedMessage -> json.encodeToString(message)
+                is TaskUpdatedMessage -> json.encodeToString(message)
+                is TaskDeletedMessage -> json.encodeToString(message)
+                is TaskMovedMessage -> json.encodeToString(message)
+                is UserJoinedMessage -> json.encodeToString(message)
+                is UserLeftMessage -> json.encodeToString(message)
+                is UserTypingMessage -> json.encodeToString(message)
+                is PongMessage -> json.encodeToString(message)
+                is ErrorMessage -> json.encodeToString(message)
+            }
             webSocketSession?.send(Frame.Text(jsonText))
             Log.d(TAG, "Sent message: ${message.type}")
         } catch (e: Exception) {
