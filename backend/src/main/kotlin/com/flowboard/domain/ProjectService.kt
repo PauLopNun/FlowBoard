@@ -62,8 +62,8 @@ class ProjectService {
         deadline: LocalDateTime?
     ): Project? {
         val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
-        dbQuery {
-            val updated = Projects.update({
+        val updated = dbQuery {
+            Projects.update({
                 (Projects.id eq UUID.fromString(projectId)) and
                 (Projects.ownerId eq UUID.fromString(ownerId))
             }) {
@@ -74,8 +74,8 @@ class ProjectService {
                 if (deadline != null) it[Projects.deadline] = deadline
                 it[Projects.updatedAt] = now
             }
-            if (updated == 0) return@dbQuery null
         }
+        if (updated == 0) return null
         return getProjectById(projectId, ownerId)
     }
 
