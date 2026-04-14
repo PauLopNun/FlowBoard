@@ -133,7 +133,7 @@ class WorkspaceService {
             if (!alreadyMember) {
                 WorkspaceMembers.insert {
                     it[WorkspaceMembers.id] = UUID.randomUUID()
-                    it[WorkspaceMembers.workspaceId] = workspace[Workspaces.id]
+                    it[WorkspaceMembers.workspaceId] = workspace[Workspaces.id].value
                     it[WorkspaceMembers.userId] = UUID.fromString(userId)
                     it[WorkspaceMembers.role] = "MEMBER"
                     it[WorkspaceMembers.joinedAt] = now

@@ -164,10 +164,3 @@ object Messages : UUIDTable("messages") {
     val metadata = json<Map<String, String>>("metadata", Json.Default).default(emptyMap())
 }
 
-// Password reset tokens table
-object PasswordResetTokens : UUIDTable("password_reset_tokens") {
-    val email = varchar("email", 255).index()
-    val code = varchar("code", 6)
-    val expiresAt = datetime("expires_at")
-    val used = bool("used").default(false)
-}
