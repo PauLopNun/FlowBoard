@@ -126,7 +126,7 @@ class WorkspaceService {
 
             val alreadyMember = WorkspaceMembers
                 .select {
-                    (WorkspaceMembers.workspaceId eq workspace[Workspaces.id]) and
+                    (WorkspaceMembers.workspaceId eq workspace[Workspaces.id].value) and
                     (WorkspaceMembers.userId eq UUID.fromString(userId))
                 }.count() > 0
 
