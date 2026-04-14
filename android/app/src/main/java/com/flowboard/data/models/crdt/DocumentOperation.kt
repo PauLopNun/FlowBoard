@@ -1,5 +1,6 @@
 package com.flowboard.data.models.crdt
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -19,6 +20,7 @@ sealed interface DocumentOperation {
  * @param afterBlockId The ID of the block after which to insert the new block. If null, insert at the beginning.
  */
 @Serializable
+@SerialName("ADD_BLOCK")
 data class AddBlockOperation(
     override val operationId: String,
     override val boardId: String,
@@ -32,6 +34,7 @@ data class AddBlockOperation(
  * @param blockId The ID of the block to be removed.
  */
 @Serializable
+@SerialName("DELETE_BLOCK")
 data class DeleteBlockOperation(
     override val operationId: String,
     override val boardId: String,
@@ -47,6 +50,7 @@ data class DeleteBlockOperation(
  * @param position The position to apply the update.
  */
 @Serializable
+@SerialName("UPDATE_CONTENT")
 data class UpdateBlockContentOperation(
     override val operationId: String,
     override val boardId: String,
@@ -67,6 +71,7 @@ data class UpdateBlockContentOperation(
  * @param textAlign The new text alignment.
  */
 @Serializable
+@SerialName("UPDATE_FORMATTING")
 data class UpdateBlockFormattingOperation(
     override val operationId: String,
     override val boardId: String,
@@ -86,6 +91,7 @@ data class UpdateBlockFormattingOperation(
  * @param newType The new type of the block.
  */
 @Serializable
+@SerialName("UPDATE_TYPE")
 data class UpdateBlockTypeOperation(
     override val operationId: String,
     override val boardId: String,
@@ -100,6 +106,7 @@ data class UpdateBlockTypeOperation(
  * @param isChecked The new checked state.
  */
 @Serializable
+@SerialName("TOGGLE_TODO")
 data class ToggleTodoOperation(
     override val operationId: String,
     override val boardId: String,
@@ -116,6 +123,7 @@ data class ToggleTodoOperation(
  * @param selectionEnd The end of the selection, if any.
  */
 @Serializable
+@SerialName("CURSOR_MOVE")
 data class CursorMoveOperation(
     override val operationId: String,
     override val boardId: String,

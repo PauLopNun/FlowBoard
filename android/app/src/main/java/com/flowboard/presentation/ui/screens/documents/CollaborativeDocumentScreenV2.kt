@@ -191,6 +191,9 @@ fun CollaborativeDocumentScreenV2(
                             },
                             onBlockType = { type ->
                                 focusedBlockId?.let { id -> viewModel.updateBlockType(id, type) }
+                            },
+                            onColorChange = { color ->
+                                focusedBlockId?.let { id -> viewModel.updateFormatting(id, color = color) }
                             }
                         )
                     }
@@ -930,61 +933,106 @@ private fun FormattingToolbar(
     onBold: () -> Unit,
     onItalic: () -> Unit,
     onUnderline: () -> Unit,
-    onBlockType: (String) -> Unit
+    onBlockType: (String) -> Unit,
+    onColorChange: (String) -> Unit
 ) {
+    val textColors = listOf(
+        "#000000" to Color(0xFF000000),
+        "#EF4444" to Color(0xFFEF4444),
+        "#F97316" to Color(0xFFF97316),
+        "#FBBF24" to Color(0xFFFBBF24),
+        "#10B981" to Color(0xFF10B981),
+        "#3B82F6" to Color(0xFF3B82F6),
+        "#8B5CF6" to Color(0xFF8B5CF6),
+        "#6B7280" to Color(0xFF6B7280),
+    )
+    val currentColor = currentBlock?.color?.takeIf { it.isNotBlank() } ?: "#000000"
+
     Surface(
         tonalElevation = 4.dp,
         shadowElevation = 8.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Block type chips
-            BlockTypeChip("T", currentBlock?.type == "p",
-                onClick = { onBlockType("p") })
-            BlockTypeChip("H1", currentBlock?.type == "h1",
-                onClick = { onBlockType("h1") })
-            BlockTypeChip("H2", currentBlock?.type == "h2",
-                onClick = { onBlockType("h2") })
-            BlockTypeChip("H3", currentBlock?.type == "h3",
-                onClick = { onBlockType("h3") })
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Block type chips
+                BlockTypeChip("T", currentBlock?.type == "p",
+                    onClick = { onBlockType("p") })
+                BlockTypeChip("H1", currentBlock?.type == "h1",
+                    onClick = { onBlockType("h1") })
+                BlockTypeChip("H2", currentBlock?.type == "h2",
+                    onClick = { onBlockType("h2") })
+                BlockTypeChip("H3", currentBlock?.type == "h3",
+                    onClick = { onBlockType("h3") })
 
-            Box(
-                Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant)
-            )
+                Box(
+                    Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
 
-            // Format buttons
-            FormatButton(Icons.Default.FormatBold, "Bold",
-                active = currentBlock?.fontWeight == "bold", onClick = onBold)
-            FormatButton(Icons.Default.FormatItalic, "Italic",
-                active = currentBlock?.fontStyle == "italic", onClick = onItalic)
-            FormatButton(Icons.Default.FormatUnderlined, "Underline",
-                active = currentBlock?.textDecoration == "underline", onClick = onUnderline)
+                // Format buttons
+                FormatButton(Icons.Default.FormatBold, "Bold",
+                    active = currentBlock?.fontWeight == "bold", onClick = onBold)
+                FormatButton(Icons.Default.FormatItalic, "Italic",
+                    active = currentBlock?.fontStyle == "italic", onClick = onItalic)
+                FormatButton(Icons.Default.FormatUnderlined, "Underline",
+                    active = currentBlock?.textDecoration == "underline", onClick = onUnderline)
 
-            Box(
-                Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant)
-            )
+                Box(
+                    Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
 
-            FormatButton(Icons.Default.CheckBox, "To-do",
-                active = currentBlock?.type == "todo",
-                onClick = { onBlockType(if (currentBlock?.type == "todo") "p" else "todo") })
-            FormatButton(Icons.Default.FormatQuote, "Quote",
-                active = currentBlock?.type == "quote",
-                onClick = { onBlockType(if (currentBlock?.type == "quote") "p" else "quote") })
-            FormatButton(Icons.Default.Code, "Code",
-                active = currentBlock?.type == "code",
-                onClick = { onBlockType(if (currentBlock?.type == "code") "p" else "code") })
-            FormatButton(Icons.Default.FormatListBulleted, "Bullet list",
-                active = currentBlock?.type == "bullet",
-                onClick = { onBlockType(if (currentBlock?.type == "bullet") "p" else "bullet") })
+                FormatButton(Icons.Default.CheckBox, "To-do",
+                    active = currentBlock?.type == "todo",
+                    onClick = { onBlockType(if (currentBlock?.type == "todo") "p" else "todo") })
+                FormatButton(Icons.Default.FormatQuote, "Quote",
+                    active = currentBlock?.type == "quote",
+                    onClick = { onBlockType(if (currentBlock?.type == "quote") "p" else "quote") })
+                FormatButton(Icons.Default.Code, "Code",
+                    active = currentBlock?.type == "code",
+                    onClick = { onBlockType(if (currentBlock?.type == "code") "p" else "code") })
+                FormatButton(Icons.Default.FormatListBulleted, "Bullet list",
+                    active = currentBlock?.type == "bullet",
+                    onClick = { onBlockType(if (currentBlock?.type == "bullet") "p" else "bullet") })
+            }
+
+            // Text color row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.FormatColorText,
+                    contentDescription = "Text color",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                textColors.forEach { (hex, color) ->
+                    val isSelected = currentColor.equals(hex, ignoreCase = true)
+                    Box(
+                        modifier = Modifier
+                            .size(if (isSelected) 26.dp else 22.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .then(
+                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                else Modifier
+                            )
+                            .clickable { onColorChange(hex) }
+                    )
+                }
+            }
         }
     }
 }
