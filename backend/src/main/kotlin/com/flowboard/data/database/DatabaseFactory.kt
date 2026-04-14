@@ -35,8 +35,14 @@ object DatabaseFactory {
                     ChatRooms,
                     ChatParticipants,
                     Messages,
-                    PasswordResetTokens
+                    PasswordResetTokens,
+                    Workspaces,
+                    WorkspaceMembers
                 )
+                // Add parentId column to existing documents table if not present
+                try {
+                    SchemaUtils.createMissingTablesAndColumns(Documents)
+                } catch (_: Exception) {}
             }
             initialized = true
             println("✅ Database initialized successfully")

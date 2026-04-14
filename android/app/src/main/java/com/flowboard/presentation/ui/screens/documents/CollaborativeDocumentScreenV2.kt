@@ -65,6 +65,8 @@ fun CollaborativeDocumentScreenV2(
     var focusedBlockId by remember { mutableStateOf<String?>(null) }
     var showSlashMenu by remember { mutableStateOf(false) }
     var slashMenuBlockId by remember { mutableStateOf<String?>(null) }
+    var showSubPageDialog by remember { mutableStateOf(false) }
+    var subPageTitle by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
 
@@ -208,36 +210,38 @@ fun CollaborativeDocumentScreenV2(
                     )
                 }
 
-                // Add new block button at the bottom
+                // Bottom action row: new block + sub-page
                 item {
-                    TextButton(
-                        onClick = {
-                            val newBlock = ContentBlock(
-                                id = UUID.randomUUID().toString(),
-                                type = "p",
-                                content = ""
-                            )
-                            viewModel.addBlock(newBlock, blocks.lastOrNull()?.id)
-                        },
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 8.dp)
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        TextButton(
+                            onClick = {
+                                viewModel.addBlock(
+                                    ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""),
+                                    blocks.lastOrNull()?.id
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Icon(
-                                Icons.Default.Add,
-                                null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
-                            Text(
-                                "Add a new block",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
+                            Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                            Spacer(Modifier.width(4.dp))
+                            Text("New block", style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                        }
+                        TextButton(
+                            onClick = { showSubPageDialog = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.NoteAdd, null, modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Sub-page", style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                         }
                     }
                 }
@@ -259,6 +263,35 @@ fun CollaborativeDocumentScreenV2(
                     }
                 }
                 showSlashMenu = false
+            }
+        )
+    }
+
+    // Sub-page creation dialog
+    if (showSubPageDialog) {
+        AlertDialog(
+            onDismissRequest = { showSubPageDialog = false; subPageTitle = "" },
+            title = { Text("New Sub-page") },
+            text = {
+                OutlinedTextField(
+                    value = subPageTitle,
+                    onValueChange = { subPageTitle = it },
+                    label = { Text("Page title") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.createSubPage(documentId, subPageTitle.trim().ifBlank { "Untitled" })
+                        showSubPageDialog = false
+                        subPageTitle = ""
+                    }
+                ) { Text("Create") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSubPageDialog = false; subPageTitle = "" }) { Text("Cancel") }
             }
         )
     }
@@ -442,8 +475,24 @@ private fun DocumentBlock(
         block.type == "h2" -> "Heading 2"
         block.type == "h3" -> "Heading 3"
         block.type == "code" -> "// Code…"
+        block.type == "quote" -> "Quote…"
+        block.type == "callout" -> "Callout…"
+        block.type == "todo" -> "To-do"
         isFocused -> "Type '/' for commands"
         else -> ""
+    }
+
+    // Divider block — no text field, just a line
+    if (block.type == "divider") {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .clickable { onFocusChange(true) }
+        ) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        return
     }
 
     val horizontalPadding = if (isTitle) 20.dp else 20.dp
@@ -453,78 +502,142 @@ private fun DocumentBlock(
         else -> 6.dp
     }
 
+    val blockBackground = when (block.type) {
+        "code" -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        "callout" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+        else -> Color.Transparent
+    }
+
+    fun handleValueChange(new: TextFieldValue, allowDelete: Boolean) {
+        if (block.type == "p") {
+            val shortcut = when {
+                new.text.startsWith("### ") -> "h3" to new.text.removePrefix("### ")
+                new.text.startsWith("## ") -> "h2" to new.text.removePrefix("## ")
+                new.text.startsWith("# ") -> "h1" to new.text.removePrefix("# ")
+                new.text.startsWith("- ") || new.text.startsWith("* ") -> "bullet" to new.text.drop(2)
+                new.text.startsWith("1. ") -> "numbered" to new.text.drop(3)
+                new.text == "```" -> "code" to ""
+                new.text == "> " -> "quote" to ""
+                new.text == "[] " || new.text == "[ ] " -> "todo" to ""
+                else -> null
+            }
+            if (shortcut != null) {
+                textFieldValue = TextFieldValue(shortcut.second)
+                onMarkdownShortcut(shortcut.first, shortcut.second)
+                return
+            }
+        }
+        if (new.text == "/" && textFieldValue.text.isEmpty()) { onSlashCommand(); return }
+        if (allowDelete && new.text.isEmpty() && textFieldValue.text.isEmpty()) { onDeleteBlock(); return }
+        textFieldValue = new
+        onTextChange(new.text)
+        onCursorChange(new.selection.start)
+    }
+
+    // Quote block — left border accent
+    if (block.type == "quote") {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .heightIn(min = 24.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+            Spacer(Modifier.width(12.dp))
+            BlockTextField(
+                textFieldValue = textFieldValue,
+                textStyle = textStyle.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontStyle = FontStyle.Italic
+                ),
+                placeholder = placeholder,
+                modifier = Modifier.weight(1f),
+                onFocusChange = onFocusChange,
+                onValueChange = { new -> handleValueChange(new, allowDelete = true) },
+                onEnterPressed = onEnterPressed
+            )
+        }
+        return
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                if (block.type == "code")
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                else Color.Transparent
-            )
-            .clip(if (block.type == "code") RoundedCornerShape(8.dp) else RoundedCornerShape(0.dp))
-            .padding(
-                horizontal = horizontalPadding,
-                vertical = verticalPadding
-            )
+            .background(blockBackground)
+            .clip(if (block.type in listOf("code", "callout")) RoundedCornerShape(8.dp) else RoundedCornerShape(0.dp))
+            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
     ) {
-        fun handleValueChange(new: TextFieldValue, allowDelete: Boolean) {
-            // Markdown shortcut detection (only on paragraph blocks)
-            if (block.type == "p") {
-                val shortcut = when {
-                    new.text.startsWith("### ") -> "h3" to new.text.removePrefix("### ")
-                    new.text.startsWith("## ") -> "h2" to new.text.removePrefix("## ")
-                    new.text.startsWith("# ") -> "h1" to new.text.removePrefix("# ")
-                    new.text.startsWith("- ") || new.text.startsWith("* ") ->
-                        "bullet" to new.text.drop(2)
-                    new.text.startsWith("1. ") -> "numbered" to new.text.drop(3)
-                    new.text == "```" -> "code" to ""
-                    else -> null
+        when (block.type) {
+            "todo" -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = block.isChecked,
+                        onCheckedChange = { onTextChange(block.content) }, // toggle via viewmodel
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    BlockTextField(
+                        textFieldValue = textFieldValue,
+                        textStyle = if (block.isChecked)
+                            textStyle.copy(textDecoration = TextDecoration.LineThrough,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else textStyle,
+                        placeholder = placeholder,
+                        modifier = Modifier.weight(1f),
+                        onFocusChange = onFocusChange,
+                        onValueChange = { new -> handleValueChange(new, allowDelete = true) },
+                        onEnterPressed = onEnterPressed
+                    )
                 }
-                if (shortcut != null) {
-                    textFieldValue = TextFieldValue(shortcut.second)
-                    onMarkdownShortcut(shortcut.first, shortcut.second)
-                    return
+            }
+            "callout" -> {
+                Row(verticalAlignment = Alignment.Top) {
+                    Text("💡", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.width(8.dp))
+                    BlockTextField(
+                        textFieldValue = textFieldValue,
+                        textStyle = textStyle,
+                        placeholder = placeholder,
+                        modifier = Modifier.weight(1f),
+                        onFocusChange = onFocusChange,
+                        onValueChange = { new -> handleValueChange(new, allowDelete = true) },
+                        onEnterPressed = onEnterPressed
+                    )
                 }
             }
-            if (new.text == "/" && textFieldValue.text.isEmpty()) {
-                onSlashCommand()
-                return
+            "bullet", "numbered" -> {
+                Row(verticalAlignment = Alignment.Top) {
+                    Text(
+                        text = if (block.type == "bullet") "•  " else "1.  ",
+                        style = textStyle,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                    BlockTextField(
+                        textFieldValue = textFieldValue,
+                        textStyle = textStyle,
+                        placeholder = placeholder,
+                        modifier = Modifier.weight(1f),
+                        onFocusChange = onFocusChange,
+                        onValueChange = { new -> handleValueChange(new, allowDelete = true) },
+                        onEnterPressed = onEnterPressed
+                    )
+                }
             }
-            if (allowDelete && new.text.isEmpty() && textFieldValue.text.isEmpty()) {
-                onDeleteBlock()
-                return
-            }
-            textFieldValue = new
-            onTextChange(new.text)
-            onCursorChange(new.selection.start)
-        }
-
-        if (block.type == "bullet" || block.type == "numbered") {
-            Row(verticalAlignment = Alignment.Top) {
-                Text(
-                    text = if (block.type == "bullet") "•  " else "1.  ",
-                    style = textStyle,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+            else -> {
                 BlockTextField(
                     textFieldValue = textFieldValue,
                     textStyle = textStyle,
                     placeholder = placeholder,
-                    modifier = Modifier.weight(1f),
                     onFocusChange = onFocusChange,
-                    onValueChange = { new -> handleValueChange(new, allowDelete = true) },
+                    onValueChange = { new -> handleValueChange(new, allowDelete = !isTitle) },
                     onEnterPressed = onEnterPressed
                 )
             }
-        } else {
-            BlockTextField(
-                textFieldValue = textFieldValue,
-                textStyle = textStyle,
-                placeholder = placeholder,
-                onFocusChange = onFocusChange,
-                onValueChange = { new -> handleValueChange(new, allowDelete = !isTitle) },
-                onEnterPressed = onEnterPressed
-            )
         }
     }
 }
@@ -657,6 +770,12 @@ private fun FormattingToolbar(
                     .background(MaterialTheme.colorScheme.outlineVariant)
             )
 
+            FormatButton(Icons.Default.CheckBox, "To-do",
+                active = currentBlock?.type == "todo",
+                onClick = { onBlockType(if (currentBlock?.type == "todo") "p" else "todo") })
+            FormatButton(Icons.Default.FormatQuote, "Quote",
+                active = currentBlock?.type == "quote",
+                onClick = { onBlockType(if (currentBlock?.type == "quote") "p" else "quote") })
             FormatButton(Icons.Default.Code, "Code",
                 active = currentBlock?.type == "code",
                 onClick = { onBlockType(if (currentBlock?.type == "code") "p" else "code") })
@@ -718,9 +837,13 @@ private fun SlashCommandMenu(
         Triple("h2", Icons.Default.Title, "Heading 2"),
         Triple("h3", Icons.Default.Title, "Heading 3"),
         Triple("p", Icons.Default.Subject, "Paragraph"),
+        Triple("todo", Icons.Default.CheckBox, "To-do"),
         Triple("bullet", Icons.Default.FormatListBulleted, "Bullet List"),
         Triple("numbered", Icons.Default.FormatListNumbered, "Numbered List"),
+        Triple("quote", Icons.Default.FormatQuote, "Quote"),
+        Triple("callout", Icons.Default.Lightbulb, "Callout"),
         Triple("code", Icons.Default.Code, "Code Block"),
+        Triple("divider", Icons.Default.HorizontalRule, "Divider"),
     )
 
     AlertDialog(

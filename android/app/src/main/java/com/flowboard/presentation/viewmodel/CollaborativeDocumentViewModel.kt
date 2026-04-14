@@ -420,6 +420,20 @@ class CollaborativeDocumentViewModel @Inject constructor(
     }
 
     /**
+     * Create a sub-page under this document
+     */
+    fun createSubPage(parentId: String, title: String) {
+        viewModelScope.launch {
+            try {
+                documentApiService.createDocument(title = title, parentId = parentId)
+                _uiState.update { it.copy(shareSuccessMessage = "Sub-page '$title' created") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Failed to create sub-page: ${e.message}") }
+            }
+        }
+    }
+
+    /**
      * Clear error
      */
     fun clearError() {

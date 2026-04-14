@@ -32,7 +32,8 @@ fun Route.documentRoutes(
                     title = request.title,
                     content = request.content,
                     ownerId = userId,
-                    isPublic = request.isPublic
+                    isPublic = request.isPublic,
+                    parentId = request.parentId
                 )
 
                 call.respond(HttpStatusCode.Created, document)
@@ -133,6 +134,19 @@ fun Route.documentRoutes(
                 }
 
                 call.respond(HttpStatusCode.OK, mapOf("message" to "Document deleted successfully"))
+            }
+
+            // Get child documents (sub-pages)
+            get("/{id}/children") {
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.getClaim("userId")?.asString()
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Unauthorized"))
+                    return@get
+                }
+                val documentId = call.parameters["id"] ?: return@get
+                val children = documentService.getChildDocuments(documentId)
+                call.respond(HttpStatusCode.OK, children)
             }
 
             // Share document with user by email

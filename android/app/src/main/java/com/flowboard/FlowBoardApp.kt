@@ -38,9 +38,11 @@ import com.flowboard.presentation.ui.screens.documents.MyDocumentsScreen
 import com.flowboard.presentation.ui.screens.notifications.NotificationCenterScreen
 import com.flowboard.presentation.ui.screens.profile.ProfileScreen
 import com.flowboard.presentation.ui.screens.settings.SettingsScreen
+import com.flowboard.presentation.ui.screens.tasks.CalendarScreen
 import com.flowboard.presentation.ui.screens.tasks.CreateTaskScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskDetailScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
+import com.flowboard.presentation.ui.screens.workspace.WorkspaceScreen
 import com.flowboard.presentation.viewmodel.ChatViewModel
 import com.flowboard.presentation.viewmodel.DocumentViewModel
 import com.flowboard.presentation.viewmodel.LoginState
@@ -203,6 +205,12 @@ fun FlowBoardApp(
                 },
                 onTasksClick = {
                     navController.navigate("tasks")
+                },
+                onCalendarClick = {
+                    navController.navigate("calendar")
+                },
+                onWorkspaceClick = {
+                    navController.navigate("workspaces")
                 },
                 onEditorDemoClick = {
                     navController.navigate("my_documents")
@@ -442,6 +450,27 @@ fun FlowBoardApp(
             ChatScreen(
                 chatRoomId = chatId,
                 viewModel = chatViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Calendar screen
+        composable("calendar") {
+            CalendarScreen(
+                onTaskClick = { taskId ->
+                    navController.navigate("task_detail/$taskId")
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Workspaces screen
+        composable("workspaces") {
+            WorkspaceScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

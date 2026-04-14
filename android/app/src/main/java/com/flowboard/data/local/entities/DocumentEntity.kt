@@ -12,6 +12,7 @@ data class DocumentEntity(
     val ownerId: String,
     val ownerName: String? = null,
     val isPublic: Boolean = false,
+    val parentId: String? = null,
     val createdAt: String,
     val updatedAt: String,
     val lastEditedBy: String? = null,

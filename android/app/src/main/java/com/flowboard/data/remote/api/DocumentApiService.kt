@@ -38,13 +38,20 @@ class DocumentApiService @Inject constructor(
         }.body<DocumentDto>().toEntity()
     }
 
-    suspend fun createDocument(title: String, content: String = "", isPublic: Boolean = false): DocumentEntity {
+    suspend fun createDocument(title: String, content: String = "", isPublic: Boolean = false, parentId: String? = null): DocumentEntity {
         val token = getAuthToken() ?: throw Exception("Not authenticated")
         return httpClient.post(DOCUMENTS_ENDPOINT) {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
-            setBody(CreateDocumentRequest(title, content, isPublic))
+            setBody(CreateDocumentRequest(title, content, isPublic, parentId))
         }.body<DocumentDto>().toEntity()
+    }
+
+    suspend fun getChildDocuments(parentId: String): List<DocumentEntity> {
+        val token = getAuthToken() ?: throw Exception("Not authenticated")
+        return httpClient.get("$DOCUMENTS_ENDPOINT/$parentId/children") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.body<List<DocumentDto>>().map { it.toEntity() }
     }
 
     suspend fun updateDocument(id: String, title: String? = null, content: String? = null, isPublic: Boolean? = null): DocumentEntity {
