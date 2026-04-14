@@ -62,6 +62,7 @@ class CRDTEngine @Inject constructor() {
             is UpdateBlockContentOperation -> handleUpdateContent(currentDoc.blocks, operation)
             is UpdateBlockFormattingOperation -> handleUpdateFormatting(currentDoc.blocks, operation)
             is UpdateBlockTypeOperation -> handleUpdateType(currentDoc.blocks, operation)
+            is ToggleTodoOperation -> handleToggleTodo(currentDoc.blocks, operation)
             is CursorMoveOperation -> currentDoc.blocks // Cursors don't modify document
         }
 
@@ -191,6 +192,7 @@ class CRDTEngine @Inject constructor() {
             is UpdateBlockContentOperation -> op.blockId
             is UpdateBlockFormattingOperation -> op.blockId
             is UpdateBlockTypeOperation -> op.blockId
+            is ToggleTodoOperation -> op.blockId
             is CursorMoveOperation -> op.blockId
         }
     }
@@ -232,16 +234,9 @@ class CRDTEngine @Inject constructor() {
     ): List<ContentBlock> {
         return blocks.map { block ->
             if (block.id == operation.blockId) {
-                // For now, replace full content
-                // In a more advanced version, we'd apply delta at position
-                val newContent = if (operation.position == 0) {
-                    operation.content
-                } else {
-                    val before = block.content.take(operation.position)
-                    val after = block.content.drop(operation.position)
-                    before + operation.content + after
-                }
-                block.copy(content = newContent)
+                // Always use full-content replace (Last-Write-Wins).
+                // position == -1 is reserved for future delta ops; position == 0 means full replace.
+                block.copy(content = operation.content)
             } else {
                 block
             }
@@ -281,6 +276,15 @@ class CRDTEngine @Inject constructor() {
         }
     }
 
+    private fun handleToggleTodo(
+        blocks: List<ContentBlock>,
+        operation: ToggleTodoOperation
+    ): List<ContentBlock> {
+        return blocks.map { block ->
+            if (block.id == operation.blockId) block.copy(isChecked = operation.isChecked) else block
+        }
+    }
+
     /**
      * Create a new operation with auto-generated ID
      */
@@ -292,6 +296,7 @@ class CRDTEngine @Inject constructor() {
             is UpdateBlockContentOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is UpdateBlockFormattingOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is UpdateBlockTypeOperation -> baseOp.copy(operationId = opId, boardId = boardId)
+            is ToggleTodoOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is CursorMoveOperation -> baseOp.copy(operationId = opId, boardId = boardId)
         }
     }

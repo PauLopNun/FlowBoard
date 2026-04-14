@@ -16,7 +16,7 @@ class WorkspaceService {
 
     private fun generateInviteCode(): String {
         val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        return (1..8).map { chars.random() }.joinToString("")
+        return (1..8).map { chars[chars.indices.random()] }.joinToString("")
     }
 
     suspend fun createWorkspace(name: String, description: String?, ownerId: String): Workspace {

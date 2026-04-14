@@ -92,6 +92,7 @@ fun CollaborativeDocumentScreenV2(
                 title = docTitle,
                 connectionState = connectionState,
                 activeUsers = activeUsers,
+                breadcrumbs = uiState.breadcrumbs,
                 onBack = onNavigateBack,
                 onSave = { viewModel.saveDocument() },
                 isSaving = isSaving,
@@ -175,14 +176,22 @@ fun CollaborativeDocumentScreenV2(
                 contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 itemsIndexed(blocks, key = { _, b -> b.id }) { index, block ->
+                    // Compute sequential index within the current numbered-list run
+                    val numberedIdx = if (block.type == "numbered") {
+                        blocks.take(index + 1).count { it.type == "numbered" }
+                    } else 1
                     DocumentBlock(
                         block = block,
                         isFocused = focusedBlockId == block.id,
+                        numberedIndex = numberedIdx,
                         onFocusChange = { focused ->
                             if (focused) focusedBlockId = block.id
                         },
                         onTextChange = { newText ->
                             viewModel.insertText(block.id, newText, 0)
+                        },
+                        onToggleTodo = { isChecked ->
+                            viewModel.toggleTodo(block.id, isChecked)
                         },
                         onCursorChange = { pos ->
                             viewModel.updateCursorPosition(block.id, pos)
@@ -335,6 +344,7 @@ private fun DocumentTopBar(
     title: String,
     connectionState: ConnectionState,
     activeUsers: List<DocumentUserPresence>,
+    breadcrumbs: List<Pair<String, String>>,
     showExportMenu: Boolean,
     onBack: () -> Unit,
     onSave: () -> Unit,
@@ -348,6 +358,28 @@ private fun DocumentTopBar(
     TopAppBar(
         title = {
             Column {
+                // Breadcrumb trail (only when there's a parent)
+                if (breadcrumbs.size > 1) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
+                        breadcrumbs.dropLast(1).forEachIndexed { index, (_, crumbTitle) ->
+                            Text(
+                                crumbTitle.ifBlank { "Untitled" }.let {
+                                    if (it.length > 14) it.take(12) + "…" else it
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                            Text(
+                                " / ",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = title.ifBlank { "Untitled" },
                     style = MaterialTheme.typography.titleMedium,
@@ -448,8 +480,10 @@ private fun DocumentBlock(
     block: ContentBlock,
     isFocused: Boolean,
     isTitle: Boolean,
+    numberedIndex: Int = 1,
     onFocusChange: (Boolean) -> Unit,
     onTextChange: (String) -> Unit,
+    onToggleTodo: (Boolean) -> Unit,
     onCursorChange: (Int) -> Unit,
     onEnterPressed: () -> Unit,
     onDeleteBlock: () -> Unit,
@@ -577,7 +611,7 @@ private fun DocumentBlock(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
                         checked = block.isChecked,
-                        onCheckedChange = { onTextChange(block.content) }, // toggle via viewmodel
+                        onCheckedChange = { checked -> onToggleTodo(checked) },
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(Modifier.width(8.dp))
@@ -613,7 +647,7 @@ private fun DocumentBlock(
             "bullet", "numbered" -> {
                 Row(verticalAlignment = Alignment.Top) {
                     Text(
-                        text = if (block.type == "bullet") "•  " else "1.  ",
+                        text = if (block.type == "bullet") "•  " else "$numberedIndex.  ",
                         style = textStyle,
                         modifier = Modifier.padding(top = 2.dp)
                     )

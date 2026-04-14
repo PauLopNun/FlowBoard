@@ -91,7 +91,13 @@ class InMemoryDocumentService(
                 }
                 document.copy(blocks = newBlocks)
             }
-            else -> document // Ignore other operations for now
+            is ToggleTodoOperation -> {
+                val newBlocks = document.blocks.map {
+                    if (it.id == operation.blockId) it.copy(isChecked = operation.isChecked) else it
+                }
+                document.copy(blocks = newBlocks)
+            }
+            else -> document // Ignore other operations (e.g. cursor moves)
         }
         documents[operation.boardId] = updatedDocument
         return updatedDocument
