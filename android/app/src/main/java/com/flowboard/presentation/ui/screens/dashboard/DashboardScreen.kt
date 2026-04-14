@@ -115,6 +115,12 @@ fun DashboardScreen(
                     onDocumentClick = { docId ->
                         scope.launch { drawerState.close() }
                         onDocumentClick(docId)
+                    },
+                    onCreateSubPage = { parentId, title ->
+                        documentViewModel.createSubPageViaApi(parentId, title) { docId ->
+                            scope.launch { drawerState.close() }
+                            onDocumentClick(docId)
+                        }
                     }
                 )
             }
@@ -190,8 +196,42 @@ fun DashboardSidebar(
     onSettingsClick: () -> Unit,
     onLogout: () -> Unit,
     documents: List<com.flowboard.data.local.entities.DocumentEntity>,
-    onDocumentClick: (String) -> Unit
+    onDocumentClick: (String) -> Unit,
+    onCreateSubPage: ((parentId: String, title: String) -> Unit)? = null
 ) {
+    var createSubPageParentId by remember { mutableStateOf<String?>(null) }
+    var createSubPageTitle by remember { mutableStateOf("") }
+
+    if (createSubPageParentId != null) {
+        AlertDialog(
+            onDismissRequest = { createSubPageParentId = null; createSubPageTitle = "" },
+            title = { Text("New sub-page") },
+            text = {
+                OutlinedTextField(
+                    value = createSubPageTitle,
+                    onValueChange = { createSubPageTitle = it },
+                    label = { Text("Page title") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    onCreateSubPage?.invoke(
+                        createSubPageParentId!!,
+                        createSubPageTitle.trim().ifBlank { "Untitled" }
+                    )
+                    createSubPageParentId = null
+                    createSubPageTitle = ""
+                }) { Text("Create") }
+            },
+            dismissButton = {
+                TextButton(onClick = { createSubPageParentId = null; createSubPageTitle = "" }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -312,7 +352,10 @@ fun DashboardSidebar(
                 PageTreeItem(
                     doc = doc,
                     children = children,
-                    onDocumentClick = onDocumentClick
+                    onDocumentClick = onDocumentClick,
+                    onCreateSubPage = if (onCreateSubPage != null) {
+                        { parentId -> createSubPageParentId = parentId }
+                    } else null
                 )
             }
         }
@@ -684,6 +727,7 @@ fun PageTreeItem(
     doc: com.flowboard.data.local.entities.DocumentEntity,
     children: List<com.flowboard.data.local.entities.DocumentEntity>,
     onDocumentClick: (String) -> Unit,
+    onCreateSubPage: ((parentId: String) -> Unit)? = null,
     depth: Int = 0
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -737,6 +781,19 @@ fun PageTreeItem(
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
+                if (onCreateSubPage != null) {
+                    IconButton(
+                        onClick = { onCreateSubPage(doc.id) },
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "New sub-page",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
 
@@ -746,6 +803,7 @@ fun PageTreeItem(
                     doc = child,
                     children = emptyList(), // one level deep in sidebar
                     onDocumentClick = onDocumentClick,
+                    onCreateSubPage = onCreateSubPage,
                     depth = depth + 1
                 )
             }
