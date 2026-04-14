@@ -300,12 +300,28 @@ class AuthApiService @Inject constructor(
                 Log.d(TAG, "Google Sign-In successful")
                 Result.success(response)
             } else {
-                val errorBody = httpResponse.body<String>()
-                Log.e(TAG, "Google Sign-In failed with status ${httpResponse.status.value}")
-                Result.failure(Exception("Google Sign-In failed: $errorBody"))
+                val errorBody = try { httpResponse.body<String>() } catch (_: Exception) { "" }
+                Log.e(TAG, "Google Sign-In failed with status ${httpResponse.status.value}: $errorBody")
+                val errorMessage = when (httpResponse.status.value) {
+                    400 -> "Datos de Google inválidos"
+                    401 -> "No autorizado"
+                    500 -> "Error del servidor. Intenta de nuevo más tarde"
+                    else -> errorBody.ifBlank { "Error ${httpResponse.status.value}" }
+                }
+                Result.failure(Exception(errorMessage))
             }
+        } catch (e: java.net.UnknownHostException) {
+            Log.e(TAG, "Google Sign-In - Unknown host: ${e.message}")
+            Result.failure(Exception("No se puede conectar al servidor. Verifica tu conexión."))
+        } catch (e: java.net.ConnectException) {
+            Log.e(TAG, "Google Sign-In - Connection refused: ${e.message}")
+            Result.failure(Exception("No se puede conectar al servidor. Verifica tu conexión."))
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.e(TAG, "Google Sign-In - Timeout: ${e.message}")
+            Result.failure(Exception("El servidor no responde. Intenta de nuevo más tarde."))
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e(TAG, "Google Sign-In - Exception: ${e.javaClass.simpleName}: ${e.message}")
+            Result.failure(Exception("Error de red: ${e.message ?: "conexión fallida"}"))
         }
     }
 }

@@ -115,26 +115,28 @@ class LoginViewModel @Inject constructor(
                     },
                     onFailure = { exception ->
                         Log.e(TAG, "Google Sign-In failed: ${exception.message}", exception)
-                        // Reset main login state so email/password form is unaffected
                         _loginState.value = LoginState.Idle
                         val msg = exception.message ?: ""
                         when {
-                            // User cancelled — no feedback needed
-                            msg.contains("Cancel", ignoreCase = true) ||
-                            msg.contains("interrupt", ignoreCase = true) -> { /* silent */ }
-                            // No Google account found after both filter steps
+                            // User explicitly cancelled — no feedback needed
+                            msg.contains("Cancel", ignoreCase = true) -> { /* silent */ }
+                            // No Google account configured on device
                             msg.contains("No credential", ignoreCase = true) ->
                                 _googleSignInError.value =
                                     "No se encontró ninguna cuenta de Google en el dispositivo. Asegúrate de tener una cuenta configurada e intenta de nuevo."
-                            // Real backend or network error
+                            // Interrupted / config issue (wrong SHA-1, web client ID, etc.)
+                            msg.contains("interrupt", ignoreCase = true) ->
+                                _googleSignInError.value =
+                                    "El inicio de sesión fue interrumpido. Comprueba la conexión y vuelve a intentarlo."
                             else ->
-                                _googleSignInError.value = msg.ifBlank { "Google Sign-In failed. Please try again." }
+                                _googleSignInError.value = msg.ifBlank { "Error en Google Sign-In. Inténtalo de nuevo." }
                         }
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Unexpected error during Google Sign-In: ${e.message}", e)
                 _loginState.value = LoginState.Idle
+                _googleSignInError.value = "Error inesperado: ${e.message ?: "inténtalo de nuevo"}"
             }
         }
     }

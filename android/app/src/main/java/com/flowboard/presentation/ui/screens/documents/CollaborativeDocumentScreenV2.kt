@@ -233,63 +233,69 @@ fun CollaborativeDocumentScreenV2(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(bottom = 120.dp)
             ) {
-                // Page emoji header
-                item(key = "emoji-header") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 20.dp, top = 24.dp, bottom = 4.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        Text(
-                            text = pageEmoji,
-                            fontSize = 52.sp,
-                            modifier = Modifier.clickable { showEmojiPicker = true }
-                        )
-                    }
-                }
                 itemsIndexed(blocks, key = { _, b -> b.id }) { index, block ->
                     // Compute sequential index within the current numbered-list run
                     val numberedIdx = if (block.type == "numbered") {
                         blocks.take(index + 1).count { it.type == "numbered" }
                     } else 1
-                    DocumentBlock(
-                        block = block,
-                        isFocused = focusedBlockId == block.id,
-                        numberedIndex = numberedIdx,
-                        onFocusChange = { focused ->
-                            if (focused) focusedBlockId = block.id
-                        },
-                        onTextChange = { newText ->
-                            viewModel.insertText(block.id, newText, 0)
-                        },
-                        onToggleTodo = { isChecked ->
-                            viewModel.toggleTodo(block.id, isChecked)
-                        },
-                        onCursorChange = { pos ->
-                            viewModel.updateCursorPosition(block.id, pos)
-                        },
-                        onEnterPressed = {
-                            val newBlock = ContentBlock(
-                                id = UUID.randomUUID().toString(),
-                                type = "p",
-                                content = ""
+                    val isTitle = index == 0 && block.type == "h1"
+                    if (isTitle) {
+                        // Emoji + title on the same row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 8.dp, top = 24.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = pageEmoji,
+                                fontSize = 36.sp,
+                                modifier = Modifier
+                                    .padding(start = 12.dp, end = 8.dp)
+                                    .clickable { showEmojiPicker = true }
                             )
-                            viewModel.addBlock(newBlock, block.id)
-                        },
-                        onDeleteBlock = {
-                            if (blocks.size > 1) viewModel.deleteBlock(block.id)
-                        },
-                        onSlashCommand = {
-                            showSlashMenu = true
-                            slashMenuBlockId = block.id
-                        },
-                        onMarkdownShortcut = { type, cleanedText ->
-                            viewModel.updateBlockType(block.id, type)
-                            viewModel.insertText(block.id, cleanedText, 0)
-                        },
-                        isTitle = index == 0 && block.type == "h1"
-                    )
+                            DocumentBlock(
+                                block = block,
+                                isFocused = focusedBlockId == block.id,
+                                numberedIndex = numberedIdx,
+                                onFocusChange = { focused -> if (focused) focusedBlockId = block.id },
+                                onTextChange = { newText -> viewModel.insertText(block.id, newText, 0) },
+                                onToggleTodo = { isChecked -> viewModel.toggleTodo(block.id, isChecked) },
+                                onCursorChange = { pos -> viewModel.updateCursorPosition(block.id, pos) },
+                                onEnterPressed = {
+                                    viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
+                                },
+                                onDeleteBlock = { if (blocks.size > 1) viewModel.deleteBlock(block.id) },
+                                onSlashCommand = { showSlashMenu = true; slashMenuBlockId = block.id },
+                                onMarkdownShortcut = { type, cleanedText ->
+                                    viewModel.updateBlockType(block.id, type)
+                                    viewModel.insertText(block.id, cleanedText, 0)
+                                },
+                                isTitle = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    } else {
+                        DocumentBlock(
+                            block = block,
+                            isFocused = focusedBlockId == block.id,
+                            numberedIndex = numberedIdx,
+                            onFocusChange = { focused -> if (focused) focusedBlockId = block.id },
+                            onTextChange = { newText -> viewModel.insertText(block.id, newText, 0) },
+                            onToggleTodo = { isChecked -> viewModel.toggleTodo(block.id, isChecked) },
+                            onCursorChange = { pos -> viewModel.updateCursorPosition(block.id, pos) },
+                            onEnterPressed = {
+                                viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
+                            },
+                            onDeleteBlock = { if (blocks.size > 1) viewModel.deleteBlock(block.id) },
+                            onSlashCommand = { showSlashMenu = true; slashMenuBlockId = block.id },
+                            onMarkdownShortcut = { type, cleanedText ->
+                                viewModel.updateBlockType(block.id, type)
+                                viewModel.insertText(block.id, cleanedText, 0)
+                            },
+                            isTitle = false
+                        )
+                    }
                 }
 
                 // Bottom action row: new block + sub-page
@@ -336,12 +342,16 @@ fun CollaborativeDocumentScreenV2(
         SlashCommandMenu(
             onDismiss = { showSlashMenu = false },
             onSelect = { type ->
-                slashMenuBlockId?.let { blockId ->
-                    viewModel.updateBlockType(blockId, type)
-                    // Clear the "/" from the block
-                    val block = blocks.find { it.id == blockId }
-                    if (block?.content == "/") {
-                        viewModel.insertText(blockId, "", 0)
+                if (type == "subpage") {
+                    showSubPageDialog = true
+                } else {
+                    slashMenuBlockId?.let { blockId ->
+                        viewModel.updateBlockType(blockId, type)
+                        // Clear the "/" from the block
+                        val block = blocks.find { it.id == blockId }
+                        if (block?.content == "/") {
+                            viewModel.insertText(blockId, "", 0)
+                        }
                     }
                 }
                 showSlashMenu = false
@@ -947,90 +957,124 @@ private fun FormattingToolbar(
         "#6B7280" to Color(0xFF6B7280),
     )
     val currentColor = currentBlock?.color?.takeIf { it.isNotBlank() } ?: "#000000"
+    var showColorDropdown by remember { mutableStateOf(false) }
 
     Surface(
         tonalElevation = 4.dp,
         shadowElevation = 8.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Block type chips
-                BlockTypeChip("T", currentBlock?.type == "p",
-                    onClick = { onBlockType("p") })
-                BlockTypeChip("H1", currentBlock?.type == "h1",
-                    onClick = { onBlockType("h1") })
-                BlockTypeChip("H2", currentBlock?.type == "h2",
-                    onClick = { onBlockType("h2") })
-                BlockTypeChip("H3", currentBlock?.type == "h3",
-                    onClick = { onBlockType("h3") })
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Block type chips
+            BlockTypeChip("T", currentBlock?.type == "p",
+                onClick = { onBlockType("p") })
+            BlockTypeChip("H1", currentBlock?.type == "h1",
+                onClick = { onBlockType("h1") })
+            BlockTypeChip("H2", currentBlock?.type == "h2",
+                onClick = { onBlockType("h2") })
+            BlockTypeChip("H3", currentBlock?.type == "h3",
+                onClick = { onBlockType("h3") })
 
-                Box(
-                    Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant)
-                )
+            Box(
+                Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
 
-                // Format buttons
-                FormatButton(Icons.Default.FormatBold, "Bold",
-                    active = currentBlock?.fontWeight == "bold", onClick = onBold)
-                FormatButton(Icons.Default.FormatItalic, "Italic",
-                    active = currentBlock?.fontStyle == "italic", onClick = onItalic)
-                FormatButton(Icons.Default.FormatUnderlined, "Underline",
-                    active = currentBlock?.textDecoration == "underline", onClick = onUnderline)
+            // Format buttons
+            FormatButton(Icons.Default.FormatBold, "Bold",
+                active = currentBlock?.fontWeight == "bold", onClick = onBold)
+            FormatButton(Icons.Default.FormatItalic, "Italic",
+                active = currentBlock?.fontStyle == "italic", onClick = onItalic)
+            FormatButton(Icons.Default.FormatUnderlined, "Underline",
+                active = currentBlock?.textDecoration == "underline", onClick = onUnderline)
 
-                Box(
-                    Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant)
-                )
+            Box(
+                Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
 
-                FormatButton(Icons.Default.CheckBox, "To-do",
-                    active = currentBlock?.type == "todo",
-                    onClick = { onBlockType(if (currentBlock?.type == "todo") "p" else "todo") })
-                FormatButton(Icons.Default.FormatQuote, "Quote",
-                    active = currentBlock?.type == "quote",
-                    onClick = { onBlockType(if (currentBlock?.type == "quote") "p" else "quote") })
-                FormatButton(Icons.Default.Code, "Code",
-                    active = currentBlock?.type == "code",
-                    onClick = { onBlockType(if (currentBlock?.type == "code") "p" else "code") })
-                FormatButton(Icons.Default.FormatListBulleted, "Bullet list",
-                    active = currentBlock?.type == "bullet",
-                    onClick = { onBlockType(if (currentBlock?.type == "bullet") "p" else "bullet") })
-            }
+            FormatButton(Icons.Default.CheckBox, "To-do",
+                active = currentBlock?.type == "todo",
+                onClick = { onBlockType(if (currentBlock?.type == "todo") "p" else "todo") })
+            FormatButton(Icons.Default.FormatQuote, "Quote",
+                active = currentBlock?.type == "quote",
+                onClick = { onBlockType(if (currentBlock?.type == "quote") "p" else "quote") })
+            FormatButton(Icons.Default.Code, "Code",
+                active = currentBlock?.type == "code",
+                onClick = { onBlockType(if (currentBlock?.type == "code") "p" else "code") })
+            FormatButton(Icons.Default.FormatListBulleted, "Bullet list",
+                active = currentBlock?.type == "bullet",
+                onClick = { onBlockType(if (currentBlock?.type == "bullet") "p" else "bullet") })
 
-            // Text color row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.FormatColorText,
-                    contentDescription = "Text color",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                textColors.forEach { (hex, color) ->
-                    val isSelected = currentColor.equals(hex, ignoreCase = true)
-                    Box(
-                        modifier = Modifier
-                            .size(if (isSelected) 26.dp else 22.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .then(
-                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                else Modifier
-                            )
-                            .clickable { onColorChange(hex) }
-                    )
+            Box(
+                Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
+
+            // Color picker dropdown — same level as other format buttons
+            Box {
+                val selectedColor = try {
+                    Color(android.graphics.Color.parseColor(currentColor))
+                } catch (_: Exception) { Color.Black }
+                IconButton(
+                    onClick = { showColorDropdown = !showColorDropdown },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.FormatColorText,
+                            contentDescription = "Text color",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(width = 14.dp, height = 3.dp)
+                                .clip(RoundedCornerShape(1.dp))
+                                .background(selectedColor)
+                        )
+                    }
+                }
+                DropdownMenu(
+                    expanded = showColorDropdown,
+                    onDismissRequest = { showColorDropdown = false }
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        textColors.chunked(4).forEach { rowColors ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            ) {
+                                rowColors.forEach { (hex, color) ->
+                                    val isSelected = currentColor.equals(hex, ignoreCase = true)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(if (isSelected) 28.dp else 24.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                            .then(
+                                                if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                                else Modifier
+                                            )
+                                            .clickable {
+                                                onColorChange(hex)
+                                                showColorDropdown = false
+                                            }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1095,6 +1139,7 @@ private fun SlashCommandMenu(
         Triple("callout", Icons.Default.Lightbulb, "Callout"),
         Triple("code", Icons.Default.Code, "Code Block"),
         Triple("divider", Icons.Default.HorizontalRule, "Divider"),
+        Triple("subpage", Icons.Default.NoteAdd, "Sub-page"),
     )
 
     AlertDialog(
