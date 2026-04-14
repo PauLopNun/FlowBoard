@@ -79,11 +79,11 @@ fun FlowBoardTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val darkModeEnabled by settingsViewModel.darkModeEnabled.collectAsState()
+    val darkModePreference by settingsViewModel.darkModeEnabled.collectAsState()
     val systemDarkTheme = isSystemInDarkTheme()
 
-    // Use user preference if set, otherwise follow system
-    val darkTheme = darkModeEnabled || systemDarkTheme
+    // null → follow system, true → force dark, false → force light
+    val darkTheme = darkModePreference ?: systemDarkTheme
 
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
