@@ -15,6 +15,9 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import org.slf4j.LoggerFactory
@@ -85,7 +88,8 @@ fun Route.webSocketRoutes(
 
                         try {
                             // Parse mensaje base para obtener el tipo
-                            val messageType = json.decodeFromString<Map<String, String>>(receivedText)["type"]
+                            val messageType = json.parseToJsonElement(receivedText)
+                                .jsonObject["type"]?.jsonPrimitive?.contentOrNull
 
                             when (messageType) {
                                 // Cliente solicita unirse a un board

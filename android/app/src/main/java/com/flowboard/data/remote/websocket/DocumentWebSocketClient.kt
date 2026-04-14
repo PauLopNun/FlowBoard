@@ -12,17 +12,16 @@ import io.ktor.http.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
-import javax.inject.Singleton
 
 private const val TAG = "DocumentWebSocketClient"
 
-@Singleton
 class DocumentWebSocketClient @Inject constructor(
     private val client: HttpClient,
     private val json: Json
@@ -98,11 +97,17 @@ class DocumentWebSocketClient @Inject constructor(
                                 handleIncomingMessage(text)
                             }
                         }
+                    } catch (e: CancellationException) {
+                        Log.d(TAG, "WebSocket receive loop cancelled (navigation)")
+                        throw e
                     } catch (e: Exception) {
                         Log.e(TAG, "Error receiving messages", e)
                         _errors.emit("Connection error: ${e.message}")
                     }
                 }
+            } catch (e: CancellationException) {
+                Log.d(TAG, "WebSocket connection cancelled (navigation)")
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "WebSocket connection failed", e)
                 _connectionState.value = ConnectionState.Error(e.message ?: "Connection failed")

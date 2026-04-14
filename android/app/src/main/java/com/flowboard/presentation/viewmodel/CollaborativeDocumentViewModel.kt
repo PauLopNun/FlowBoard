@@ -471,6 +471,10 @@ class CollaborativeDocumentViewModel @Inject constructor(
             try {
                 documentApiService.updateDocument(documentId, title = title, content = content)
                 _uiState.update { it.copy(isSaving = false, shareSuccessMessage = "Document saved") }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                Log.d(TAG, "Auto-save cancelled (navigation)")
+                _uiState.update { it.copy(isSaving = false) }
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Save failed", e)
                 _uiState.update { it.copy(isSaving = false, error = "Save failed: ${e.message}") }

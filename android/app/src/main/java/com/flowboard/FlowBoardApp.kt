@@ -2,15 +2,30 @@ package com.flowboard
 
 import android.app.Activity
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,8 +33,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,6 +44,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import kotlinx.coroutines.delay
 import com.flowboard.presentation.ui.screens.auth.ForgotPasswordScreen
 import com.flowboard.presentation.ui.screens.auth.LoginScreen
 import com.flowboard.presentation.ui.screens.auth.RegisterScreen
@@ -69,7 +87,22 @@ fun FlowBoardApp(
     val documentViewModel: DocumentViewModel = hiltViewModel()
     val currentRoute by navController.currentBackStackEntryAsState()
 
-    // Navigate to dashboard if already logged in
+    // Splash screen — shown briefly on first launch
+    var splashVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        delay(1_400)
+        splashVisible = false
+    }
+
+    AnimatedVisibility(
+        visible = splashVisible,
+        enter = fadeIn(),
+        exit = fadeOut(animationSpec = tween(400))
+    ) {
+        SplashScreen()
+    }
+
+    // Navigate to dashboard if already logged in — runs regardless of splash state
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
             navController.navigate("dashboard") {
@@ -78,10 +111,39 @@ fun FlowBoardApp(
         }
     }
 
+    AnimatedVisibility(
+        visible = !splashVisible,
+        enter = fadeIn(animationSpec = tween(300))
+    ) {
+
     NavHost(
         navController = navController,
         startDestination = "login",
-        modifier = modifier
+        modifier = modifier,
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = tween(280)
+            ) + fadeIn(animationSpec = tween(280))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { -it / 3 },
+                animationSpec = tween(280)
+            ) + fadeOut(animationSpec = tween(280))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { -it / 3 },
+                animationSpec = tween(280)
+            ) + fadeIn(animationSpec = tween(280))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = tween(280)
+            ) + fadeOut(animationSpec = tween(280))
+        }
     ) {
         composable("login") {
             val loginState by loginViewModel.loginState.collectAsStateWithLifecycle()
@@ -109,8 +171,9 @@ fun FlowBoardApp(
 
             Scaffold(
                 snackbarHost = { SnackbarHost(snackbarHostState) { data -> Snackbar(data) } }
-            ) { _ ->
+            ) { contentPadding ->
                 LoginScreen(
+                    modifier = Modifier.padding(contentPadding),
                     onLoginClick = { email, password ->
                         loginViewModel.login(email, password)
                     },
@@ -515,6 +578,12 @@ fun FlowBoardApp(
             ProfileScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onLogout = {
+                    loginViewModel.logout()
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
@@ -529,5 +598,47 @@ fun FlowBoardApp(
             )
         }
     }
+    } // end AnimatedVisibility (main content)
     } // end FlowBoardTheme
+}
+
+// ─── Splash Screen ────────────────────────────────────────────────────────────
+
+@Composable
+private fun SplashScreen() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // App icon placeholder — cyan "F" lettermark
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(24.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "F",
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            }
+            Text(
+                text = "FlowBoard",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+    }
 }

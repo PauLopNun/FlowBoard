@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -108,7 +109,6 @@ fun DashboardScreen(
                     onSettingsClick = onSettingsClick,
                     onLogout = {
                         scope.launch { drawerState.close() }
-                        loginViewModel.logout()
                         onLogout()
                     },
                     documents = documentListState.ownedDocuments,
@@ -242,8 +242,16 @@ fun DashboardSidebar(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(horizontal = 16.dp)
     ) {
+        // Scrollable area — everything except the bottom actions
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(top = 16.dp)
+        ) {
+
         // Workspace Selector (Placeholder)
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -408,19 +416,23 @@ fun DashboardSidebar(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        
-        Spacer(modifier = Modifier.weight(1f))
 
-        // Bottom Actions
-        NavigationItem(Icons.Outlined.Person, "Profile", false, onProfileClick)
-        NavigationItem(Icons.Outlined.Settings, "Settings", false, onSettingsClick)
-        NavigationItem(
-            icon = Icons.Outlined.Delete, 
-            label = "Trash", 
-            isSelected = currentView == DashboardView.TRASH,
-            onClick = { onNavigate(DashboardView.TRASH) }
-        )
-        NavigationItem(Icons.AutoMirrored.Filled.Logout, "Logout", false, onLogout)
+        } // end scrollable Column
+
+        HorizontalDivider()
+
+        // Bottom Actions — always visible, not scrolled away
+        Column(modifier = Modifier.padding(bottom = 8.dp)) {
+            NavigationItem(Icons.Outlined.Person, "Profile", false, onProfileClick)
+            NavigationItem(Icons.Outlined.Settings, "Settings", false, onSettingsClick)
+            NavigationItem(
+                icon = Icons.Outlined.Delete,
+                label = "Trash",
+                isSelected = currentView == DashboardView.TRASH,
+                onClick = { onNavigate(DashboardView.TRASH) }
+            )
+            NavigationItem(Icons.AutoMirrored.Filled.Logout, "Logout", false, onLogout)
+        }
     }
 }
 

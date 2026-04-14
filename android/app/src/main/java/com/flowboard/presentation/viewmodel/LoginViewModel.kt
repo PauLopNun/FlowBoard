@@ -114,22 +114,31 @@ class LoginViewModel @Inject constructor(
                         _isLoggedIn.value = true
                     },
                     onFailure = { exception ->
-                        Log.e(TAG, "Google Sign-In failed: ${exception.message}", exception)
                         _loginState.value = LoginState.Idle
                         val msg = exception.message ?: ""
                         when {
                             // User explicitly tapped the back/cancel button on the picker — no feedback needed
-                            msg == "UserCancelled" -> { /* silent */ }
-                            // No Google account configured on device
-                            msg.contains("No credential", ignoreCase = true) ->
+                            msg == "UserCancelled" -> {
+                                Log.d(TAG, "Google Sign-In cancelled by user")
+                            }
+                            // No Google account configured on device / Credential Manager couldn't get credentials
+                            msg.contains("No credential", ignoreCase = true) ||
+                            msg.contains("no credential", ignoreCase = true) ||
+                            msg.contains("no accounts", ignoreCase = true) -> {
+                                Log.w(TAG, "Google Sign-In: no credentials available")
                                 _googleSignInError.value =
                                     "No se encontró ninguna cuenta de Google en el dispositivo. Asegúrate de tener una cuenta configurada e intenta de nuevo."
+                            }
                             // Interrupted / config issue (wrong SHA-1, web client ID, etc.)
-                            msg.contains("interrupt", ignoreCase = true) ->
+                            msg.contains("interrupt", ignoreCase = true) -> {
+                                Log.w(TAG, "Google Sign-In interrupted: $msg")
                                 _googleSignInError.value =
                                     "El inicio de sesión fue interrumpido. Comprueba la conexión y vuelve a intentarlo."
-                            else ->
+                            }
+                            else -> {
+                                Log.e(TAG, "Google Sign-In failed: $msg")
                                 _googleSignInError.value = msg.ifBlank { "Error en Google Sign-In. Inténtalo de nuevo." }
+                            }
                         }
                     }
                 )

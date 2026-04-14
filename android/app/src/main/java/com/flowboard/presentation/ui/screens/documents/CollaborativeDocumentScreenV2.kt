@@ -206,7 +206,7 @@ fun CollaborativeDocumentScreenV2(
         LaunchedEffect(connectionState) {
             if (connectionState is ConnectionState.Connected) {
                 kotlinx.coroutines.delay(2000L)
-                if (document.value?.blocks.isNullOrEmpty()) {
+                if (document?.blocks.isNullOrEmpty()) {
                     viewModel.addBlock(
                         ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
                         null
@@ -1242,6 +1242,7 @@ private fun FormatButton(
 // Slash Command Menu (Notion-style)
 // ────────────────────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SlashCommandMenu(
     onDismiss: () -> Unit,
@@ -1262,36 +1263,40 @@ private fun SlashCommandMenu(
         Triple("subpage", Icons.Default.NoteAdd, "Sub-page"),
     )
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.AutoAwesome, null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp))
-                Text("Turn into…", style = MaterialTheme.typography.titleMedium)
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Icon(Icons.Default.AutoAwesome, null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp))
+            Text("Turn into…", style = MaterialTheme.typography.titleMedium)
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+        ) {
+            commands.forEach { (type, icon, label) ->
+                ListItem(
+                    headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+                    leadingContent = {
+                        Icon(icon, null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(type) }
+                )
             }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                commands.forEach { (type, icon, label) ->
-                    ListItem(
-                        headlineContent = { Text(label) },
-                        leadingContent = {
-                            Icon(icon, null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        },
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onSelect(type) }
-                    )
-                }
-            }
-        },
-        confirmButton = {}
-    )
+        }
+    }
 }
 
 data class BlockFormatting(

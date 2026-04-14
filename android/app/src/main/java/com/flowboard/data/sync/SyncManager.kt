@@ -28,6 +28,7 @@ class SyncManager @Inject constructor(
     companion object {
         const val TAG = "SyncManager"
         const val PERIODIC_SYNC_WORK_NAME = "periodic_document_sync"
+        const val IMMEDIATE_SYNC_WORK_NAME = "immediate_document_sync"
         const val PERIODIC_SYNC_INTERVAL_MINUTES = 30L
     }
 
@@ -170,6 +171,8 @@ class SyncManager @Inject constructor(
 
         val immediateSyncRequest = OneTimeWorkRequestBuilder<DocumentSyncWorker>()
             .setConstraints(constraints)
+            .setInitialDelay(10, TimeUnit.SECONDS) // wait for Render cold-start
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 15, TimeUnit.SECONDS)
             .setInputData(
                 workDataOf(
                     DocumentSyncWorker.SYNC_MODE_KEY to DocumentSyncWorker.SYNC_MODE_BIDIRECTIONAL
@@ -178,7 +181,12 @@ class SyncManager @Inject constructor(
             .addTag("immediate_sync")
             .build()
 
-        workManager.enqueue(immediateSyncRequest)
+        // KEEP: si ya hay un sync corriendo/pendiente no lanzar otro
+        workManager.enqueueUniqueWork(
+            IMMEDIATE_SYNC_WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            immediateSyncRequest
+        )
     }
 
     /**

@@ -31,6 +31,7 @@ import com.flowboard.presentation.viewmodel.ProfileUiState
 @Composable
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
+    onLogout: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -313,10 +314,7 @@ fun ProfileScreen(
                                 tint = MaterialTheme.colorScheme.error
                             )
                         },
-                        modifier = Modifier.clickable {
-                            viewModel.logout()
-                            onNavigateBack()
-                        }
+                        modifier = Modifier.clickable { onLogout() }
                     )
                 }
             }

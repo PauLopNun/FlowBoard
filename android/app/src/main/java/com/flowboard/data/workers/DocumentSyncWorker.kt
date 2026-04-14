@@ -106,8 +106,7 @@ class DocumentSyncWorker @AssistedInject constructor(
             Log.d(TAG, "Sync completed successfully")
             Result.success()
         } catch (e: Exception) {
-            Log.e(TAG, "Sync failed", e)
-            e.printStackTrace()
+            Log.e(TAG, "Sync failed: ${e.message}")
 
             // Reintentar si hay error
             if (runAttemptCount < 3) {
