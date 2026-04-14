@@ -28,6 +28,7 @@ fun TaskListScreen(
     onCreateTaskClick: () -> Unit,
     onNotificationsClick: () -> Unit = {},
     onChatClick: () -> Unit = {},
+    onNavigateBack: () -> Unit = {},
     viewModel: TaskViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -90,6 +91,11 @@ fun TaskListScreen(
             Column {
                 TopAppBar(
                     title = { Text("Tasks") },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        }
+                    },
                     actions = {
                         // Show active users
                         ActiveUsersList(users = activeUsers)

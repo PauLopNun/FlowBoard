@@ -14,6 +14,8 @@ import com.flowboard.data.repository.AuthRepository
 import com.flowboard.presentation.ui.components.RemoteCursor
 import com.flowboard.presentation.ui.components.getUserColor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -62,6 +64,9 @@ class CollaborativeDocumentViewModel @Inject constructor(
     // Remote cursors
     private val _remoteCursors = MutableStateFlow<Map<String, RemoteCursor>>(emptyMap())
     val remoteCursors: StateFlow<Map<String, RemoteCursor>> = _remoteCursors.asStateFlow()
+
+    // Auto-save debounce (save 5 seconds after the last change)
+    private var autoSaveJob: Job? = null
 
     init {
         // Listen for incoming operations from other users
@@ -133,9 +138,39 @@ class CollaborativeDocumentViewModel @Inject constructor(
                         currentUserName = userName
                     )
                 }
+
+                // Load breadcrumb chain (parent hierarchy) in the background
+                loadBreadcrumbs(documentId)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to connect to document", e)
                 _uiState.update { it.copy(error = "Connection failed: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Build a breadcrumb trail by walking up the parent chain.
+     * Each entry is Pair(documentId, title).
+     */
+    private fun loadBreadcrumbs(documentId: String) {
+        viewModelScope.launch {
+            try {
+                val chain = mutableListOf<Pair<String, String>>()
+                var currentId: String? = documentId
+                val visited = mutableSetOf<String>()
+
+                while (currentId != null && visited.add(currentId)) {
+                    val entity = try {
+                        documentApiService.getDocumentById(currentId)
+                    } catch (_: Exception) { break }
+
+                    chain.add(0, currentId to entity.title)
+                    currentId = entity.parentId
+                }
+
+                _uiState.update { it.copy(breadcrumbs = chain) }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not load breadcrumbs: ${e.message}")
             }
         }
     }
@@ -147,6 +182,18 @@ class CollaborativeDocumentViewModel @Inject constructor(
         webSocketClient.disconnect()
         crdtEngine.reset()
         _remoteCursors.value = emptyMap()
+    }
+
+    /**
+     * Schedule an auto-save 5 seconds after the last change.
+     * Any new change resets the timer.
+     */
+    private fun scheduleAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(5_000)
+            saveDocument()
+        }
     }
 
     /**
@@ -171,6 +218,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
         viewModelScope.launch {
             webSocketClient.sendOperation(operation, userId)
         }
+
+        scheduleAutoSave()
     }
 
     /**
@@ -215,6 +264,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
         viewModelScope.launch {
             webSocketClient.sendOperation(operation, userId)
         }
+
+        scheduleAutoSave()
     }
 
     /**
@@ -235,6 +286,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
         viewModelScope.launch {
             webSocketClient.sendOperation(operation, userId)
         }
+
+        scheduleAutoSave()
     }
 
     /**
@@ -290,6 +343,29 @@ class CollaborativeDocumentViewModel @Inject constructor(
         viewModelScope.launch {
             webSocketClient.sendOperation(operation, userId)
         }
+    }
+
+    /**
+     * Toggle the checked state of a todo block
+     */
+    fun toggleTodo(blockId: String, isChecked: Boolean) {
+        val documentId = _uiState.value.currentDocumentId ?: return
+        val userId = _uiState.value.currentUserId ?: return
+
+        val operation = ToggleTodoOperation(
+            operationId = UUID.randomUUID().toString(),
+            boardId = documentId,
+            blockId = blockId,
+            isChecked = isChecked
+        )
+
+        crdtEngine.applyOperation(operation)
+
+        viewModelScope.launch {
+            webSocketClient.sendOperation(operation, userId)
+        }
+
+        scheduleAutoSave()
     }
 
     /**
@@ -420,6 +496,20 @@ class CollaborativeDocumentViewModel @Inject constructor(
     }
 
     /**
+     * Create a sub-page under this document
+     */
+    fun createSubPage(parentId: String, title: String) {
+        viewModelScope.launch {
+            try {
+                documentApiService.createDocument(title = title, parentId = parentId)
+                _uiState.update { it.copy(shareSuccessMessage = "Sub-page '$title' created") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Failed to create sub-page: ${e.message}") }
+            }
+        }
+    }
+
+    /**
      * Clear error
      */
     fun clearError() {
@@ -446,5 +536,7 @@ data class CollaborativeDocumentUiState(
     val error: String? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
-    val shareSuccessMessage: String? = null
+    val shareSuccessMessage: String? = null,
+    /** Breadcrumb trail: list of (documentId, title) from root to current page */
+    val breadcrumbs: List<Pair<String, String>> = emptyList()
 )

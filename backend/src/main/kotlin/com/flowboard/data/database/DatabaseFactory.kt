@@ -35,8 +35,15 @@ object DatabaseFactory {
                     ChatRooms,
                     ChatParticipants,
                     Messages,
-                    PasswordResetTokens
+                    PasswordResetTokens,
+                    Workspaces,
+                    WorkspaceMembers
                 )
+                // Add any missing columns to existing tables
+                try {
+                    SchemaUtils.createMissingTablesAndColumns(Documents)
+                    SchemaUtils.createMissingTablesAndColumns(ChatParticipants)
+                } catch (_: Exception) {}
             }
             initialized = true
             println("✅ Database initialized successfully")

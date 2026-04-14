@@ -9,6 +9,7 @@ import com.flowboard.data.local.dao.UserDao
 import com.flowboard.data.local.dao.ChatDao
 import com.flowboard.data.local.dao.DocumentDao
 import com.flowboard.data.local.dao.PendingOperationDao
+import com.flowboard.data.local.dao.WorkspaceDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -59,4 +60,7 @@ object DatabaseModule {
 
     @Provides
     fun providePendingOperationDao(database: FlowBoardDatabase) = database.pendingOperationDao()
+
+    @Provides
+    fun provideWorkspaceDao(database: FlowBoardDatabase): WorkspaceDao = database.workspaceDao()
 }

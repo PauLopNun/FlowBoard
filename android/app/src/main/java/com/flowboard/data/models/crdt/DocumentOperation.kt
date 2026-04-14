@@ -94,6 +94,20 @@ data class UpdateBlockTypeOperation(
 ) : DocumentOperation
 
 /**
+ * Toggles the checked state of a todo block.
+ *
+ * @param blockId The ID of the todo block.
+ * @param isChecked The new checked state.
+ */
+@Serializable
+data class ToggleTodoOperation(
+    override val operationId: String,
+    override val boardId: String,
+    val blockId: String,
+    val isChecked: Boolean
+) : DocumentOperation
+
+/**
  * Represents a cursor position change for a user.
  *
  * @param userId The ID of the user whose cursor is moving.

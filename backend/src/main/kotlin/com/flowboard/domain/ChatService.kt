@@ -11,6 +11,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greater
 import java.util.*
 
 class ChatService {
@@ -65,19 +66,30 @@ class ChatService {
 
     suspend fun getChatRoomById(chatRoomId: String, userId: String): ChatRoom? {
         return dbQuery {
-            // Check if user is participant
-            val isParticipant = ChatParticipants
+            // Check if user is participant and get their last read time
+            val participantRow = ChatParticipants
                 .select {
                     (ChatParticipants.chatRoomId eq UUID.fromString(chatRoomId)) and
                     (ChatParticipants.userId eq UUID.fromString(userId))
                 }
-                .count() > 0
+                .singleOrNull() ?: return@dbQuery null
 
-            if (!isParticipant) return@dbQuery null
+            val lastReadAt = participantRow[ChatParticipants.lastReadAt]
+                ?: participantRow[ChatParticipants.joinedAt]
 
             val room = ChatRooms
                 .select { ChatRooms.id eq UUID.fromString(chatRoomId) }
                 .singleOrNull() ?: return@dbQuery null
+
+            // Count unread messages: messages sent after lastReadAt by other users
+            val unreadCount = Messages
+                .select {
+                    (Messages.chatRoomId eq UUID.fromString(chatRoomId)) and
+                    (Messages.senderId neq UUID.fromString(userId)) and
+                    (Messages.createdAt greater lastReadAt)
+                }
+                .count()
+                .toInt()
 
             // Get participants
             val participants = (ChatParticipants innerJoin Users)
@@ -146,7 +158,7 @@ class ChatService {
                 resourceType = room[ChatRooms.resourceType],
                 participants = participants,
                 lastMessage = lastMessage,
-                unreadCount = 0, // TODO: Implement unread count
+                unreadCount = unreadCount,
                 createdBy = room[ChatRooms.createdBy].toString(),
                 createdAt = room[ChatRooms.createdAt],
                 updatedAt = room[ChatRooms.updatedAt],
@@ -369,6 +381,19 @@ class ChatService {
                 (ChatParticipants.chatRoomId eq UUID.fromString(chatRoomId)) and
                 (ChatParticipants.userId eq UUID.fromString(targetUserId))
             } > 0
+        }
+    }
+
+    /** Mark all messages in a room as read for the given user by updating lastReadAt */
+    suspend fun markMessagesRead(chatRoomId: String, userId: String) {
+        val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        dbQuery {
+            ChatParticipants.update({
+                (ChatParticipants.chatRoomId eq UUID.fromString(chatRoomId)) and
+                (ChatParticipants.userId eq UUID.fromString(userId))
+            }) {
+                it[ChatParticipants.lastReadAt] = now
+            }
         }
     }
 }

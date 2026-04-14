@@ -10,6 +10,7 @@ import com.flowboard.data.local.dao.PendingOperationDao
 import com.flowboard.data.local.dao.ProjectDao
 import com.flowboard.data.local.dao.TaskDao
 import com.flowboard.data.local.dao.UserDao
+import com.flowboard.data.local.dao.WorkspaceDao
 import com.flowboard.data.local.entities.DocumentEntity
 import com.flowboard.data.local.entities.PendingOperationEntity
 import com.flowboard.data.local.entities.ProjectEntity
@@ -20,6 +21,7 @@ import com.flowboard.data.local.entities.ChatRoomEntity
 import com.flowboard.data.local.entities.MessageEntity
 import com.flowboard.data.local.entities.ChatParticipantEntity
 import com.flowboard.data.local.entities.TypingIndicatorEntity
+import com.flowboard.data.local.entities.WorkspaceEntity
 
 @Database(
     entities = [
@@ -32,9 +34,10 @@ import com.flowboard.data.local.entities.TypingIndicatorEntity
         ChatParticipantEntity::class,
         TypingIndicatorEntity::class,
         DocumentEntity::class,
-        PendingOperationEntity::class
+        PendingOperationEntity::class,
+        WorkspaceEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -47,13 +50,14 @@ abstract class FlowBoardDatabase : RoomDatabase() {
     abstract fun chatDao(): com.flowboard.data.local.dao.ChatDao
     abstract fun documentDao(): DocumentDao
     abstract fun pendingOperationDao(): PendingOperationDao
-    
+    abstract fun workspaceDao(): WorkspaceDao
+
     companion object {
         const val DATABASE_NAME = "flowboard_database"
-        
+
         @Volatile
         private var INSTANCE: FlowBoardDatabase? = null
-        
+
         fun getDatabase(context: Context): FlowBoardDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(

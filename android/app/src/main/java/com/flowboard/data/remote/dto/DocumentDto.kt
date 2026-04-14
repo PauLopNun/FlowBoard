@@ -12,6 +12,7 @@ data class DocumentDto(
     val ownerId: String,
     val ownerName: String? = null,
     val isPublic: Boolean = false,
+    val parentId: String? = null,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime,
     val lastEditedBy: String? = null,
@@ -26,6 +27,7 @@ data class DocumentDto(
             ownerId = ownerId,
             ownerName = ownerName,
             isPublic = isPublic,
+            parentId = parentId,
             createdAt = createdAt.toString(),
             updatedAt = updatedAt.toString(),
             lastEditedBy = lastEditedBy,
@@ -44,6 +46,7 @@ data class DocumentDto(
                 ownerId = entity.ownerId,
                 ownerName = entity.ownerName,
                 isPublic = entity.isPublic,
+                parentId = entity.parentId,
                 createdAt = LocalDateTime.parse(entity.createdAt),
                 updatedAt = LocalDateTime.parse(entity.updatedAt),
                 lastEditedBy = entity.lastEditedBy,
@@ -69,7 +72,8 @@ data class DocumentPermissionDto(
 data class CreateDocumentRequest(
     val title: String,
     val content: String = "",
-    val isPublic: Boolean = false
+    val isPublic: Boolean = false,
+    val parentId: String? = null
 )
 
 @Serializable

@@ -70,6 +70,7 @@ object Documents : UUIDTable("documents") {
     val title = varchar("title", 500)
     val content = text("content")
     val ownerId = uuid("owner_id")
+    val parentId = uuid("parent_id").nullable()
     val isPublic = bool("is_public").default(false)
     val createdAt = datetime("created_at")
     val updatedAt = datetime("updated_at")
@@ -109,6 +110,24 @@ object PasswordResetTokens : UUIDTable("password_reset_tokens") {
     val used = bool("used").default(false)
 }
 
+// Workspaces table — shared team spaces
+object Workspaces : UUIDTable("workspaces") {
+    val name = varchar("name", 255)
+    val description = text("description").nullable()
+    val ownerId = uuid("owner_id")
+    val inviteCode = varchar("invite_code", 12).uniqueIndex()
+    val createdAt = datetime("created_at")
+    val updatedAt = datetime("updated_at")
+}
+
+// Workspace members
+object WorkspaceMembers : UUIDTable("workspace_members") {
+    val workspaceId = uuid("workspace_id")
+    val userId = uuid("user_id")
+    val role = varchar("role", 50).default("MEMBER") // OWNER, ADMIN, MEMBER
+    val joinedAt = datetime("joined_at")
+}
+
 // Chat rooms table
 object ChatRooms : UUIDTable("chat_rooms") {
     val type = varchar("type", 50) // DIRECT, GROUP, PROJECT, TASK_THREAD
@@ -128,6 +147,7 @@ object ChatParticipants : UUIDTable("chat_participants") {
     val userId = uuid("user_id")
     val role = varchar("role", 50).default("MEMBER") // OWNER, ADMIN, MEMBER
     val joinedAt = datetime("joined_at")
+    val lastReadAt = datetime("last_read_at").nullable()
     val isMuted = bool("is_muted").default(false)
 }
 
@@ -142,4 +162,12 @@ object Messages : UUIDTable("messages") {
     val editedAt = datetime("edited_at").nullable()
     val createdAt = datetime("created_at")
     val metadata = json<Map<String, String>>("metadata", Json.Default).default(emptyMap())
+}
+
+// Password reset tokens table
+object PasswordResetTokens : UUIDTable("password_reset_tokens") {
+    val email = varchar("email", 255).index()
+    val code = varchar("code", 6)
+    val expiresAt = datetime("expires_at")
+    val used = bool("used").default(false)
 }

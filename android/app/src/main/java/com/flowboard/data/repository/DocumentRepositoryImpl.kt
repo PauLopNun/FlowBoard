@@ -107,10 +107,19 @@ class DocumentRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun createDocument(title: String, content: String = "", isPublic: Boolean = false): Result<DocumentEntity> {
+    suspend fun createDocument(title: String, content: String = "", isPublic: Boolean = false, parentId: String? = null): Result<DocumentEntity> {
         return try {
-            val document = documentApiService.createDocument(title, content, isPublic)
+            val document = documentApiService.createDocument(title, content, isPublic, parentId)
             Result.success(document)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getChildDocuments(parentId: String): Result<List<DocumentEntity>> {
+        return try {
+            val docs = documentApiService.getChildDocuments(parentId)
+            Result.success(docs)
         } catch (e: Exception) {
             Result.failure(e)
         }

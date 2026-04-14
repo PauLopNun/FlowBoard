@@ -19,6 +19,12 @@ interface DocumentDao {
     @Query("SELECT * FROM documents WHERE ownerId = :userId ORDER BY updatedAt DESC")
     fun getDocumentsByOwner(userId: String): Flow<List<DocumentEntity>>
 
+    @Query("SELECT * FROM documents WHERE parentId = :parentId ORDER BY updatedAt DESC")
+    fun getChildDocuments(parentId: String): Flow<List<DocumentEntity>>
+
+    @Query("SELECT * FROM documents WHERE parentId IS NULL ORDER BY updatedAt DESC")
+    fun getRootDocuments(): Flow<List<DocumentEntity>>
+
     @Query("SELECT * FROM documents WHERE isSync = 0")
     suspend fun getUnsyncedDocuments(): List<DocumentEntity>
 

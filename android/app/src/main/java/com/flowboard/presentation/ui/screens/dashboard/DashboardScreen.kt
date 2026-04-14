@@ -2,9 +2,11 @@ package com.flowboard.presentation.ui.screens.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.presentation.ui.theme.*
@@ -46,6 +49,8 @@ fun DashboardScreen(
     onProfileClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onTasksClick: () -> Unit = {},
+    onCalendarClick: () -> Unit = {},
+    onWorkspaceClick: () -> Unit = {},
     onViewAllDocuments: () -> Unit = {},
     onEditorDemoClick: () -> Unit = {},
     onLogout: () -> Unit = {},
@@ -82,6 +87,18 @@ fun DashboardScreen(
                     onTasksNavigate = {
                         scope.launch { drawerState.close() }
                         onTasksClick()
+                    },
+                    onChatNavigate = {
+                        scope.launch { drawerState.close() }
+                        onChatClick()
+                    },
+                    onCalendarNavigate = {
+                        scope.launch { drawerState.close() }
+                        onCalendarClick()
+                    },
+                    onWorkspaceNavigate = {
+                        scope.launch { drawerState.close() }
+                        onWorkspaceClick()
                     },
                     onCreateDocument = {
                         scope.launch { drawerState.close() }
@@ -165,6 +182,9 @@ fun DashboardSidebar(
     currentView: DashboardView,
     onNavigate: (DashboardView) -> Unit,
     onTasksNavigate: () -> Unit = {},
+    onChatNavigate: () -> Unit = {},
+    onCalendarNavigate: () -> Unit = {},
+    onWorkspaceNavigate: () -> Unit = {},
     onCreateDocument: () -> Unit,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -226,8 +246,26 @@ fun DashboardSidebar(
             onClick = onTasksNavigate
         )
         NavigationItem(
-            icon = Icons.Outlined.Search, 
-            label = "Search", 
+            icon = Icons.Outlined.Chat,
+            label = "Chat",
+            isSelected = false,
+            onClick = onChatNavigate
+        )
+        NavigationItem(
+            icon = Icons.Outlined.CalendarMonth,
+            label = "Calendar",
+            isSelected = false,
+            onClick = onCalendarNavigate
+        )
+        NavigationItem(
+            icon = Icons.Outlined.Group,
+            label = "Workspaces",
+            isSelected = false,
+            onClick = onWorkspaceNavigate
+        )
+        NavigationItem(
+            icon = Icons.Outlined.Search,
+            label = "Search",
             isSelected = currentView == DashboardView.SEARCH,
             onClick = { onNavigate(DashboardView.SEARCH) }
         )
@@ -259,21 +297,22 @@ fun DashboardSidebar(
             onClick = { onNavigate(DashboardView.MY_DOCUMENTS) }
         )
 
-        // Dynamic list of private documents
-        if (documents.isEmpty()) {
-             Text(
-                "No recent pages",
+        // Page tree — root pages with expandable children
+        val rootDocs = documents.filter { it.parentId == null }
+        if (rootDocs.isEmpty()) {
+            Text(
+                "No pages yet",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.padding(start = 12.dp, top = 8.dp)
             )
         } else {
-            documents.take(5).forEach { doc ->
-                NavigationItem(
-                    icon = Icons.Outlined.Description,
-                    label = doc.title,
-                    isSelected = false,
-                    onClick = { onDocumentClick(doc.id) }
+            rootDocs.take(8).forEach { doc ->
+                val children = documents.filter { it.parentId == doc.id }
+                PageTreeItem(
+                    doc = doc,
+                    children = children,
+                    onDocumentClick = onDocumentClick
                 )
             }
         }
@@ -283,6 +322,7 @@ fun DashboardSidebar(
         Spacer(modifier = Modifier.weight(1f))
 
         // Bottom Actions
+        NavigationItem(Icons.Outlined.Person, "Profile", false, onProfileClick)
         NavigationItem(Icons.Outlined.Settings, "Settings", false, onSettingsClick)
         NavigationItem(
             icon = Icons.Outlined.Delete, 
@@ -405,8 +445,43 @@ fun DashboardContent(
                 DashboardView.TRASH, DashboardView.TASKS -> emptyList() // Tasks handled by parent
             }
 
-            // Recently Visited Header (only for Home)
+            // Jump back in — horizontal row of recent pages (HOME only)
             if (currentView == DashboardView.HOME && filteredDocs.isNotEmpty()) {
+                item {
+                    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                        Text(
+                            "JUMP BACK IN",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            filteredDocs.take(5).forEach { doc ->
+                                RecentPageCard(
+                                    title = doc.title,
+                                    updatedAt = doc.updatedAt,
+                                    onClick = { onDocumentClick(doc.id) }
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    Text(
+                        "ALL PAGES",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
+                    )
+                }
+            } else if (currentView != DashboardView.HOME && filteredDocs.isNotEmpty()) {
                 item {
                     Text(
                         "RECENTLY VISITED",
@@ -474,6 +549,44 @@ fun DashboardContent(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun RecentPageCard(
+    title: String,
+    updatedAt: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .width(150.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "📄",
+                fontSize = 28.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title.ifBlank { "Untitled" },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = updatedAt,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -561,6 +674,80 @@ fun SimpleDocumentItem(
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun PageTreeItem(
+    doc: com.flowboard.data.local.entities.DocumentEntity,
+    children: List<com.flowboard.data.local.entities.DocumentEntity>,
+    onDocumentClick: (String) -> Unit,
+    depth: Int = 0
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        Surface(
+            color = Color.Transparent,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 1.dp)
+                .clickable { onDocumentClick(doc.id) }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(
+                    start = (12 + depth * 16).dp,
+                    end = 4.dp,
+                    top = 6.dp,
+                    bottom = 6.dp
+                )
+            ) {
+                if (children.isNotEmpty()) {
+                    IconButton(
+                        onClick = { expanded = !expanded },
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.width(4.dp))
+                } else {
+                    Spacer(Modifier.width(24.dp))
+                }
+                Icon(
+                    Icons.Outlined.Description,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = doc.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        if (expanded && children.isNotEmpty()) {
+            children.forEach { child ->
+                PageTreeItem(
+                    doc = child,
+                    children = emptyList(), // one level deep in sidebar
+                    onDocumentClick = onDocumentClick,
+                    depth = depth + 1
+                )
             }
         }
     }

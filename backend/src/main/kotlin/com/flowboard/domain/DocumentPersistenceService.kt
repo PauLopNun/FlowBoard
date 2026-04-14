@@ -14,7 +14,7 @@ import java.util.*
 
 class DocumentPersistenceService {
 
-    suspend fun createDocument(title: String, content: String, ownerId: String, isPublic: Boolean): Document {
+    suspend fun createDocument(title: String, content: String, ownerId: String, isPublic: Boolean, parentId: String? = null): Document {
         val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
         val documentId = UUID.randomUUID()
 
@@ -24,6 +24,7 @@ class DocumentPersistenceService {
                 it[Documents.title] = title
                 it[Documents.content] = content
                 it[Documents.ownerId] = UUID.fromString(ownerId)
+                it[Documents.parentId] = parentId?.let { p -> UUID.fromString(p) }
                 it[Documents.isPublic] = isPublic
                 it[Documents.createdAt] = now
                 it[Documents.updatedAt] = now
@@ -91,6 +92,7 @@ class DocumentPersistenceService {
                 ownerId = docQuery[Documents.ownerId].toString(),
                 ownerName = docQuery[Users.username],
                 isPublic = docQuery[Documents.isPublic],
+                parentId = docQuery[Documents.parentId]?.toString(),
                 createdAt = docQuery[Documents.createdAt],
                 updatedAt = docQuery[Documents.updatedAt],
                 lastEditedBy = docQuery[Documents.lastEditedBy]?.toString(),
@@ -176,6 +178,7 @@ class DocumentPersistenceService {
                         ownerId = row[Documents.ownerId].toString(),
                         ownerName = row[Users.username],
                         isPublic = row[Documents.isPublic],
+                        parentId = row[Documents.parentId]?.toString(),
                         createdAt = row[Documents.createdAt],
                         updatedAt = row[Documents.updatedAt],
                         lastEditedBy = row[Documents.lastEditedBy]?.toString()
@@ -208,6 +211,7 @@ class DocumentPersistenceService {
                         ownerId = row[Documents.ownerId].toString(),
                         ownerName = row[Users.username],
                         isPublic = row[Documents.isPublic],
+                        parentId = row[Documents.parentId]?.toString(),
                         createdAt = row[Documents.createdAt],
                         updatedAt = row[Documents.updatedAt],
                         lastEditedBy = row[Documents.lastEditedBy]?.toString()
@@ -370,6 +374,28 @@ class DocumentPersistenceService {
             }
 
             updated > 0
+        }
+    }
+
+    suspend fun getChildDocuments(parentId: String): List<Document> {
+        return dbQuery {
+            Documents
+                .leftJoin(Users, { Documents.ownerId }, { Users.id })
+                .select { Documents.parentId eq UUID.fromString(parentId) }
+                .map { row ->
+                    Document(
+                        id = row[Documents.id].toString(),
+                        title = row[Documents.title],
+                        content = row[Documents.content],
+                        ownerId = row[Documents.ownerId].toString(),
+                        ownerName = row[Users.username],
+                        isPublic = row[Documents.isPublic],
+                        parentId = row[Documents.parentId]?.toString(),
+                        createdAt = row[Documents.createdAt],
+                        updatedAt = row[Documents.updatedAt],
+                        lastEditedBy = row[Documents.lastEditedBy]?.toString()
+                    )
+                }
         }
     }
 
