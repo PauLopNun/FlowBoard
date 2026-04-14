@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,13 +40,14 @@ fun CalendarScreen(
     var currentMonth by remember { mutableStateOf(today.toYearMonth()) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(today) }
 
-    // Map: date string (YYYY-MM-DD) -> list of tasks
+    // Map: date -> list of tasks
     val tasksByDate: Map<LocalDate, List<TaskEntity>> = remember(allTasks) {
-        allTasks.groupBy { task ->
-            task.dueDate?.date
-                ?: task.eventStartTime?.date
-        }.filterKeys { it != null }
-            .mapKeys { it.key!! }
+        val result = mutableMapOf<LocalDate, MutableList<TaskEntity>>()
+        allTasks.forEach { task ->
+            val date = task.dueDate?.date ?: task.eventStartTime?.date
+            if (date != null) result.getOrPut(date) { mutableListOf() }.add(task)
+        }
+        result
     }
 
     val selectedTasks = selectedDate?.let { tasksByDate[it] } ?: emptyList()
@@ -56,7 +58,7 @@ fun CalendarScreen(
                 title = { Text("Calendar") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 }
             )

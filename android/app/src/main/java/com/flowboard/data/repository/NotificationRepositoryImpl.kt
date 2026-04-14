@@ -49,12 +49,14 @@ class NotificationRepositoryImpl @Inject constructor(
         val unread = notificationDao.getUnreadCount(userId).first()
         val todayStart = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         val todayCount = all.count { it.createdAt >= todayStart }
-        val byType = all.groupBy { it.type }.mapKeys { (key, _) ->
-            try { NotificationType.valueOf(key.uppercase()) } catch (_: Exception) { NotificationType.SYSTEM }
-        }.mapValues { it.value.size }
-        val byPriority = all.groupBy { it.priority }.mapKeys { (key, _) ->
-            try { NotificationPriority.valueOf(key.uppercase()) } catch (_: Exception) { NotificationPriority.NORMAL }
-        }.mapValues { it.value.size }
+        val byType = all.groupBy { it.type }.mapNotNull { (key, value) ->
+            val type = try { NotificationType.valueOf(key.uppercase()) } catch (_: Exception) { null }
+            type?.let { it to value.size }
+        }.toMap()
+        val byPriority = all.groupBy { it.priority }.mapNotNull { (key, value) ->
+            val priority = try { NotificationPriority.valueOf(key.uppercase()) } catch (_: Exception) { null }
+            priority?.let { it to value.size }
+        }.toMap()
         return NotificationStats(
             totalCount = all.size,
             unreadCount = unread,
