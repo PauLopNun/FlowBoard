@@ -70,6 +70,10 @@ fun CollaborativeDocumentScreenV2(
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
 
+    // Page emoji — tappable icon above the title
+    var pageEmoji by remember { mutableStateOf("📄") }
+    var showEmojiPicker by remember { mutableStateOf(false) }
+
     LaunchedEffect(uiState.shareSuccessMessage) {
         uiState.shareSuccessMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -81,6 +85,20 @@ fun CollaborativeDocumentScreenV2(
 
     val blocks = document?.blocks ?: emptyList()
     val focusedBlock = blocks.find { it.id == focusedBlockId }
+
+    // Word count derived from all block text
+    val wordCount = remember(blocks) {
+        blocks.filter { it.type != "divider" }
+            .joinToString(" ") { it.content }
+            .trim()
+            .split("\\s+".toRegex())
+            .count { it.isNotBlank() }
+    }
+
+    // Other users currently in the document (exclude self)
+    val otherActiveUsers = remember(activeUsers, uiState.currentUserId) {
+        activeUsers.filter { it.userId != uiState.currentUserId }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -111,35 +129,71 @@ fun CollaborativeDocumentScreenV2(
             )
         },
         bottomBar = {
-            AnimatedVisibility(
-                visible = focusedBlockId != null,
-                enter = slideInVertically { it } + fadeIn(),
-                exit = slideOutVertically { it } + fadeOut()
-            ) {
-                FormattingToolbar(
-                    currentBlock = focusedBlock,
-                    onBold = {
-                        focusedBlockId?.let { id ->
-                            viewModel.updateFormatting(id,
-                                fontWeight = if (focusedBlock?.fontWeight == "bold") "normal" else "bold")
+            Column {
+                // Typing / presence indicator — shown when others are in the doc
+                AnimatedVisibility(
+                    visible = otherActiveUsers.isNotEmpty(),
+                    enter = slideInVertically { it } + fadeIn(),
+                    exit = slideOutVertically { it } + fadeOut()
+                ) {
+                    TypingIndicatorBar(users = otherActiveUsers)
+                }
+
+                // Formatting toolbar — shown when a block is focused
+                AnimatedVisibility(
+                    visible = focusedBlockId != null,
+                    enter = slideInVertically { it } + fadeIn(),
+                    exit = slideOutVertically { it } + fadeOut()
+                ) {
+                    Column {
+                        // Word count status row
+                        Surface(tonalElevation = 4.dp) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.TextFields,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "$wordCount ${if (wordCount == 1) "word" else "words"}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
                         }
-                    },
-                    onItalic = {
-                        focusedBlockId?.let { id ->
-                            viewModel.updateFormatting(id,
-                                fontStyle = if (focusedBlock?.fontStyle == "italic") "normal" else "italic")
-                        }
-                    },
-                    onUnderline = {
-                        focusedBlockId?.let { id ->
-                            viewModel.updateFormatting(id,
-                                textDecoration = if (focusedBlock?.textDecoration == "underline") "none" else "underline")
-                        }
-                    },
-                    onBlockType = { type ->
-                        focusedBlockId?.let { id -> viewModel.updateBlockType(id, type) }
+                        FormattingToolbar(
+                            currentBlock = focusedBlock,
+                            onBold = {
+                                focusedBlockId?.let { id ->
+                                    viewModel.updateFormatting(id,
+                                        fontWeight = if (focusedBlock?.fontWeight == "bold") "normal" else "bold")
+                                }
+                            },
+                            onItalic = {
+                                focusedBlockId?.let { id ->
+                                    viewModel.updateFormatting(id,
+                                        fontStyle = if (focusedBlock?.fontStyle == "italic") "normal" else "italic")
+                                }
+                            },
+                            onUnderline = {
+                                focusedBlockId?.let { id ->
+                                    viewModel.updateFormatting(id,
+                                        textDecoration = if (focusedBlock?.textDecoration == "underline") "none" else "underline")
+                                }
+                            },
+                            onBlockType = { type ->
+                                focusedBlockId?.let { id -> viewModel.updateBlockType(id, type) }
+                            }
+                        )
                     }
-                )
+                }
             }
         }
     ) { padding ->
@@ -175,6 +229,21 @@ fun CollaborativeDocumentScreenV2(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(bottom = 120.dp)
             ) {
+                // Page emoji header
+                item(key = "emoji-header") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, top = 24.dp, bottom = 4.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = pageEmoji,
+                            fontSize = 52.sp,
+                            modifier = Modifier.clickable { showEmojiPicker = true }
+                        )
+                    }
+                }
                 itemsIndexed(blocks, key = { _, b -> b.id }) { index, block ->
                     // Compute sequential index within the current numbered-list run
                     val numberedIdx = if (block.type == "numbered") {
@@ -325,11 +394,110 @@ fun CollaborativeDocumentScreenV2(
         )
     }
 
+    // Emoji picker dialog
+    if (showEmojiPicker) {
+        EmojiPickerDialog(
+            current = pageEmoji,
+            onSelect = { emoji ->
+                pageEmoji = emoji
+                showEmojiPicker = false
+            },
+            onDismiss = { showEmojiPicker = false }
+        )
+    }
+
     // Error snackbar
     uiState.error?.let { error ->
         LaunchedEffect(error) {
             snackbarHostState.showSnackbar(error)
             viewModel.clearError()
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Emoji Picker Dialog
+// ────────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun EmojiPickerDialog(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val emojis = listOf(
+        "📄", "📝", "📋", "📌", "📎", "🗒️", "📓", "📔", "📕", "📗",
+        "💡", "🎯", "🚀", "⭐", "🔥", "✅", "🎨", "🔖", "💼", "🏆",
+        "🌟", "💬", "🗂️", "📊", "📈", "🔑", "🛠️", "🎉", "💎", "🌈"
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose an icon") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                emojis.chunked(6).forEach { row ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        row.forEach { emoji ->
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (emoji == current)
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                    .clickable { onSelect(emoji) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(emoji, fontSize = 22.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Typing / Presence Indicator
+// ────────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun TypingIndicatorBar(users: List<com.flowboard.data.models.DocumentUserPresence>) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                Icons.Default.Edit,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            val names = when (users.size) {
+                1 -> users[0].userName
+                2 -> "${users[0].userName} and ${users[1].userName}"
+                else -> "${users[0].userName} and ${users.size - 1} others"
+            }
+            Text(
+                "$names ${if (users.size == 1) "is" else "are"} editing…",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
         }
     }
 }

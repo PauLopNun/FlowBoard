@@ -2,9 +2,11 @@ package com.flowboard.presentation.ui.screens.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.presentation.ui.theme.*
@@ -442,8 +445,43 @@ fun DashboardContent(
                 DashboardView.TRASH, DashboardView.TASKS -> emptyList() // Tasks handled by parent
             }
 
-            // Recently Visited Header (only for Home)
+            // Jump back in — horizontal row of recent pages (HOME only)
             if (currentView == DashboardView.HOME && filteredDocs.isNotEmpty()) {
+                item {
+                    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                        Text(
+                            "JUMP BACK IN",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            filteredDocs.take(5).forEach { doc ->
+                                RecentPageCard(
+                                    title = doc.title,
+                                    updatedAt = doc.updatedAt,
+                                    onClick = { onDocumentClick(doc.id) }
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    Text(
+                        "ALL PAGES",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
+                    )
+                }
+            } else if (currentView != DashboardView.HOME && filteredDocs.isNotEmpty()) {
                 item {
                     Text(
                         "RECENTLY VISITED",
@@ -511,6 +549,44 @@ fun DashboardContent(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun RecentPageCard(
+    title: String,
+    updatedAt: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .width(150.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "📄",
+                fontSize = 28.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title.ifBlank { "Untitled" },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = updatedAt,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
