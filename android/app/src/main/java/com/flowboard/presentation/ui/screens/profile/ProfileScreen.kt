@@ -1,6 +1,7 @@
 package com.flowboard.presentation.ui.screens.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.presentation.viewmodel.ProfileViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
 import com.flowboard.presentation.viewmodel.ProfileUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,15 +35,21 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val user by viewModel.user.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     var editMode by remember { mutableStateOf(false) }
     var fullName by remember { mutableStateOf("") }
+    var profileImageUrl by remember { mutableStateOf("") }
     var showPasswordDialog by remember { mutableStateOf(false) }
+    var showAvatarDialog by remember { mutableStateOf(false) }
     var showSuccessMessage by remember { mutableStateOf<String?>(null) }
 
-    // Update fullName when user changes
+    // Update fullName and profileImageUrl when user changes
     LaunchedEffect(user) {
-        user?.let { fullName = it.fullName }
+        user?.let {
+            fullName = it.fullName
+            profileImageUrl = it.profileImageUrl ?: ""
+        }
     }
 
     // Show success message
@@ -106,14 +116,44 @@ fun ProfileScreen(
                 modifier = Modifier
                     .size(120.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .clickable { showAvatarDialog = true },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = user?.username?.firstOrNull()?.uppercase() ?: "U",
-                    style = MaterialTheme.typography.displayLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                if (profileImageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(profileImageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Profile picture",
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Text(
+                        text = user?.username?.firstOrNull()?.uppercase() ?: "U",
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                // Camera overlay hint
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.CameraAlt,
+                        contentDescription = "Change photo",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -217,7 +257,7 @@ fun ProfileScreen(
 
                     Button(
                         onClick = {
-                            viewModel.updateProfile(fullName, null)
+                            viewModel.updateProfile(fullName, profileImageUrl.ifBlank { null })
                             editMode = false
                         },
                         modifier = Modifier.weight(1f),
@@ -293,7 +333,59 @@ fun ProfileScreen(
                 isLoading = uiState.isLoading
             )
         }
+
+        // Avatar URL Dialog
+        if (showAvatarDialog) {
+            AvatarUrlDialog(
+                currentUrl = profileImageUrl,
+                onDismiss = { showAvatarDialog = false },
+                onConfirm = { url ->
+                    profileImageUrl = url
+                    viewModel.updateProfile(fullName, url.ifBlank { null })
+                    showAvatarDialog = false
+                }
+            )
+        }
     }
+}
+
+@Composable
+fun AvatarUrlDialog(
+    currentUrl: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var url by remember { mutableStateOf(currentUrl) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Profile Picture") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Enter an image URL for your profile picture.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    label = { Text("Image URL") },
+                    placeholder = { Text("https://...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(url.trim()) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable

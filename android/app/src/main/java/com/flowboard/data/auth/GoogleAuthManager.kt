@@ -42,7 +42,7 @@ class GoogleAuthManager @Inject constructor(
             val result = credentialManager.getCredential(context = activity, request = request)
             handleSignInResult(result)
         } catch (e: GetCredentialCancellationException) {
-            Result.failure(Exception("Cancelled"))
+            Result.failure(Exception("UserCancelled"))
         } catch (e: GetCredentialException) {
             Result.failure(Exception("Google Sign-In error: ${e.message}"))
         } catch (e: Exception) {
