@@ -138,7 +138,7 @@ class ChatRepositoryImpl @Inject constructor(
     ): Result<Message> {
         return try {
             val currentUserId = authRepository.getUserId() ?: return Result.failure(Exception("Not authenticated"))
-            val currentUserName = "Current User" // TODO: Get from auth
+            val currentUserName = authRepository.getUserName() ?: "Anonymous"
 
             val messageId = UUID.randomUUID().toString()
             val now = System.currentTimeMillis()
@@ -247,7 +247,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun sendTypingIndicator(chatRoomId: String, isTyping: Boolean) {
         val currentUserId = authRepository.getUserId() ?: return
-        val currentUserName = "Current User" // TODO: Get from auth
+        val currentUserName = authRepository.getUserName() ?: "Anonymous"
 
         if (isTyping) {
             val indicator = TypingIndicatorEntity(

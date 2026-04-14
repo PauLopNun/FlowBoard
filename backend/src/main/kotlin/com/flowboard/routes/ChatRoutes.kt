@@ -112,6 +112,8 @@ fun Route.chatRoutes(chatService: ChatService) {
                 val offset = call.request.queryParameters["offset"]?.toIntOrNull() ?: 0
 
                 val messages = chatService.getChatMessages(chatRoomId, userId, limit, offset)
+                // Mark messages as read when the user fetches them
+                chatService.markMessagesRead(chatRoomId, userId)
                 call.respond(HttpStatusCode.OK, messages)
             }
 

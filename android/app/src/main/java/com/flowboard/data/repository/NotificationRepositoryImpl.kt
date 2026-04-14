@@ -6,6 +6,7 @@ import com.flowboard.domain.repository.NotificationRepository
 import com.flowboard.utils.toDomain
 import com.flowboard.utils.toEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -44,18 +45,22 @@ class NotificationRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getNotificationStats(userId: String): NotificationStats {
-        // This would need to be implemented with proper SQL queries
-        // For now, returning a simple version
-        val allNotifications = notificationDao.getAllNotifications(userId)
-        val unreadCount = notificationDao.getUnreadCount(userId)
-
-        // TODO: Implement proper stats calculation
+        val all = notificationDao.getAllNotifications(userId).first()
+        val unread = notificationDao.getUnreadCount(userId).first()
+        val todayStart = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        val todayCount = all.count { it.createdAt >= todayStart }
+        val byType = all.groupBy { it.type }.mapKeys { (key, _) ->
+            try { NotificationType.valueOf(key.uppercase()) } catch (_: Exception) { NotificationType.SYSTEM }
+        }.mapValues { it.value.size }
+        val byPriority = all.groupBy { it.priority }.mapKeys { (key, _) ->
+            try { NotificationPriority.valueOf(key.uppercase()) } catch (_: Exception) { NotificationPriority.NORMAL }
+        }.mapValues { it.value.size }
         return NotificationStats(
-            totalCount = 0,
-            unreadCount = 0,
-            todayCount = 0,
-            byType = emptyMap(),
-            byPriority = emptyMap()
+            totalCount = all.size,
+            unreadCount = unread,
+            todayCount = todayCount,
+            byType = byType,
+            byPriority = byPriority
         )
     }
 

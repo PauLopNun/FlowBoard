@@ -39,9 +39,10 @@ object DatabaseFactory {
                     Workspaces,
                     WorkspaceMembers
                 )
-                // Add parentId column to existing documents table if not present
+                // Add any missing columns to existing tables
                 try {
                     SchemaUtils.createMissingTablesAndColumns(Documents)
+                    SchemaUtils.createMissingTablesAndColumns(ChatParticipants)
                 } catch (_: Exception) {}
             }
             initialized = true

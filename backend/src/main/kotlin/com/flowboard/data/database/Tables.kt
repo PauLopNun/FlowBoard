@@ -147,6 +147,7 @@ object ChatParticipants : UUIDTable("chat_participants") {
     val userId = uuid("user_id")
     val role = varchar("role", 50).default("MEMBER") // OWNER, ADMIN, MEMBER
     val joinedAt = datetime("joined_at")
+    val lastReadAt = datetime("last_read_at").nullable()
     val isMuted = bool("is_muted").default(false)
 }
 

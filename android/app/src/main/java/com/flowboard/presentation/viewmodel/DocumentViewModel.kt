@@ -85,7 +85,7 @@ class DocumentViewModel @Inject constructor(
             val operation = com.flowboard.data.models.crdt.CursorMoveOperation(
                 operationId = java.util.UUID.randomUUID().toString(),
                 boardId = _documentState.value.document?.id ?: "",
-                userId = "", // TODO: get real user id
+                userId = authRepository.getUserId() ?: "",
                 blockId = blockId,
                 position = position
             )
@@ -162,7 +162,15 @@ class DocumentViewModel @Inject constructor(
                     state.copy(userCursors = updatedCursors)
                 }
             }
-            // TODO: Handle other operations
+            is com.flowboard.data.models.crdt.ToggleTodoOperation -> {
+                _documentState.update { state ->
+                    val updatedBlocks = state.document?.blocks?.map {
+                        if (it.id == operation.blockId) it.copy(isChecked = operation.isChecked) else it
+                    }
+                    state.copy(document = state.document?.copy(blocks = updatedBlocks ?: emptyList()))
+                }
+            }
+            else -> { /* unknown op — ignore */ }
         }
     }
 
