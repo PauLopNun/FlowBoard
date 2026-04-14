@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.flowboard.data.local.entities.TaskEntity
+import com.flowboard.domain.model.Task
 import com.flowboard.data.local.entities.TaskPriority
 import com.flowboard.presentation.viewmodel.TaskViewModel
 import kotlinx.datetime.*
@@ -41,8 +41,8 @@ fun CalendarScreen(
     var selectedDate by remember { mutableStateOf<LocalDate?>(today) }
 
     // Map: date -> list of tasks
-    val tasksByDate: Map<LocalDate, List<TaskEntity>> = remember(allTasks) {
-        val result = mutableMapOf<LocalDate, MutableList<TaskEntity>>()
+    val tasksByDate: Map<LocalDate, List<Task>> = remember(allTasks) {
+        val result = mutableMapOf<LocalDate, MutableList<Task>>()
         allTasks.forEach { task ->
             val date = task.dueDate?.date ?: task.eventStartTime?.date
             if (date != null) result.getOrPut(date) { mutableListOf() }.add(task)
@@ -168,7 +168,7 @@ private fun CalendarGrid(
     yearMonth: YearMonth,
     today: LocalDate,
     selectedDate: LocalDate?,
-    tasksByDate: Map<LocalDate, List<TaskEntity>>,
+    tasksByDate: Map<LocalDate, List<Task>>,
     onDayClick: (LocalDate) -> Unit
 ) {
     val firstDay = LocalDate(yearMonth.year, yearMonth.month, 1)
@@ -241,7 +241,7 @@ private fun CalendarGrid(
 }
 
 @Composable
-private fun CalendarTaskItem(task: TaskEntity, onClick: () -> Unit) {
+private fun CalendarTaskItem(task: Task, onClick: () -> Unit) {
     val priorityColor = when (task.priority) {
         TaskPriority.URGENT -> MaterialTheme.colorScheme.error
         TaskPriority.HIGH -> MaterialTheme.colorScheme.tertiary
