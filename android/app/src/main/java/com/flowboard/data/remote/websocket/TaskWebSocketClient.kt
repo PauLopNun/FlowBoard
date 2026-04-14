@@ -44,6 +44,10 @@ class TaskWebSocketClient @Inject constructor(
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
+        // Must be true: fields with default values (e.g. type = "JOIN_ROOM") are omitted
+        // by kotlinx.serialization when encodeDefaults = false, causing the server to
+        // receive messages with type = null → INVALID_MESSAGE errors.
+        encodeDefaults = true
     }
 
     // Estado de conexión observable

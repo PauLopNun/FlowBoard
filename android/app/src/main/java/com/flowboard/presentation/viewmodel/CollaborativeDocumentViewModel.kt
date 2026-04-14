@@ -492,6 +492,9 @@ class CollaborativeDocumentViewModel @Inject constructor(
                 val roleStr = if (role.equals("editor", ignoreCase = true)) "editor" else "viewer"
                 documentApiService.shareDocument(documentId, email, roleStr)
                 _uiState.update { it.copy(shareSuccessMessage = "Shared with $email") }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // ViewModel scope cancelled (user navigated away) — not an error
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Share document failed", e)
                 _uiState.update { it.copy(error = "Share failed: ${e.message}") }

@@ -65,12 +65,10 @@ fun TaskListScreen(
         }
     }
 
-    // Disconnect when screen unmounts
-    DisposableEffect(Unit) {
-        onDispose {
-            viewModel.disconnectFromBoard()
-        }
-    }
+    // Do NOT disconnect on unmount: TaskWebSocketClient is @Singleton and navigating to
+    // TaskDetail (a child screen) would disconnect and immediately reconnect on return,
+    // causing a rapid connect/disconnect loop. The ViewModel.onCleared() handles cleanup
+    // when the task back-stack entry is permanently removed.
 
     val filteredTasks = when (selectedFilter) {
         TaskFilter.ALL -> allTasks

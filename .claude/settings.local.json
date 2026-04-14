@@ -49,7 +49,10 @@
       "Bash(/home/paulopnun/Escritorio/FlowBoard/get-sha1.sh)",
       "WebSearch",
       "WebFetch(domain:github.com)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(gh pr create --title 'feat: visual polish, Kanban view, and project cleanup' --body ':*)",
+      "Bash(where gh:*)",
+      "Bash(winget list:*)"
     ],
     "deny": [],
     "ask": []

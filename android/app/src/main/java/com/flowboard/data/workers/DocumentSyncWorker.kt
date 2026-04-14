@@ -66,8 +66,10 @@ class DocumentSyncWorker @AssistedInject constructor(
         // 2. Verificar autenticación
         val token = authRepository.getToken()
         if (token == null) {
-            Log.d(TAG, "User not authenticated, retrying later")
-            return Result.retry()
+            // Not authenticated — no point retrying until the user logs in.
+            // Auth-triggered syncs are scheduled explicitly after login.
+            Log.d(TAG, "User not authenticated, skipping sync")
+            return Result.success()
         }
 
         // 3. Determinar modo de sincronización

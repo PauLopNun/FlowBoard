@@ -1,19 +1,18 @@
 package com.flowboard
 
 import android.app.Activity
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
@@ -36,7 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,533 +75,382 @@ import com.flowboard.presentation.viewmodel.TaskViewModel
 fun FlowBoardApp(
     modifier: Modifier = Modifier
 ) {
-    // Hoist SettingsViewModel here so FlowBoardTheme and SettingsScreen share the SAME instance
     val settingsViewModel: SettingsViewModel = hiltViewModel()
 
     FlowBoardTheme(settingsViewModel = settingsViewModel) {
-    val navController = rememberNavController()
-    val loginViewModel: LoginViewModel = hiltViewModel()
-    val isLoggedIn by loginViewModel.isLoggedIn.collectAsStateWithLifecycle()
-    // Shared DocumentViewModel — hoisted so all screens see the same state instantly
-    val documentViewModel: DocumentViewModel = hiltViewModel()
-    val currentRoute by navController.currentBackStackEntryAsState()
+        val navController = rememberNavController()
+        val loginViewModel: LoginViewModel = hiltViewModel()
+        val isLoggedIn by loginViewModel.isLoggedIn.collectAsStateWithLifecycle()
+        val documentViewModel: DocumentViewModel = hiltViewModel()
+        val currentRoute by navController.currentBackStackEntryAsState()
 
-    // Splash screen — shown briefly on first launch
-    var splashVisible by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) {
-        delay(1_400)
-        splashVisible = false
-    }
+        var splashVisible by remember { mutableStateOf(true) }
+        LaunchedEffect(Unit) {
+            delay(1_400)
+            splashVisible = false
+        }
 
-    AnimatedVisibility(
-        visible = splashVisible,
-        enter = fadeIn(),
-        exit = fadeOut(animationSpec = tween(400))
-    ) {
-        SplashScreen()
-    }
-
-    // Navigate to dashboard if already logged in — runs regardless of splash state
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) {
-            navController.navigate("dashboard") {
-                popUpTo("login") { inclusive = true }
+        LaunchedEffect(isLoggedIn) {
+            if (isLoggedIn) {
+                navController.navigate("dashboard") {
+                    popUpTo(0) { inclusive = true }
+                }
             }
         }
-    }
 
-    AnimatedVisibility(
-        visible = !splashVisible,
-        enter = fadeIn(animationSpec = tween(300))
-    ) {
+        NavHost(
+            navController = navController,
+            startDestination = "login",
+            modifier = modifier,
+            enterTransition = {
+                slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(280)) + fadeIn(animationSpec = tween(280))
+            },
+            exitTransition = {
+                slideOutHorizontally(targetOffsetX = { -it / 3 }, animationSpec = tween(280)) + fadeOut(animationSpec = tween(280))
+            },
+            popEnterTransition = {
+                slideInHorizontally(initialOffsetX = { -it / 3 }, animationSpec = tween(280)) + fadeIn(animationSpec = tween(280))
+            },
+            popExitTransition = {
+                slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(280)) + fadeOut(animationSpec = tween(280))
+            }
+        ) {
+            composable("login") {
+                val loginState by loginViewModel.loginState.collectAsStateWithLifecycle()
+                val googleError by loginViewModel.googleSignInError.collectAsStateWithLifecycle()
+                val context = LocalContext.current
+                val activity = context as? Activity
+                val snackbarHostState = remember { SnackbarHostState() }
 
-    NavHost(
-        navController = navController,
-        startDestination = "login",
-        modifier = modifier,
-        enterTransition = {
-            slideInHorizontally(
-                initialOffsetX = { it },
-                animationSpec = tween(280)
-            ) + fadeIn(animationSpec = tween(280))
-        },
-        exitTransition = {
-            slideOutHorizontally(
-                targetOffsetX = { -it / 3 },
-                animationSpec = tween(280)
-            ) + fadeOut(animationSpec = tween(280))
-        },
-        popEnterTransition = {
-            slideInHorizontally(
-                initialOffsetX = { -it / 3 },
-                animationSpec = tween(280)
-            ) + fadeIn(animationSpec = tween(280))
-        },
-        popExitTransition = {
-            slideOutHorizontally(
-                targetOffsetX = { it },
-                animationSpec = tween(280)
-            ) + fadeOut(animationSpec = tween(280))
-        }
-    ) {
-        composable("login") {
-            val loginState by loginViewModel.loginState.collectAsStateWithLifecycle()
-            val googleError by loginViewModel.googleSignInError.collectAsStateWithLifecycle()
-            val context = LocalContext.current
-            val activity = context as? Activity
-            val snackbarHostState = remember { SnackbarHostState() }
-
-            // Navigate to dashboard when login successful
-            LaunchedEffect(loginState) {
-                if (loginState is LoginState.Success) {
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
+                LaunchedEffect(loginState) {
+                    if (loginState is LoginState.Success) {
+                        navController.navigate("dashboard") {
+                            popUpTo("login") { inclusive = true }
+                        }
                     }
                 }
-            }
 
-            // Show Google Sign-In errors as Snackbar so they don't block the form
-            LaunchedEffect(googleError) {
-                googleError?.let {
-                    snackbarHostState.showSnackbar(it)
-                    loginViewModel.clearGoogleSignInError()
+                LaunchedEffect(googleError) {
+                    googleError?.let {
+                        snackbarHostState.showSnackbar(it)
+                        loginViewModel.clearGoogleSignInError()
+                    }
+                }
+
+                Scaffold(
+                    snackbarHost = { SnackbarHost(snackbarHostState) { data -> Snackbar(data) } }
+                ) { contentPadding ->
+                    LoginScreen(
+                        modifier = Modifier.padding(contentPadding),
+                        onLoginClick = { email, password -> loginViewModel.login(email, password) },
+                        onRegisterClick = { navController.navigate("register") },
+                        onForgotPasswordClick = { navController.navigate("forgot_password") },
+                        onGoogleSignInClick = { activity?.let { loginViewModel.signInWithGoogle(it) } },
+                        isLoading = loginState is LoginState.Loading,
+                        error = (loginState as? LoginState.Error)?.message
+                    )
                 }
             }
 
-            Scaffold(
-                snackbarHost = { SnackbarHost(snackbarHostState) { data -> Snackbar(data) } }
-            ) { contentPadding ->
-                LoginScreen(
-                    modifier = Modifier.padding(contentPadding),
-                    onLoginClick = { email, password ->
-                        loginViewModel.login(email, password)
+            composable("register") {
+                val registerViewModel: RegisterViewModel = hiltViewModel()
+                val registerState by registerViewModel.registerState.collectAsStateWithLifecycle()
+                val loginState by loginViewModel.loginState.collectAsStateWithLifecycle()
+                val context = LocalContext.current
+                val activity = context as? Activity
+
+                LaunchedEffect(registerState) {
+                    if (registerState is RegisterState.Success) {
+                        navController.navigate("dashboard") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    }
+                }
+                LaunchedEffect(loginState) {
+                    if (loginState is LoginState.Success) {
+                        navController.navigate("dashboard") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    }
+                }
+
+                RegisterScreen(
+                    onRegisterClick = { email, password, username, fullName ->
+                        registerViewModel.register(email, password, username, fullName)
                     },
-                    onRegisterClick = {
-                        navController.navigate("register")
+                    onLoginClick = { navController.popBackStack() },
+                    onGoogleSignInClick = { activity?.let { loginViewModel.signInWithGoogle(it) } },
+                    isLoading = registerState is RegisterState.Loading || loginState is LoginState.Loading,
+                    error = (registerState as? RegisterState.Error)?.message ?: (loginState as? LoginState.Error)?.message
+                )
+            }
+
+            composable("forgot_password") {
+                ForgotPasswordScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onPasswordReset = {
+                        navController.navigate("login") {
+                            popUpTo("forgot_password") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable("dashboard") {
+                LaunchedEffect(currentRoute?.destination?.route) {
+                    if (currentRoute?.destination?.route == "dashboard") {
+                        documentViewModel.fetchAllDocuments()
+                    }
+                }
+
+                DashboardScreen(
+                    onDocumentClick = { documentId -> navController.navigate("document_edit/$documentId") },
+                    onCreateDocument = { navController.navigate("document_new") },
+                    onViewAllDocuments = { navController.navigate("my_documents") },
+                    onNotificationsClick = { navController.navigate("notifications") },
+                    onChatClick = { navController.navigate("chat_list") },
+                    onProfileClick = { navController.navigate("profile") },
+                    onSettingsClick = { navController.navigate("settings") },
+                    onTasksClick = { navController.navigate("tasks") },
+                    onCalendarClick = { navController.navigate("calendar") },
+                    onWorkspaceClick = { navController.navigate("workspaces") },
+                    onEditorDemoClick = { navController.navigate("my_documents") },
+                    onLogout = {
+                        loginViewModel.logout()
+                        navController.navigate("login") {
+                            popUpTo("dashboard") { inclusive = true }
+                        }
                     },
-                    onForgotPasswordClick = {
-                        navController.navigate("forgot_password")
+                    documentViewModel = documentViewModel,
+                    loginViewModel = loginViewModel
+                )
+            }
+
+            composable("tasks") {
+                TaskListScreen(
+                    onTaskClick = { taskId -> navController.navigate("task_detail/$taskId") },
+                    onCreateTaskClick = { navController.navigate("create_task") },
+                    onNotificationsClick = { navController.navigate("notifications") },
+                    onChatClick = { navController.navigate("chat_list") },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("my_documents") {
+                MyDocumentsScreen(
+                    onDocumentClick = { documentId -> navController.navigate("document_edit/$documentId") },
+                    onCreateDocument = { navController.navigate("document_new") },
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = documentViewModel
+                )
+            }
+
+            composable("document_new") {
+                val docListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
+                var title by remember { mutableStateOf("") }
+                var isCreating by remember { mutableStateOf(false) }
+
+                LaunchedEffect(docListState.error) {
+                    if (docListState.error != null && isCreating) {
+                        isCreating = false
+                    }
+                }
+
+                AlertDialog(
+                    onDismissRequest = { if (!isCreating) navController.popBackStack() },
+                    title = { Text("New Document") },
+                    text = {
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            label = { Text("Document Title") },
+                            singleLine = true,
+                            enabled = !isCreating
+                        )
                     },
-                    onGoogleSignInClick = {
-                        activity?.let { loginViewModel.signInWithGoogle(it) }
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                val docTitle = title.trim().ifBlank { "Untitled Document" }
+                                isCreating = true
+                                documentViewModel.createDocumentViaApi(docTitle) { documentId ->
+                                    navController.navigate("document_edit/$documentId") {
+                                        popUpTo("document_new") { inclusive = true }
+                                    }
+                                }
+                            },
+                            enabled = !isCreating
+                        ) {
+                            if (isCreating) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                            } else {
+                                Text("Create")
+                            }
+                        }
                     },
-                    isLoading = loginState is LoginState.Loading,
-                    error = (loginState as? LoginState.Error)?.message
+                    dismissButton = {
+                        TextButton(
+                            onClick = { navController.popBackStack() },
+                            enabled = !isCreating
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            composable("document_edit/{documentId}") { backStackEntry ->
+                val documentId = backStackEntry.arguments?.getString("documentId") ?: return@composable
+
+                CollaborativeDocumentScreenV2(
+                    documentId = documentId,
+                    onNavigateBack = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate("dashboard") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    },
+                    onNavigateToDocument = { newDocId ->
+                        navController.navigate("document_edit/$newDocId")
+                    }
+                )
+            }
+
+            composable("create_task") {
+                val taskViewModel: TaskViewModel = hiltViewModel()
+                val uiState by taskViewModel.uiState.collectAsStateWithLifecycle()
+
+                LaunchedEffect(uiState.message) {
+                    if (uiState.message == "Task created successfully") {
+                        taskViewModel.clearMessage()
+                        navController.popBackStack()
+                    }
+                }
+
+                CreateTaskScreen(
+                    onCreateTask = { t, d, p, du, e, s, en, l ->
+                        taskViewModel.createTask(t, d, p, du, e, s, en, l)
+                    },
+                    onNavigateBack = { navController.popBackStack() },
+                    isLoading = uiState.isLoading
+                )
+            }
+
+            composable("task_detail/{taskId}") { backStackEntry ->
+                val taskViewModel: TaskViewModel = hiltViewModel()
+                val taskId = backStackEntry.arguments?.getString("taskId") ?: return@composable
+                val uiState by taskViewModel.uiState.collectAsStateWithLifecycle()
+                val activeUsers by taskViewModel.activeUsers.collectAsStateWithLifecycle()
+
+                LaunchedEffect(taskId) {
+                    taskViewModel.loadTaskById(taskId)
+                }
+
+                TaskDetailScreen(
+                    task = uiState.selectedTask,
+                    activeUsers = activeUsers,
+                    onUpdateTask = { taskViewModel.updateTask(it) },
+                    onDeleteTask = { taskViewModel.deleteTask(it) },
+                    onNavigateBack = { navController.popBackStack() },
+                    isLoading = uiState.isLoading
+                )
+            }
+
+            composable("notifications") {
+                val notificationViewModel: NotificationViewModel = hiltViewModel()
+                val notifications by notificationViewModel.allNotifications.collectAsStateWithLifecycle()
+                val unreadCount by notificationViewModel.unreadCount.collectAsStateWithLifecycle()
+
+                NotificationCenterScreen(
+                    notifications = notifications,
+                    unreadCount = unreadCount,
+                    onNotificationClick = { notification ->
+                        notificationViewModel.markAsRead(notification.id)
+                        notification.deepLink?.let { navController.navigate(it) }
+                    },
+                    onMarkAsRead = { notificationViewModel.markAsRead(it) },
+                    onMarkAllAsRead = { notificationViewModel.markAllAsRead() },
+                    onDeleteNotification = { notificationViewModel.deleteNotification(it) },
+                    onDeleteAll = { notificationViewModel.deleteAllNotifications() },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("chat_list") {
+                val chatViewModel: ChatViewModel = hiltViewModel()
+                ChatListScreen(
+                    viewModel = chatViewModel,
+                    onChatClick = { navController.navigate("chat/$it") },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("chat/{chatId}") { backStackEntry ->
+                val chatViewModel: ChatViewModel = hiltViewModel()
+                val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
+
+                LaunchedEffect(chatId) {
+                    chatViewModel.selectChat(chatId)
+                }
+
+                ChatScreen(
+                    chatRoomId = chatId,
+                    viewModel = chatViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("calendar") {
+                CalendarScreen(
+                    onTaskClick = { navController.navigate("task_detail/$it") },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("workspaces") {
+                WorkspaceScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onWorkspaceClick = { navController.navigate("workspace_docs/$it") }
+                )
+            }
+
+            composable("workspace_docs/{workspaceId}") {
+                MyDocumentsScreen(
+                    onDocumentClick = { navController.navigate("document_edit/$it") },
+                    onCreateDocument = { navController.navigate("document_new") },
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = documentViewModel
+                )
+            }
+
+            composable("profile") {
+                ProfileScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onLogout = {
+                        loginViewModel.logout()
+                        navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                    }
+                )
+            }
+
+            composable("settings") {
+                SettingsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = settingsViewModel
                 )
             }
         }
 
-        composable("register") {
-            val registerViewModel: RegisterViewModel = hiltViewModel()
-            val registerState by registerViewModel.registerState.collectAsStateWithLifecycle()
-            val loginState by loginViewModel.loginState.collectAsStateWithLifecycle()
-            val context = LocalContext.current
-            val activity = context as? Activity
-
-            // Navigate to dashboard when registration or Google sign-in successful
-            LaunchedEffect(registerState) {
-                if (registerState is RegisterState.Success) {
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                }
-            }
-            LaunchedEffect(loginState) {
-                if (loginState is LoginState.Success) {
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                }
-            }
-
-            RegisterScreen(
-                onRegisterClick = { email, password, username, fullName ->
-                    registerViewModel.register(email, password, username, fullName)
-                },
-                onLoginClick = {
-                    navController.popBackStack()
-                },
-                onGoogleSignInClick = {
-                    activity?.let { loginViewModel.signInWithGoogle(it) }
-                },
-                isLoading = registerState is RegisterState.Loading || loginState is LoginState.Loading,
-                error = (registerState as? RegisterState.Error)?.message
-                    ?: (loginState as? LoginState.Error)?.message
-            )
-        }
-
-        composable("forgot_password") {
-            ForgotPasswordScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onPasswordReset = {
-                    navController.navigate("login") {
-                        popUpTo("forgot_password") { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable("dashboard") {
-            // Re-fetch documents whenever the dashboard becomes the active destination
-            LaunchedEffect(currentRoute?.destination?.route) {
-                if (currentRoute?.destination?.route == "dashboard") {
-                    documentViewModel.fetchAllDocuments()
-                }
-            }
-
-            DashboardScreen(
-                onDocumentClick = { documentId ->
-                    navController.navigate("document_edit/$documentId")
-                },
-                onCreateDocument = {
-                    navController.navigate("document_new")
-                },
-                onViewAllDocuments = {
-                    navController.navigate("my_documents")
-                },
-                onNotificationsClick = {
-                    navController.navigate("notifications")
-                },
-                onChatClick = {
-                    navController.navigate("chat_list")
-                },
-                onProfileClick = {
-                    navController.navigate("profile")
-                },
-                onSettingsClick = {
-                    navController.navigate("settings")
-                },
-                onTasksClick = {
-                    navController.navigate("tasks")
-                },
-                onCalendarClick = {
-                    navController.navigate("calendar")
-                },
-                onWorkspaceClick = {
-                    navController.navigate("workspaces")
-                },
-                onEditorDemoClick = {
-                    navController.navigate("my_documents")
-                },
-                onLogout = {
-                    loginViewModel.logout()
-                    navController.navigate("login") {
-                        popUpTo("dashboard") { inclusive = true }
-                    }
-                },
-                documentViewModel = documentViewModel,
-                loginViewModel = loginViewModel
-            )
-        }
-
-        composable("tasks") {
-            TaskListScreen(
-                onTaskClick = { taskId ->
-                    navController.navigate("task_detail/$taskId")
-                },
-                onCreateTaskClick = {
-                    navController.navigate("create_task")
-                },
-                onNotificationsClick = {
-                    navController.navigate("notifications")
-                },
-                onChatClick = {
-                    navController.navigate("chat_list")
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // My Documents - Lista de documentos guardados
-        composable("my_documents") {
-            MyDocumentsScreen(
-                onDocumentClick = { documentId ->
-                    navController.navigate("document_edit/$documentId")
-                },
-                onCreateDocument = {
-                    navController.navigate("document_new")
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                viewModel = documentViewModel
-            )
-        }
-
-        // Crear nuevo documento: show title dialog, create via API, then open collaborative editor
-        composable("document_new") {
-            // Use the shared documentViewModel so the new doc is immediately visible everywhere
-            val docListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
-            var title by remember { mutableStateOf("") }
-            var isCreating by remember { mutableStateOf(false) }
-
-            // Reset spinner if creation failed so user can retry
-            LaunchedEffect(docListState.error) {
-                if (docListState.error != null && isCreating) {
-                    isCreating = false
-                }
-            }
-
-            AlertDialog(
-                onDismissRequest = {
-                    if (!isCreating) navController.popBackStack()
-                },
-                title = { androidx.compose.material3.Text("New Document") },
-                text = {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        label = { androidx.compose.material3.Text("Document Title") },
-                        singleLine = true,
-                        enabled = !isCreating
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            val docTitle = title.trim().ifBlank { "Untitled Document" }
-                            isCreating = true
-                            documentViewModel.createDocumentViaApi(docTitle) { documentId ->
-                                navController.navigate("document_edit/$documentId") {
-                                    popUpTo("document_new") { inclusive = true }
-                                }
-                            }
-                        },
-                        enabled = !isCreating
-                    ) {
-                        if (isCreating) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                        } else {
-                            androidx.compose.material3.Text("Create")
-                        }
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { navController.popBackStack() },
-                        enabled = !isCreating
-                    ) {
-                        androidx.compose.material3.Text("Cancel")
-                    }
-                }
-            )
-        }
-
-        // Abrir documento existente en el editor colaborativo en tiempo real
-        composable("document_edit/{documentId}") { backStackEntry ->
-            val documentId = backStackEntry.arguments?.getString("documentId") ?: return@composable
-
-            CollaborativeDocumentScreenV2(
-                documentId = documentId,
-                onNavigateBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate("dashboard") {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                },
-                onNavigateToDocument = { newDocId ->
-                    navController.navigate("document_edit/$newDocId")
-                }
-            )
-        }
-
-        composable("create_task") {
-            val taskViewModel: TaskViewModel = hiltViewModel()
-            val uiState by taskViewModel.uiState.collectAsStateWithLifecycle()
-
-            // Navigate back only after task is successfully created
-            LaunchedEffect(uiState.message) {
-                if (uiState.message == "Task created successfully") {
-                    taskViewModel.clearMessage()
-                    navController.popBackStack()
-                }
-            }
-
-            CreateTaskScreen(
-                onCreateTask = { title, description, priority, dueDate, isEvent, eventStartTime, eventEndTime, location ->
-                    taskViewModel.createTask(
-                        title = title,
-                        description = description,
-                        priority = priority,
-                        dueDate = dueDate,
-                        isEvent = isEvent,
-                        eventStartTime = eventStartTime,
-                        eventEndTime = eventEndTime,
-                        location = location
-                    )
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                isLoading = uiState.isLoading
-            )
-        }
-
-        composable("task_detail/{taskId}") { backStackEntry ->
-            val taskViewModel: TaskViewModel = hiltViewModel()
-            val taskId = backStackEntry.arguments?.getString("taskId") ?: return@composable
-            val uiState by taskViewModel.uiState.collectAsStateWithLifecycle()
-            val activeUsers by taskViewModel.activeUsers.collectAsStateWithLifecycle()
-
-            LaunchedEffect(taskId) {
-                taskViewModel.loadTaskById(taskId)
-            }
-
-            TaskDetailScreen(
-                task = uiState.selectedTask,
-                activeUsers = activeUsers,
-                onUpdateTask = { task ->
-                    taskViewModel.updateTask(task)
-                },
-                onDeleteTask = { id ->
-                    taskViewModel.deleteTask(id)
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                isLoading = uiState.isLoading
-            )
-        }
-
-        // Notifications screen
-        composable("notifications") {
-            val notificationViewModel: NotificationViewModel = hiltViewModel()
-            val notifications by notificationViewModel.allNotifications.collectAsStateWithLifecycle()
-            val unreadCount by notificationViewModel.unreadCount.collectAsStateWithLifecycle()
-
-            NotificationCenterScreen(
-                notifications = notifications,
-                unreadCount = unreadCount,
-                onNotificationClick = { notification ->
-                    notificationViewModel.markAsRead(notification.id)
-                    // Navigate to resource if deepLink is available
-                    notification.deepLink?.let { navController.navigate(it) }
-                },
-                onMarkAsRead = { notificationId ->
-                    notificationViewModel.markAsRead(notificationId)
-                },
-                onMarkAllAsRead = {
-                    notificationViewModel.markAllAsRead()
-                },
-                onDeleteNotification = { notificationId ->
-                    notificationViewModel.deleteNotification(notificationId)
-                },
-                onDeleteAll = {
-                    notificationViewModel.deleteAllNotifications()
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // Chat list screen
-        composable("chat_list") {
-            val chatViewModel: ChatViewModel = hiltViewModel()
-
-            ChatListScreen(
-                viewModel = chatViewModel,
-                onChatClick = { chatId ->
-                    navController.navigate("chat/$chatId")
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // Chat screen
-        composable("chat/{chatId}") { backStackEntry ->
-            val chatViewModel: ChatViewModel = hiltViewModel()
-            val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
-
-            LaunchedEffect(chatId) {
-                chatViewModel.selectChat(chatId)
-            }
-
-            ChatScreen(
-                chatRoomId = chatId,
-                viewModel = chatViewModel,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // Calendar screen
-        composable("calendar") {
-            CalendarScreen(
-                onTaskClick = { taskId ->
-                    navController.navigate("task_detail/$taskId")
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // Workspaces screen
-        composable("workspaces") {
-            WorkspaceScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onWorkspaceClick = { workspaceId ->
-                    navController.navigate("workspace_docs/$workspaceId")
-                }
-            )
-        }
-
-        // Workspace documents — shows docs for a specific workspace
-        composable("workspace_docs/{workspaceId}") { backStackEntry ->
-            val workspaceId = backStackEntry.arguments?.getString("workspaceId") ?: return@composable
-            MyDocumentsScreen(
-                onDocumentClick = { documentId ->
-                    navController.navigate("document_edit/$documentId")
-                },
-                onCreateDocument = {
-                    navController.navigate("document_new")
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                viewModel = documentViewModel
-            )
-        }
-
-        // Profile screen
-        composable("profile") {
-            ProfileScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onLogout = {
-                    loginViewModel.logout()
-                    navController.navigate("login") {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        // Settings screen — reuses the same SettingsViewModel instance as FlowBoardTheme
-        composable("settings") {
-            SettingsScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                viewModel = settingsViewModel
-            )
+        AnimatedVisibility(
+            visible = splashVisible,
+            enter = fadeIn(),
+            exit = fadeOut(animationSpec = tween(400))
+        ) {
+            SplashScreen()
         }
     }
-    } // end AnimatedVisibility (main content)
-    } // end FlowBoardTheme
 }
-
-// ─── Splash Screen ────────────────────────────────────────────────────────────
 
 @Composable
 private fun SplashScreen() {
@@ -616,28 +464,10 @@ private fun SplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // App icon placeholder — cyan "F" lettermark
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(24.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "F",
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                )
-            }
-            Text(
-                text = "FlowBoard",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
+            Image(
+                painter = painterResource(id = com.flowboard.R.drawable.app_logo),
+                contentDescription = "FlowBoard Logo",
+                modifier = Modifier.size(120.dp)
             )
         }
     }
