@@ -108,11 +108,11 @@ fun DashboardScreen(
             topBar = {
                 CenterAlignedTopAppBar(
                     title = {
-                        // LOGO UN POCO MÁS GRANDE (DE 32dp A 40dp)
+                        // LOGO UN POCO MÁS GRANDE (DE 40dp A 48dp) PARA QUE SE VEA MEJOR
                         Image(
                             painter = painterResource(id = R.drawable.app_logo),
                             contentDescription = "FlowBoard",
-                            modifier = Modifier.height(40.dp)
+                            modifier = Modifier.height(48.dp)
                         )
                     },
                     navigationIcon = {
