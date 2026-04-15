@@ -206,7 +206,7 @@ fun CollaborativeDocumentScreenV2(
         LaunchedEffect(connectionState) {
             if (connectionState is ConnectionState.Connected) {
                 kotlinx.coroutines.delay(2000L)
-                if (document.value?.blocks.isNullOrEmpty()) {
+                if (document?.blocks.isNullOrEmpty()) {
                     viewModel.addBlock(
                         ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
                         null
