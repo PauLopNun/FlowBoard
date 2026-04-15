@@ -18,5 +18,8 @@ data class DocumentEntity(
     val lastEditedBy: String? = null,
     val lastEditedByName: String? = null,
     val isSync: Boolean = false,
-    val lastSyncAt: String? = null
+    val lastSyncAt: String? = null,
+    val coverColor: String = "",
+    val isDeleted: Boolean = false,
+    val deletedAt: String? = null
 )

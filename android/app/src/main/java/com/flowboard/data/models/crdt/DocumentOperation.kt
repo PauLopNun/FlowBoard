@@ -115,6 +115,18 @@ data class ToggleTodoOperation(
 ) : DocumentOperation
 
 /**
+ * Updates the detail (body) content of a toggle block.
+ */
+@Serializable
+@SerialName("UPDATE_DETAIL")
+data class UpdateBlockDetailOperation(
+    override val operationId: String,
+    override val boardId: String,
+    val blockId: String,
+    val detail: String
+) : DocumentOperation
+
+/**
  * Represents a cursor position change for a user.
  *
  * @param userId The ID of the user whose cursor is moving.

@@ -10,5 +10,6 @@ data class ContentBlock(
     val fontSize: Int = 16,
     val color: String = "#000000",
     val textAlign: String = "start",
-    val isChecked: Boolean = false
+    val isChecked: Boolean = false,
+    val detail: String = ""
 )

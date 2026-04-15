@@ -230,8 +230,6 @@ fun FlowBoardApp(
                 TaskListScreen(
                     onTaskClick = { taskId -> navController.navigate("task_detail/$taskId") },
                     onCreateTaskClick = { navController.navigate("create_task") },
-                    onNotificationsClick = { navController.navigate("notifications") },
-                    onChatClick = { navController.navigate("chat_list") },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

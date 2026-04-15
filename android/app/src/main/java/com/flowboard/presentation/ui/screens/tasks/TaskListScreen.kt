@@ -8,8 +8,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material.icons.filled.ViewList
@@ -32,8 +30,6 @@ import com.flowboard.presentation.viewmodel.TaskViewModel
 fun TaskListScreen(
     onTaskClick: (String) -> Unit,
     onCreateTaskClick: () -> Unit,
-    onNotificationsClick: () -> Unit = {},
-    onChatClick: () -> Unit = {},
     onNavigateBack: () -> Unit = {},
     viewModel: TaskViewModel = hiltViewModel()
 ) {
@@ -113,16 +109,6 @@ fun TaskListScreen(
                                 if (isKanbanView) Icons.Default.ViewList else Icons.Default.ViewColumn,
                                 contentDescription = if (isKanbanView) "List View" else "Board View"
                             )
-                        }
-
-                        // Notifications button
-                        IconButton(onClick = onNotificationsClick) {
-                            Icon(Icons.Default.Notifications, contentDescription = "Notifications")
-                        }
-
-                        // Chat button
-                        IconButton(onClick = onChatClick) {
-                            Icon(Icons.Default.Chat, contentDescription = "Chat")
                         }
 
                         IconButton(onClick = { viewModel.syncTasks() }) {

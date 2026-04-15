@@ -58,6 +58,7 @@ fun DashboardScreen(
     profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
     val documentListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
+    val trashedDocuments by documentViewModel.trashedDocuments.collectAsStateWithLifecycle()
     val currentUser by profileViewModel.user.collectAsStateWithLifecycle()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -146,9 +147,12 @@ fun DashboardScreen(
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
                 documentListState = documentListState,
+                trashedDocuments = trashedDocuments,
                 currentUserName = currentUser?.fullName?.takeIf { it.isNotBlank() } ?: currentUser?.username ?: "there",
                 onDocumentClick = onDocumentClick,
                 onDeleteDocument = { documentViewModel.deleteDocumentViaApi(it) },
+                onRestoreDocument = { documentViewModel.restoreDocument(it) },
+                onPermanentDeleteDocument = { documentViewModel.permanentlyDeleteDocument(it) },
                 onCreateDocument = onCreateDocument
             )
         }
@@ -282,43 +286,83 @@ fun NavigationItem(icon: ImageVector, label: String, isSelected: Boolean, onClic
 }
 
 @Composable
-fun DashboardContent(paddingValues: PaddingValues, currentView: DashboardView, searchQuery: String, onSearchQueryChange: (String) -> Unit, documentListState: com.flowboard.presentation.viewmodel.DocumentListState, currentUserName: String, onDocumentClick: (String) -> Unit, onDeleteDocument: (String) -> Unit, onCreateDocument: () -> Unit) {
+fun DashboardContent(
+    paddingValues: PaddingValues,
+    currentView: DashboardView,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    documentListState: com.flowboard.presentation.viewmodel.DocumentListState,
+    trashedDocuments: List<com.flowboard.data.local.entities.DocumentEntity> = emptyList(),
+    currentUserName: String,
+    onDocumentClick: (String) -> Unit,
+    onDeleteDocument: (String) -> Unit,
+    onRestoreDocument: (String) -> Unit = {},
+    onPermanentDeleteDocument: (String) -> Unit = {},
+    onCreateDocument: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxSize().padding(paddingValues).background(MaterialTheme.colorScheme.background)) {
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
-            Text(text = currentView.name.replace("_", " ").lowercase().capitalize(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            val viewTitle = when (currentView) {
+                DashboardView.HOME -> "Home"
+                DashboardView.INBOX -> "Inbox"
+                DashboardView.SEARCH -> "Search"
+                DashboardView.TASKS -> "Tasks"
+                DashboardView.MY_DOCUMENTS -> "My Documents"
+                DashboardView.TRASH -> "Trash"
+            }
+            Text(text = viewTitle, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             if (currentView == DashboardView.SEARCH) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(value = searchQuery, onValueChange = onSearchQueryChange, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search documents...") }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, singleLine = true, shape = RoundedCornerShape(12.dp))
             } else if (currentView == DashboardView.HOME) {
                 Text("Good morning, $currentUserName", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else if (currentView == DashboardView.TRASH) {
+                Text("Pages moved to trash can be restored or permanently deleted", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val allDocs = (documentListState.ownedDocuments + documentListState.sharedWithMe).sortedByDescending { it.updatedAt }
-            val filteredDocs = when (currentView) {
-                DashboardView.HOME -> allDocs
-                DashboardView.INBOX -> documentListState.sharedWithMe
-                DashboardView.MY_DOCUMENTS -> documentListState.ownedDocuments
-                DashboardView.SEARCH -> if (searchQuery.isBlank()) emptyList() else allDocs.filter { it.title.contains(searchQuery, true) }
-                else -> emptyList()
-            }
-            if (currentView == DashboardView.HOME && filteredDocs.isNotEmpty()) {
-                item {
-                    Column(modifier = Modifier.padding(bottom = 8.dp)) {
-                        Text("JUMP BACK IN", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp, bottom = 8.dp))
-                        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            filteredDocs.take(5).forEach { RecentPageCard(it.title, it.updatedAt) { onDocumentClick(it.id) } }
-                        }
+
+        if (currentView == DashboardView.TRASH) {
+            LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (trashedDocuments.isEmpty()) {
+                    item { EmptyState("Trash is empty") }
+                } else {
+                    items(trashedDocuments) { doc ->
+                        TrashDocumentItem(
+                            title = doc.title,
+                            onRestore = { onRestoreDocument(doc.id) },
+                            onPermanentDelete = { onPermanentDeleteDocument(doc.id) }
+                        )
                     }
                 }
             }
-            if (documentListState.isLoading) {
-                item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            } else if (filteredDocs.isEmpty()) {
-                item { EmptyState("No documents found") }
-            } else {
-                items(filteredDocs) { doc ->
-                    SimpleDocumentItem(doc.title, doc.updatedAt, doc.ownerId != "me", { onDocumentClick(doc.id) }, { onDeleteDocument(doc.id) })
+        } else {
+            LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val allDocs = (documentListState.ownedDocuments + documentListState.sharedWithMe).sortedByDescending { it.updatedAt }
+                val filteredDocs = when (currentView) {
+                    DashboardView.HOME -> allDocs
+                    DashboardView.INBOX -> documentListState.sharedWithMe
+                    DashboardView.MY_DOCUMENTS -> documentListState.ownedDocuments
+                    DashboardView.SEARCH -> if (searchQuery.isBlank()) emptyList() else allDocs.filter { it.title.contains(searchQuery, true) }
+                    else -> emptyList()
+                }
+                if (currentView == DashboardView.HOME && filteredDocs.isNotEmpty()) {
+                    item {
+                        Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                            Text("JUMP BACK IN", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp, bottom = 8.dp))
+                            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                filteredDocs.take(5).forEach { RecentPageCard(it.title, it.updatedAt) { onDocumentClick(it.id) } }
+                            }
+                        }
+                    }
+                }
+                if (documentListState.isLoading) {
+                    item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                } else if (filteredDocs.isEmpty()) {
+                    item { EmptyState("No documents found") }
+                } else {
+                    items(filteredDocs) { doc ->
+                        SimpleDocumentItem(doc.title, doc.updatedAt, doc.ownerId != "me", { onDocumentClick(doc.id) }, { onDeleteDocument(doc.id) })
+                    }
                 }
             }
         }
@@ -351,7 +395,11 @@ fun SimpleDocumentItem(title: String, updatedAt: String, isShared: Boolean, onCl
             if (isShared) { Icon(Icons.Default.Group, null, modifier = Modifier.size(16.dp)) }
             IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                DropdownMenuItem(text = { Text("Delete") }, onClick = { showMenu = false; onDelete() })
+                DropdownMenuItem(
+                    text = { Text("Move to Trash") },
+                    leadingIcon = { Icon(Icons.Outlined.Delete, null) },
+                    onClick = { showMenu = false; onDelete() }
+                )
             }
         }
     }
@@ -375,6 +423,35 @@ fun PageTreeItem(doc: com.flowboard.data.local.entities.DocumentEntity, children
             }
         }
         if (expanded) { children.forEach { PageTreeItem(it, emptyList(), onDocumentClick, onCreateSubPage, depth + 1) } }
+    }
+}
+
+@Composable
+fun TrashDocumentItem(title: String, onRestore: () -> Unit, onPermanentDelete: () -> Unit) {
+    var showMenu by remember { mutableStateOf(false) }
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(title.ifBlank { "Untitled" }, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
+            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text("Restore") },
+                    leadingIcon = { Icon(Icons.Outlined.Restore, null) },
+                    onClick = { showMenu = false; onRestore() }
+                )
+                DropdownMenuItem(
+                    text = { Text("Delete permanently", color = MaterialTheme.colorScheme.error) },
+                    leadingIcon = { Icon(Icons.Outlined.DeleteForever, null, tint = MaterialTheme.colorScheme.error) },
+                    onClick = { showMenu = false; onPermanentDelete() }
+                )
+            }
+        }
     }
 }
 

@@ -54,4 +54,19 @@ interface DocumentDao {
 
     @Query("UPDATE documents SET content = :content, updatedAt = :updatedAt, isSync = 0 WHERE id = :id")
     suspend fun updateContent(id: String, content: String, updatedAt: String)
+
+    @Query("UPDATE documents SET coverColor = :coverColor WHERE id = :id")
+    suspend fun updateCoverColor(id: String, coverColor: String)
+
+    @Query("UPDATE documents SET isDeleted = 1, deletedAt = :deletedAt WHERE id = :id")
+    suspend fun softDeleteDocument(id: String, deletedAt: String)
+
+    @Query("UPDATE documents SET isDeleted = 0, deletedAt = NULL WHERE id = :id")
+    suspend fun restoreDocument(id: String)
+
+    @Query("SELECT * FROM documents WHERE isDeleted = 1 ORDER BY deletedAt DESC")
+    fun getDeletedDocuments(): Flow<List<DocumentEntity>>
+
+    @Query("SELECT * FROM documents WHERE isDeleted = 0 ORDER BY updatedAt DESC")
+    fun getActiveDocuments(): Flow<List<DocumentEntity>>
 }

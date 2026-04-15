@@ -68,7 +68,9 @@ fun com.flowboard.data.models.crdt.ContentBlock.toDomain(): com.flowboard.domain
         textDecoration = textDecoration,
         fontSize = fontSize,
         color = color,
-        textAlign = textAlign
+        textAlign = textAlign,
+        isChecked = isChecked,
+        detail = detail
     )
 }
 

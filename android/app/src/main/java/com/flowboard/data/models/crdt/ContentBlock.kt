@@ -20,5 +20,6 @@ data class ContentBlock(
     val fontSize: Int = 16,
     val color: String = "#000000",
     val textAlign: String = "start",
-    val isChecked: Boolean = false  // used by "todo" type
+    val isChecked: Boolean = false,  // used by "todo" type
+    val detail: String = ""          // used by "toggle" type (expandable body content)
 )

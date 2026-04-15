@@ -10,6 +10,9 @@ import com.flowboard.utils.toDomain
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
 /**
@@ -21,7 +24,8 @@ class DocumentViewModel @Inject constructor(
     private val documentRepository: com.flowboard.domain.repository.DocumentRepository,
     private val documentRepositoryImpl: com.flowboard.data.repository.DocumentRepositoryImpl,
     private val permissionRepository: com.flowboard.domain.repository.PermissionRepository,
-    private val authRepository: com.flowboard.data.repository.AuthRepository
+    private val authRepository: com.flowboard.data.repository.AuthRepository,
+    private val documentDao: com.flowboard.data.local.dao.DocumentDao
 ) : ViewModel() {
 
     private val _documentState = MutableStateFlow(DocumentState())
@@ -29,6 +33,11 @@ class DocumentViewModel @Inject constructor(
 
     private val _documentListState = MutableStateFlow(DocumentListState())
     val documentListState: StateFlow<DocumentListState> = _documentListState.asStateFlow()
+
+    // Trash: documents soft-deleted locally
+    val trashedDocuments: StateFlow<List<com.flowboard.data.local.entities.DocumentEntity>> =
+        documentDao.getDeletedDocuments()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // WebSocket connection state
     val connectionState: StateFlow<WebSocketState> = documentRepository.getConnectionState()
@@ -342,17 +351,23 @@ class DocumentViewModel @Inject constructor(
     }
 
     /**
-     * Fetch all documents from backend
+     * Fetch all documents from backend, filtering out locally soft-deleted ones
      */
     fun fetchAllDocuments() {
         viewModelScope.launch {
             _documentListState.update { it.copy(isLoading = true) }
+            val deletedIds = documentDao.getDeletedDocuments()
+                .firstOrNull()?.map { it.id }?.toSet() ?: emptySet()
             documentRepositoryImpl.getAllDocuments()
                 .onSuccess { response ->
                     _documentListState.update {
                         it.copy(
-                            ownedDocuments = response.ownedDocuments.map { doc -> doc.toEntity() },
-                            sharedWithMe = response.sharedWithMe.map { doc -> doc.toEntity() },
+                            ownedDocuments = response.ownedDocuments
+                                .map { doc -> doc.toEntity() }
+                                .filter { it.id !in deletedIds },
+                            sharedWithMe = response.sharedWithMe
+                                .map { doc -> doc.toEntity() }
+                                .filter { it.id !in deletedIds },
                             isLoading = false,
                             error = null
                         )
@@ -423,24 +438,37 @@ class DocumentViewModel @Inject constructor(
     }
 
     /**
-     * Delete document via API
+     * Soft-delete: move document to Trash (local only, hides from main list)
      */
     fun deleteDocumentViaApi(documentId: String) {
         viewModelScope.launch {
-            documentRepositoryImpl.deleteDocument(documentId)
-                .onSuccess {
-                    _documentListState.update { state ->
-                        state.copy(
-                            ownedDocuments = state.ownedDocuments.filter { it.id != documentId },
-                            sharedWithMe = state.sharedWithMe.filter { it.id != documentId }
-                        )
-                    }
-                }
-                .onFailure { error ->
-                    _documentListState.update {
-                        it.copy(error = error.message ?: "Failed to delete document")
-                    }
-                }
+            val now = Clock.System.now().toEpochMilliseconds().toString()
+            documentDao.softDeleteDocument(documentId, now)
+            _documentListState.update { state ->
+                state.copy(
+                    ownedDocuments = state.ownedDocuments.filter { it.id != documentId },
+                    sharedWithMe = state.sharedWithMe.filter { it.id != documentId }
+                )
+            }
+        }
+    }
+
+    /**
+     * Restore document from Trash
+     */
+    fun restoreDocument(documentId: String) {
+        viewModelScope.launch {
+            documentDao.restoreDocument(documentId)
+        }
+    }
+
+    /**
+     * Permanently delete a document (from Trash): removes locally and on server
+     */
+    fun permanentlyDeleteDocument(documentId: String) {
+        viewModelScope.launch {
+            documentDao.deleteDocumentById(documentId)
+            documentRepositoryImpl.deleteDocument(documentId) // best-effort server delete
         }
     }
 }

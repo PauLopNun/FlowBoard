@@ -17,7 +17,8 @@ data class DocumentDto(
     val updatedAt: LocalDateTime,
     val lastEditedBy: String? = null,
     val lastEditedByName: String? = null,
-    val permissions: List<DocumentPermissionDto>? = null
+    val permissions: List<DocumentPermissionDto>? = null,
+    val coverColor: String = ""
 ) {
     fun toEntity(): DocumentEntity {
         return DocumentEntity(
@@ -33,7 +34,8 @@ data class DocumentDto(
             lastEditedBy = lastEditedBy,
             lastEditedByName = lastEditedByName,
             isSync = true,
-            lastSyncAt = updatedAt.toString()
+            lastSyncAt = updatedAt.toString(),
+            coverColor = coverColor
         )
     }
 

@@ -69,12 +69,16 @@ fun CollaborativeDocumentScreenV2(
     var slashMenuBlockId by remember { mutableStateOf<String?>(null) }
     var showSubPageDialog by remember { mutableStateOf(false) }
     var subPageTitle by remember { mutableStateOf("") }
+    var showCoverPicker by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
 
     // Page emoji — tappable icon above the title
     var pageEmoji by remember { mutableStateOf("📄") }
     var showEmojiPicker by remember { mutableStateOf(false) }
+
+    // Cover color from ViewModel state
+    val coverColor = uiState.coverColor
 
     LaunchedEffect(uiState.shareSuccessMessage) {
         uiState.shareSuccessMessage?.let {
@@ -259,6 +263,44 @@ fun CollaborativeDocumentScreenV2(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(bottom = 120.dp)
             ) {
+                // Cover image banner (shown only when a cover color is set)
+                if (coverColor.isNotEmpty()) {
+                    item(key = "cover") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .background(
+                                    try { Color(android.graphics.Color.parseColor(
+                                        if (coverColor.startsWith("#")) coverColor else "#$coverColor"
+                                    )) } catch (_: Exception) { Color(0xFF3B82F6) }
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                FilledTonalButton(
+                                    onClick = { showCoverPicker = true },
+                                    modifier = Modifier.height(28.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                                ) {
+                                    Text("Change cover", style = MaterialTheme.typography.labelSmall)
+                                }
+                                FilledTonalButton(
+                                    onClick = { viewModel.removeCover() },
+                                    modifier = Modifier.height(28.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                                ) {
+                                    Text("Remove", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 itemsIndexed(blocks, key = { _, b -> b.id }) { index, block ->
                     // Compute sequential index within the current numbered-list run
                     val numberedIdx = if (block.type == "numbered") {
@@ -266,20 +308,38 @@ fun CollaborativeDocumentScreenV2(
                     } else 1
                     val isTitle = index == 0 && block.type == "h1"
                     if (isTitle) {
-                        // Emoji + title on the same row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 8.dp, top = 24.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = pageEmoji,
-                                fontSize = 36.sp,
+                        // Emoji + title on the same row, with "Add cover" button if no cover
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            if (coverColor.isEmpty()) {
+                                Row(
+                                    modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    TextButton(
+                                        onClick = { showCoverPicker = true },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(Icons.Default.Image, null, modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Add cover", style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                    }
+                                }
+                            }
+                            Row(
                                 modifier = Modifier
-                                    .padding(start = 12.dp, end = 8.dp)
-                                    .clickable { showEmojiPicker = true }
-                            )
+                                    .fillMaxWidth()
+                                    .padding(start = 8.dp, top = if (coverColor.isEmpty()) 4.dp else 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = pageEmoji,
+                                    fontSize = 36.sp,
+                                    modifier = Modifier
+                                        .padding(start = 12.dp, end = 8.dp)
+                                        .clickable { showEmojiPicker = true }
+                                )
                             DocumentBlock(
                                 block = block,
                                 isFocused = focusedBlockId == block.id,
@@ -298,10 +358,12 @@ fun CollaborativeDocumentScreenV2(
                                     viewModel.insertText(block.id, cleanedText, 0)
                                 },
                                 onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
+                                onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
                                 isTitle = true,
                                 modifier = Modifier.weight(1f)
                             )
                         }
+                        } // end Column wrapper
                     } else {
                         DocumentBlock(
                             block = block,
@@ -321,6 +383,7 @@ fun CollaborativeDocumentScreenV2(
                                 viewModel.insertText(block.id, cleanedText, 0)
                             },
                             onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
+                            onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
                             isTitle = false
                         )
                     }
@@ -455,6 +518,18 @@ fun CollaborativeDocumentScreenV2(
         )
     }
 
+    // Cover picker dialog
+    if (showCoverPicker) {
+        CoverPickerDialog(
+            current = uiState.coverColor,
+            onSelect = { color ->
+                viewModel.updateCoverColor(color)
+                showCoverPicker = false
+            },
+            onDismiss = { showCoverPicker = false }
+        )
+    }
+
     // Error snackbar
     uiState.error?.let { error ->
         LaunchedEffect(error) {
@@ -505,6 +580,66 @@ private fun EmojiPickerDialog(
                             ) {
                                 Text(emoji, fontSize = 22.sp)
                             }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Cover Color Picker Dialog
+// ────────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun CoverPickerDialog(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val covers = listOf(
+        "#3B82F6" to Color(0xFF3B82F6),  // Blue
+        "#6366F1" to Color(0xFF6366F1),  // Indigo
+        "#8B5CF6" to Color(0xFF8B5CF6),  // Violet
+        "#EC4899" to Color(0xFFEC4899),  // Pink
+        "#EF4444" to Color(0xFFEF4444),  // Red
+        "#F97316" to Color(0xFFF97316),  // Orange
+        "#F59E0B" to Color(0xFFF59E0B),  // Amber
+        "#10B981" to Color(0xFF10B981),  // Emerald
+        "#14B8A6" to Color(0xFF14B8A6),  // Teal
+        "#06B6D4" to Color(0xFF06B6D4),  // Cyan
+        "#64748B" to Color(0xFF64748B),  // Slate
+        "#1F2937" to Color(0xFF1F2937),  // Dark
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose a cover color") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                covers.chunked(4).forEach { row ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        row.forEach { (hex, color) ->
+                            val isSelected = current.equals(hex, ignoreCase = true)
+                            Box(
+                                modifier = Modifier
+                                    .height(40.dp)
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(color)
+                                    .border(
+                                        width = if (isSelected) 3.dp else 0.dp,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable { onSelect(hex) }
+                            )
                         }
                     }
                 }
@@ -701,6 +836,7 @@ private fun DocumentBlock(
     onFocusChange: (Boolean) -> Unit,
     onTextChange: (String) -> Unit,
     onToggleTodo: (Boolean) -> Unit,
+    onToggleDetail: (String) -> Unit = {},
     onCursorChange: (Int) -> Unit,
     onEnterPressed: () -> Unit,
     onDeleteBlock: () -> Unit,
@@ -730,6 +866,7 @@ private fun DocumentBlock(
         block.type == "quote" -> "Quote…"
         block.type == "callout" -> "Callout…"
         block.type == "todo" -> "To-do"
+        block.type == "toggle" -> "Toggle heading"
         isFocused -> "Type '/' for commands"
         else -> ""
     }
@@ -826,6 +963,74 @@ private fun DocumentBlock(
         textFieldValue = new
         onTextChange(new.text)
         onCursorChange(new.selection.start)
+    }
+
+    // Toggle block — expandable section with header + collapsible body
+    if (block.type == "toggle") {
+        var toggleExpanded by remember(block.id) { mutableStateOf(false) }
+        Column(modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { toggleExpanded = !toggleExpanded },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = if (toggleExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+                BlockTextField(
+                    textFieldValue = textFieldValue,
+                    textStyle = textStyle.copy(fontWeight = FontWeight.SemiBold),
+                    placeholder = "Toggle heading",
+                    modifier = Modifier.weight(1f),
+                    onFocusChange = onFocusChange,
+                    onValueChange = { new -> handleValueChange(new, allowDelete = true) },
+                    onEnterPressed = onEnterPressed
+                )
+            }
+            AnimatedVisibility(visible = toggleExpanded) {
+                var detailValue by remember(block.id) { mutableStateOf(TextFieldValue(block.detail)) }
+                LaunchedEffect(block.detail) {
+                    if (detailValue.text != block.detail) detailValue = TextFieldValue(block.detail)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 28.dp, top = 4.dp, bottom = 4.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .padding(12.dp)
+                ) {
+                    BasicTextField(
+                        value = detailValue,
+                        onValueChange = { new ->
+                            detailValue = new
+                            onToggleDetail(new.text)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = textStyle.copy(fontWeight = FontWeight.Normal),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        decorationBox = { inner ->
+                            Box {
+                                if (detailValue.text.isEmpty()) {
+                                    Text(
+                                        "Toggle content…",
+                                        style = textStyle,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    )
+                                }
+                                inner()
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        return
     }
 
     // Quote block — left border accent
@@ -1253,6 +1458,7 @@ private fun SlashCommandMenu(
         Triple("h2", Icons.Default.Title, "Heading 2"),
         Triple("h3", Icons.Default.Title, "Heading 3"),
         Triple("p", Icons.Default.Subject, "Paragraph"),
+        Triple("toggle", Icons.Default.ExpandMore, "Toggle"),
         Triple("todo", Icons.Default.CheckBox, "To-do"),
         Triple("bullet", Icons.Default.FormatListBulleted, "Bullet List"),
         Triple("numbered", Icons.Default.FormatListNumbered, "Numbered List"),

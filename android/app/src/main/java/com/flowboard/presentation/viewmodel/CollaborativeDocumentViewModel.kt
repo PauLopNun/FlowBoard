@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.flowboard.data.crdt.CRDTEngine
+import com.flowboard.data.local.dao.DocumentDao
 import com.flowboard.data.models.*
 import com.flowboard.data.models.crdt.*
 import com.flowboard.data.remote.api.DocumentApiService
@@ -31,7 +32,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
     private val crdtEngine: CRDTEngine,
     private val webSocketClient: DocumentWebSocketClient,
     private val authRepository: AuthRepository,
-    private val documentApiService: DocumentApiService
+    private val documentApiService: DocumentApiService,
+    private val documentDao: DocumentDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CollaborativeDocumentUiState())
@@ -141,6 +143,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
 
                 // Load breadcrumb chain (parent hierarchy) in the background
                 loadBreadcrumbs(documentId)
+                // Load cover color from local Room cache
+                loadCoverColor(documentId)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to connect to document", e)
                 _uiState.update { it.copy(error = "Connection failed: ${e.message}") }
@@ -173,6 +177,56 @@ class CollaborativeDocumentViewModel @Inject constructor(
                 Log.w(TAG, "Could not load breadcrumbs: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Load cover color from local Room cache
+     */
+    private fun loadCoverColor(documentId: String) {
+        viewModelScope.launch {
+            documentDao.observeDocumentById(documentId).collect { entity ->
+                _uiState.update { it.copy(coverColor = entity?.coverColor ?: "") }
+            }
+        }
+    }
+
+    /**
+     * Update the cover color and persist to Room
+     */
+    fun updateCoverColor(color: String) {
+        val documentId = _uiState.value.currentDocumentId ?: return
+        _uiState.update { it.copy(coverColor = color) }
+        viewModelScope.launch {
+            documentDao.updateCoverColor(documentId, color)
+        }
+    }
+
+    /**
+     * Remove the cover image
+     */
+    fun removeCover() = updateCoverColor("")
+
+    /**
+     * Update toggle block detail (body) content
+     */
+    fun updateBlockDetail(blockId: String, detail: String) {
+        val documentId = _uiState.value.currentDocumentId ?: return
+        val userId = _uiState.value.currentUserId ?: return
+
+        val operation = UpdateBlockDetailOperation(
+            operationId = java.util.UUID.randomUUID().toString(),
+            boardId = documentId,
+            blockId = blockId,
+            detail = detail
+        )
+
+        crdtEngine.applyOperation(operation)
+
+        viewModelScope.launch {
+            webSocketClient.sendOperation(operation, userId)
+        }
+
+        scheduleAutoSave()
     }
 
     /**
@@ -555,5 +609,7 @@ data class CollaborativeDocumentUiState(
     val isSaving: Boolean = false,
     val shareSuccessMessage: String? = null,
     /** Breadcrumb trail: list of (documentId, title) from root to current page */
-    val breadcrumbs: List<Pair<String, String>> = emptyList()
+    val breadcrumbs: List<Pair<String, String>> = emptyList(),
+    /** Cover color hex string (e.g. "#3B82F6"). Empty means no cover. */
+    val coverColor: String = ""
 )

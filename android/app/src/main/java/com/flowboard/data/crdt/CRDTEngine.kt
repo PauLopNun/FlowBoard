@@ -63,6 +63,7 @@ class CRDTEngine @Inject constructor() {
             is UpdateBlockFormattingOperation -> handleUpdateFormatting(currentDoc.blocks, operation)
             is UpdateBlockTypeOperation -> handleUpdateType(currentDoc.blocks, operation)
             is ToggleTodoOperation -> handleToggleTodo(currentDoc.blocks, operation)
+            is UpdateBlockDetailOperation -> handleUpdateDetail(currentDoc.blocks, operation)
             is CursorMoveOperation -> currentDoc.blocks // Cursors don't modify document
         }
 
@@ -193,6 +194,7 @@ class CRDTEngine @Inject constructor() {
             is UpdateBlockFormattingOperation -> op.blockId
             is UpdateBlockTypeOperation -> op.blockId
             is ToggleTodoOperation -> op.blockId
+            is UpdateBlockDetailOperation -> op.blockId
             is CursorMoveOperation -> op.blockId
         }
     }
@@ -285,6 +287,15 @@ class CRDTEngine @Inject constructor() {
         }
     }
 
+    private fun handleUpdateDetail(
+        blocks: List<ContentBlock>,
+        operation: UpdateBlockDetailOperation
+    ): List<ContentBlock> {
+        return blocks.map { block ->
+            if (block.id == operation.blockId) block.copy(detail = operation.detail) else block
+        }
+    }
+
     /**
      * Create a new operation with auto-generated ID
      */
@@ -297,6 +308,7 @@ class CRDTEngine @Inject constructor() {
             is UpdateBlockFormattingOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is UpdateBlockTypeOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is ToggleTodoOperation -> baseOp.copy(operationId = opId, boardId = boardId)
+            is UpdateBlockDetailOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is CursorMoveOperation -> baseOp.copy(operationId = opId, boardId = boardId)
         }
     }
