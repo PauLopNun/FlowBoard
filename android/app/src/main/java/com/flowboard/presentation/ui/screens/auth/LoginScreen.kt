@@ -37,7 +37,6 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var showDebugInfo by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -61,54 +60,7 @@ fun LoginScreen(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Debug info toggle button
-        TextButton(onClick = { showDebugInfo = !showDebugInfo }) {
-            Text(
-                text = if (showDebugInfo) "Ocultar info de servidor ▲" else "Ver info de servidor ▼",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        // Debug info card
-        if (showDebugInfo) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = "🔧 Información de Conexión",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Servidor: ${com.flowboard.data.remote.ApiConfig.BASE_URL}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                    )
-                    Text(
-                        text = "API: ${com.flowboard.data.remote.ApiConfig.API_BASE_URL}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "💡 Si no puedes conectar, verifica:\n• Tu conexión a internet\n• El servidor puede tardar ~30s en despertar",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         // Login Form
         Card(

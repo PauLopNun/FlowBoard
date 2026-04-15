@@ -1,5 +1,6 @@
 package com.flowboard.presentation.ui.screens.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +34,7 @@ import com.flowboard.presentation.viewmodel.DocumentViewModel
 import com.flowboard.presentation.viewmodel.LoginViewModel
 import com.flowboard.presentation.viewmodel.ProfileViewModel
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 enum class DashboardView {
     HOME, INBOX, SEARCH, TASKS, MY_DOCUMENTS, TRASH
@@ -315,7 +317,12 @@ fun DashboardContent(
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(value = searchQuery, onValueChange = onSearchQueryChange, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Search documents...") }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, singleLine = true, shape = RoundedCornerShape(12.dp))
             } else if (currentView == DashboardView.HOME) {
-                Text("Good morning, $currentUserName", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val greeting = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
+                    in 5..11 -> "Good morning"
+                    in 12..17 -> "Good afternoon"
+                    else -> "Good evening"
+                }
+                Text("$greeting, $currentUserName", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else if (currentView == DashboardView.TRASH) {
                 Text("Pages moved to trash can be restored or permanently deleted", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -384,7 +391,7 @@ fun RecentPageCard(title: String, updatedAt: String, onClick: () -> Unit) {
 @Composable
 fun SimpleDocumentItem(title: String, updatedAt: String, isShared: Boolean, onClick: () -> Unit, onDelete: () -> Unit) {
     var showMenu by remember { mutableStateOf(false) }
-    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)), modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Description, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(16.dp))
@@ -432,6 +439,7 @@ fun TrashDocumentItem(title: String, onRestore: () -> Unit, onPermanentDelete: (
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

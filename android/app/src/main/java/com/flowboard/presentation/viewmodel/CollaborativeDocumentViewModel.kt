@@ -557,6 +557,31 @@ class CollaborativeDocumentViewModel @Inject constructor(
     }
 
     /**
+     * Move a block to a new position in the document.
+     * @param blockId the block to move
+     * @param afterBlockId the block it should land after; null = move to top
+     */
+    fun moveBlock(blockId: String, afterBlockId: String?) {
+        val documentId = _uiState.value.currentDocumentId ?: return
+        val userId = _uiState.value.currentUserId ?: return
+
+        val operation = MoveBlockOperation(
+            operationId = UUID.randomUUID().toString(),
+            boardId = documentId,
+            blockId = blockId,
+            afterBlockId = afterBlockId
+        )
+
+        crdtEngine.applyOperation(operation)
+
+        viewModelScope.launch {
+            webSocketClient.sendOperation(operation, userId)
+        }
+
+        scheduleAutoSave()
+    }
+
+    /**
      * Create a sub-page under this document and insert an inline reference block.
      * @param afterBlockId insert the reference block after this block (null = append to end)
      */

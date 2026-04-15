@@ -52,7 +52,8 @@
       "Bash(rm:*)",
       "Bash(gh pr create --title 'feat: visual polish, Kanban view, and project cleanup' --body ':*)",
       "Bash(where gh:*)",
-      "Bash(winget list:*)"
+      "Bash(winget list:*)",
+      "Bash(xargs grep *)"
     ],
     "deny": [],
     "ask": []

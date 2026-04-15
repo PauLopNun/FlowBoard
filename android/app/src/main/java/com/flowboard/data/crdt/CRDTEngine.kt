@@ -64,6 +64,7 @@ class CRDTEngine @Inject constructor() {
             is UpdateBlockTypeOperation -> handleUpdateType(currentDoc.blocks, operation)
             is ToggleTodoOperation -> handleToggleTodo(currentDoc.blocks, operation)
             is UpdateBlockDetailOperation -> handleUpdateDetail(currentDoc.blocks, operation)
+            is MoveBlockOperation -> handleMoveBlock(currentDoc.blocks, operation)
             is CursorMoveOperation -> currentDoc.blocks // Cursors don't modify document
         }
 
@@ -195,6 +196,7 @@ class CRDTEngine @Inject constructor() {
             is UpdateBlockTypeOperation -> op.blockId
             is ToggleTodoOperation -> op.blockId
             is UpdateBlockDetailOperation -> op.blockId
+            is MoveBlockOperation -> op.blockId
             is CursorMoveOperation -> op.blockId
         }
     }
@@ -296,6 +298,26 @@ class CRDTEngine @Inject constructor() {
         }
     }
 
+    private fun handleMoveBlock(
+        blocks: List<ContentBlock>,
+        operation: MoveBlockOperation
+    ): List<ContentBlock> {
+        val block = blocks.find { it.id == operation.blockId } ?: return blocks
+        val withoutBlock = blocks.filter { it.id != operation.blockId }
+        return if (operation.afterBlockId == null) {
+            listOf(block) + withoutBlock
+        } else {
+            val insertIdx = withoutBlock.indexOfFirst { it.id == operation.afterBlockId }
+            if (insertIdx == -1) {
+                withoutBlock + block
+            } else {
+                val result = withoutBlock.toMutableList()
+                result.add(insertIdx + 1, block)
+                result
+            }
+        }
+    }
+
     /**
      * Create a new operation with auto-generated ID
      */
@@ -309,6 +331,7 @@ class CRDTEngine @Inject constructor() {
             is UpdateBlockTypeOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is ToggleTodoOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is UpdateBlockDetailOperation -> baseOp.copy(operationId = opId, boardId = boardId)
+            is MoveBlockOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is CursorMoveOperation -> baseOp.copy(operationId = opId, boardId = boardId)
         }
     }

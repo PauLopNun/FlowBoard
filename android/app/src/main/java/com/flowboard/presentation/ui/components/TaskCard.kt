@@ -1,5 +1,6 @@
 package com.flowboard.presentation.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,7 +47,15 @@ fun TaskCard(
                 else -> MaterialTheme.colorScheme.surface
             }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = when {
+                isOverdue -> MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+                task.isCompleted -> MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+            }
+        )
     ) {
         Row(
             modifier = Modifier
@@ -198,7 +207,7 @@ fun PriorityIndicator(
         shape = RoundedCornerShape(4.dp)
     ) {
         Text(
-            text = priority.name,
+            text = priority.name.lowercase().replaceFirstChar { it.uppercase() },
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             color = Color.White

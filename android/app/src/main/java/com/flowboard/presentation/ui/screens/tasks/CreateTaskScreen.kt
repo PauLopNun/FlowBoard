@@ -1,5 +1,6 @@
 package com.flowboard.presentation.ui.screens.tasks
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -129,9 +130,9 @@ fun CreateTaskScreen(
             // Priority Selector
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
             ) {
                 Column(
                     modifier = Modifier
@@ -157,7 +158,7 @@ fun CreateTaskScreen(
                                         modifier = Modifier.weight(1f),
                                         selected = priority == p,
                                         onClick = { priority = p },
-                                        label = { Text(p.name) },
+                                        label = { Text(p.name.lowercase().replaceFirstChar { it.uppercase() }) },
                                         leadingIcon = {
                                             Icon(
                                                 imageVector = when (p) {
@@ -190,7 +191,9 @@ fun CreateTaskScreen(
             // Due Date
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -227,9 +230,9 @@ fun CreateTaskScreen(
             // Event Toggle
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
             ) {
                 Row(
                     modifier = Modifier

@@ -1,13 +1,17 @@
 package com.flowboard.presentation.ui.screens.tasks
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material.icons.filled.ViewList
@@ -15,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -158,20 +163,50 @@ fun TaskListScreen(
                     .padding(paddingValues)
                     .padding(16.dp)
             ) {
-                // Filter Tabs
+                // Filter Tabs with count badges
                 ScrollableTabRow(
                     selectedTabIndex = selectedFilter.ordinal,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     TaskFilter.entries.forEach { filter ->
+                        val count = when (filter) {
+                            TaskFilter.ALL -> allTasks.size
+                            TaskFilter.PENDING -> pendingTasks.size
+                            TaskFilter.COMPLETED -> completedTasks.size
+                            TaskFilter.OVERDUE -> overdueTasks.size
+                        }
                         Tab(
                             selected = selectedFilter == filter,
                             onClick = { selectedFilter = filter },
                             text = {
-                                Text(
-                                    text = filter.displayName,
-                                    fontWeight = if (selectedFilter == filter) FontWeight.Bold else FontWeight.Normal
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = filter.displayName,
+                                        fontWeight = if (selectedFilter == filter) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (count > 0) {
+                                        Surface(
+                                            color = if (selectedFilter == filter)
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                MaterialTheme.colorScheme.surfaceVariant,
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = count.toString(),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                                color = if (selectedFilter == filter)
+                                                    MaterialTheme.colorScheme.onPrimary
+                                                else
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         )
                     }
@@ -187,18 +222,46 @@ fun TaskListScreen(
 
                 if (filteredTasks.isEmpty() && !uiState.isLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (selectedFilter == TaskFilter.COMPLETED)
+                                    Icons.Default.Check
+                                else
+                                    Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                            )
                             Text(
-                                text = "No ${selectedFilter.displayName.lowercase()} tasks",
-                                style = MaterialTheme.typography.bodyLarge
+                                text = when (selectedFilter) {
+                                    TaskFilter.ALL -> "No tasks yet"
+                                    TaskFilter.PENDING -> "Nothing pending"
+                                    TaskFilter.COMPLETED -> "Nothing completed yet"
+                                    TaskFilter.OVERDUE -> "No overdue tasks"
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = when (selectedFilter) {
+                                    TaskFilter.ALL -> "Tap + to create your first task"
+                                    TaskFilter.PENDING -> "All tasks are done!"
+                                    TaskFilter.COMPLETED -> "Complete a task to see it here"
+                                    TaskFilter.OVERDUE -> "Great job staying on track"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (selectedFilter == TaskFilter.ALL) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Tap + to create your first task",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Spacer(Modifier.height(4.dp))
+                                FilledTonalButton(onClick = onCreateTaskClick) {
+                                    Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("New task")
+                                }
                             }
                         }
                     }
@@ -208,11 +271,51 @@ fun TaskListScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(items = filteredTasks, key = { it.id }) { task ->
-                            TaskCard(
-                                task = task,
-                                onClick = { onTaskClick(task.id) },
-                                onToggleComplete = { viewModel.toggleTaskStatus(task.id) }
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { value ->
+                                    if (value == SwipeToDismissBoxValue.StartToEnd) {
+                                        viewModel.toggleTaskStatus(task.id)
+                                    }
+                                    false // keep item in list, just toggle status
+                                }
                             )
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                enableDismissFromEndToStart = false,
+                                backgroundContent = {
+                                    val bgColor by animateColorAsState(
+                                        targetValue = when (dismissState.targetValue) {
+                                            SwipeToDismissBoxValue.StartToEnd ->
+                                                if (task.isCompleted) Color(0xFFF59E0B) else Color(0xFF10B981)
+                                            else -> Color.Transparent
+                                        },
+                                        label = "swipe_bg"
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(bgColor, RoundedCornerShape(12.dp))
+                                            .padding(horizontal = 20.dp),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        Icon(
+                                            imageVector = if (task.isCompleted)
+                                                Icons.Default.Check
+                                            else
+                                                Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = Color.White
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.animateItem()
+                            ) {
+                                TaskCard(
+                                    task = task,
+                                    onClick = { onTaskClick(task.id) },
+                                    onToggleComplete = { viewModel.toggleTaskStatus(task.id) }
+                                )
+                            }
                         }
                     }
                 }

@@ -228,7 +228,7 @@ fun TaskDetailScreen(
                     Box {
                         AssistChip(
                             onClick = { if (isEditing) showPriorityMenu = true },
-                            label = { Text(editedPriority.name) },
+                            label = { Text(editedPriority.name.lowercase().replaceFirstChar { it.uppercase() }) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = when (editedPriority) {
@@ -259,7 +259,7 @@ fun TaskDetailScreen(
                         ) {
                             TaskPriority.entries.forEach { p ->
                                 DropdownMenuItem(
-                                    text = { Text(p.name) },
+                                    text = { Text(p.name.lowercase().replaceFirstChar { it.uppercase() }) },
                                     onClick = {
                                         editedPriority = p
                                         showPriorityMenu = false
@@ -391,11 +391,6 @@ fun TaskDetailScreen(
                         )
                         Text(
                             text = "Updated: ${task.updatedAt}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "ID: ${task.id}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

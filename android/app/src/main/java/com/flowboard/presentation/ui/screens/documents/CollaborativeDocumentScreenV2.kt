@@ -6,6 +6,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -72,6 +79,24 @@ fun CollaborativeDocumentScreenV2(
     var showCoverPicker by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    val haptic = LocalHapticFeedback.current
+
+    // Local snapshot list for smooth drag-to-reorder (avoids round-tripping through ViewModel on every step)
+    val localBlocks: SnapshotStateList<com.flowboard.data.models.crdt.ContentBlock> =
+        remember { mutableStateListOf() }
+    var isDraggingActive by remember { mutableStateOf(false) }
+    var draggedBlockId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(blocks) {
+        if (!isDraggingActive) {
+            localBlocks.clear()
+            localBlocks.addAll(blocks)
+        }
+    }
+
+    val reorderState = rememberReorderableLazyListState(listState) { from, to ->
+        localBlocks.apply { add(to.index, removeAt(from.index)) }
+    }
 
     // Page emoji — tappable icon above the title
     var pageEmoji by remember { mutableStateOf("📄") }
@@ -301,15 +326,15 @@ fun CollaborativeDocumentScreenV2(
                     }
                 }
 
-                itemsIndexed(blocks, key = { _, b -> b.id }) { index, block ->
+                itemsIndexed(localBlocks, key = { _, b -> b.id }) { index, block ->
                     // Compute sequential index within the current numbered-list run
                     val numberedIdx = if (block.type == "numbered") {
-                        blocks.take(index + 1).count { it.type == "numbered" }
+                        localBlocks.take(index + 1).count { it.type == "numbered" }
                     } else 1
                     val isTitle = index == 0 && block.type == "h1"
                     if (isTitle) {
                         // Emoji + title on the same row, with "Add cover" button if no cover
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.fillMaxWidth().animateItem()) {
                             if (coverColor.isEmpty()) {
                                 Row(
                                     modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
@@ -365,27 +390,112 @@ fun CollaborativeDocumentScreenV2(
                         }
                         } // end Column wrapper
                     } else {
-                        DocumentBlock(
-                            block = block,
-                            isFocused = focusedBlockId == block.id,
-                            numberedIndex = numberedIdx,
-                            onFocusChange = { focused -> if (focused) focusedBlockId = block.id },
-                            onTextChange = { newText -> viewModel.insertText(block.id, newText, 0) },
-                            onToggleTodo = { isChecked -> viewModel.toggleTodo(block.id, isChecked) },
-                            onCursorChange = { pos -> viewModel.updateCursorPosition(block.id, pos) },
-                            onEnterPressed = {
-                                viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
-                            },
-                            onDeleteBlock = { if (blocks.size > 1) viewModel.deleteBlock(block.id) },
-                            onSlashCommand = { showSlashMenu = true; slashMenuBlockId = block.id },
-                            onMarkdownShortcut = { type, cleanedText ->
-                                viewModel.updateBlockType(block.id, type)
-                                viewModel.insertText(block.id, cleanedText, 0)
-                            },
-                            onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
-                            onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
-                            isTitle = false
-                        )
+                        ReorderableItem(reorderState, key = block.id) { isDragging ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .shadow(
+                                        elevation = if (isDragging) 6.dp else 0.dp,
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                        clip = false
+                                    )
+                                    .background(
+                                        if (isDragging) MaterialTheme.colorScheme.surface
+                                        else androidx.compose.ui.graphics.Color.Transparent
+                                    ),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                // ── Left handle: + add and ⠿ drag ──────────────
+                                Column(
+                                    modifier = Modifier
+                                        .width(32.dp)
+                                        .padding(top = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    AnimatedVisibility(
+                                        visible = focusedBlockId == block.id && block.type != "divider",
+                                        enter = fadeIn(),
+                                        exit = fadeOut()
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            // + button — inserts a new block before this one
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                                    .clickable {
+                                                        val afterId = localBlocks.getOrNull(index - 1)?.id
+                                                        viewModel.addBlock(
+                                                            ContentBlock(
+                                                                id = UUID.randomUUID().toString(),
+                                                                type = "p",
+                                                                content = ""
+                                                            ),
+                                                            afterId
+                                                        )
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Add, null,
+                                                    modifier = Modifier.size(13.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                                                )
+                                            }
+                                            // ⠿ drag handle
+                                            Icon(
+                                                Icons.Default.DragIndicator, null,
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .draggableHandle(
+                                                        onDragStarted = {
+                                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                            isDraggingActive = true
+                                                            draggedBlockId = block.id
+                                                        },
+                                                        onDragStopped = { _ ->
+                                                            isDraggingActive = false
+                                                            val movedId = draggedBlockId ?: return@draggableHandle
+                                                            draggedBlockId = null
+                                                            val movedIdx = localBlocks.indexOfFirst { it.id == movedId }
+                                                            val afterId = if (movedIdx <= 0) null
+                                                                          else localBlocks.getOrNull(movedIdx - 1)?.id
+                                                            viewModel.moveBlock(movedId, afterId)
+                                                        }
+                                                    ),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                                            )
+                                        }
+                                    }
+                                }
+                                // ── Block content ──────────────────────────────
+                                DocumentBlock(
+                                    block = block,
+                                    isFocused = focusedBlockId == block.id,
+                                    numberedIndex = numberedIdx,
+                                    onFocusChange = { focused -> if (focused) focusedBlockId = block.id },
+                                    onTextChange = { newText -> viewModel.insertText(block.id, newText, 0) },
+                                    onToggleTodo = { isChecked -> viewModel.toggleTodo(block.id, isChecked) },
+                                    onCursorChange = { pos -> viewModel.updateCursorPosition(block.id, pos) },
+                                    onEnterPressed = {
+                                        viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
+                                    },
+                                    onDeleteBlock = { if (localBlocks.size > 1) viewModel.deleteBlock(block.id) },
+                                    onSlashCommand = { showSlashMenu = true; slashMenuBlockId = block.id },
+                                    onMarkdownShortcut = { type, cleanedText ->
+                                        viewModel.updateBlockType(block.id, type)
+                                        viewModel.insertText(block.id, cleanedText, 0)
+                                    },
+                                    onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
+                                    onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
+                                    isTitle = false,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -401,7 +511,7 @@ fun CollaborativeDocumentScreenV2(
                             onClick = {
                                 viewModel.addBlock(
                                     ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""),
-                                    blocks.lastOrNull()?.id
+                                    localBlocks.lastOrNull()?.id
                                 )
                             },
                             modifier = Modifier.weight(1f)
