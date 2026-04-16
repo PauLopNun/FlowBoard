@@ -80,6 +80,8 @@ fun CollaborativeDocumentScreenV2(
     var showShareDialog by remember { mutableStateOf(false) }
     var showExportMenu by remember { mutableStateOf(false) }
     var focusedBlockId by remember { mutableStateOf<String?>(null) }
+    var selectionStart by remember { mutableStateOf(0) }
+    var selectionEnd by remember { mutableStateOf(0) }
     var showSlashMenu by remember { mutableStateOf(false) }
     var slashMenuBlockId by remember { mutableStateOf<String?>(null) }
     var showSubPageDialog by remember { mutableStateOf(false) }
@@ -221,6 +223,7 @@ fun CollaborativeDocumentScreenV2(
                         }
                         FormattingToolbar(
                             currentBlock = focusedBlock,
+                            selectionRange = if (selectionStart != selectionEnd) selectionStart to selectionEnd else null,
                             onBold = {
                                 focusedBlockId?.let { id ->
                                     viewModel.updateFormatting(id,
@@ -247,6 +250,9 @@ fun CollaborativeDocumentScreenV2(
                             },
                             onBgColorChange = { bgColor ->
                                 focusedBlockId?.let { id -> viewModel.updateFormatting(id, backgroundColor = bgColor) }
+                            },
+                            onSpansChange = { spans ->
+                                focusedBlockId?.let { id -> viewModel.updateInlineSpans(id, spans) }
                             }
                         )
                     }
@@ -433,6 +439,8 @@ fun CollaborativeDocumentScreenV2(
                                 onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
                                 onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
                                 onTableCellChange = { row, col, value -> viewModel.updateTableCell(block.id, row, col, value) },
+                                onSpansChange = { spans -> viewModel.updateInlineSpans(block.id, spans) },
+                                onSelectionChange = { s, e -> selectionStart = s; selectionEnd = e },
                                 isTitle = true,
                                 modifier = Modifier.weight(1f)
                             )
@@ -560,6 +568,8 @@ fun CollaborativeDocumentScreenV2(
                                     onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
                                     onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
                                     onTableCellChange = { row, col, value -> viewModel.updateTableCell(block.id, row, col, value) },
+                                    onSpansChange = { spans -> viewModel.updateInlineSpans(block.id, spans) },
+                                    onSelectionChange = { s, e -> selectionStart = s; selectionEnd = e },
                                     isTitle = false,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -1078,10 +1088,12 @@ private fun DocumentBlock(
     onMarkdownShortcut: (type: String, cleanedText: String) -> Unit,
     onNavigateToSubPage: ((String) -> Unit)? = null,
     onTableCellChange: ((row: Int, col: Int, value: String) -> Unit)? = null,
+    onSpansChange: ((String) -> Unit)? = null,
+    onSelectionChange: ((Int, Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var textFieldValue by remember(block.id) {
-        mutableStateOf(TextFieldValue(block.content))
+        mutableStateOf(TextFieldValue(buildAnnotatedString(block.content, block.spans)))
     }
 
     // @mention state: non-null = popup is visible with this query string
@@ -1092,10 +1104,13 @@ private fun DocumentBlock(
         else mentionSuggestions.filter { it.contains(q, ignoreCase = true) }.take(5)
     }
 
-    // Sync content if remote update changes it
-    LaunchedEffect(block.content) {
+    // Sync content/spans if remote update changes them
+    LaunchedEffect(block.content, block.spans) {
+        val annotated = buildAnnotatedString(block.content, block.spans)
         if (textFieldValue.text != block.content) {
-            textFieldValue = TextFieldValue(block.content)
+            textFieldValue = TextFieldValue(annotated, selection = textFieldValue.selection)
+        } else if (textFieldValue.annotatedString != annotated) {
+            textFieldValue = textFieldValue.copy(annotatedString = annotated)
         }
     }
 
@@ -1313,9 +1328,94 @@ private fun DocumentBlock(
             } else null
         }
 
+        // Adjust inline spans when text length changes
+        if (new.text != textFieldValue.text && onSpansChange != null) {
+            val oldText = textFieldValue.text
+            val newText = new.text
+            var prefixLen = 0
+            while (prefixLen < oldText.length && prefixLen < newText.length && oldText[prefixLen] == newText[prefixLen]) prefixLen++
+            var suffixLen = 0
+            val maxSuffix = minOf(oldText.length, newText.length) - prefixLen
+            while (suffixLen < maxSuffix && oldText[oldText.length - 1 - suffixLen] == newText[newText.length - 1 - suffixLen]) suffixLen++
+            val deletedLen = oldText.length - prefixLen - suffixLen
+            val insertedLen = newText.length - prefixLen - suffixLen
+            if (deletedLen > 0 || insertedLen > 0) {
+                onSpansChange(adjustSpans(block.spans, prefixLen, deletedLen, insertedLen))
+            }
+        }
+
         textFieldValue = new
         onTextChange(new.text)
         onCursorChange(new.selection.start)
+        onSelectionChange?.invoke(new.selection.start, new.selection.end)
+    }
+
+    // Toggle block — expandable section with header + collapsible body
+    if (block.type == "toggle") {
+        var toggleExpanded by remember(block.id) { mutableStateOf(false) }
+        Column(modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { toggleExpanded = !toggleExpanded },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = if (toggleExpanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+                BlockTextField(
+                    textFieldValue = textFieldValue,
+                    textStyle = textStyle.copy(fontWeight = FontWeight.SemiBold),
+                    placeholder = "Toggle heading",
+                    modifier = Modifier.weight(1f),
+                    onFocusChange = onFocusChange,
+                    onValueChange = { new -> handleValueChange(new, allowDelete = true) },
+                    onEnterPressed = onEnterPressed
+                )
+            }
+            AnimatedVisibility(visible = toggleExpanded) {
+                var detailValue by remember(block.id) { mutableStateOf(TextFieldValue(block.detail)) }
+                LaunchedEffect(block.detail) {
+                    if (detailValue.text != block.detail) detailValue = TextFieldValue(block.detail)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 28.dp, top = 4.dp, bottom = 4.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .padding(12.dp)
+                ) {
+                    BasicTextField(
+                        value = detailValue,
+                        onValueChange = { new ->
+                            detailValue = new
+                            onToggleDetail(new.text)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = textStyle.copy(fontWeight = FontWeight.Normal),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        decorationBox = { inner ->
+                            Box {
+                                if (detailValue.text.isEmpty()) {
+                                    Text(
+                                        "Toggle content…",
+                                        style = textStyle,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                    )
+                                }
+                                inner()
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        return
     }
 
     // Toggle block — expandable section with header + collapsible body
@@ -1635,13 +1735,16 @@ private fun buildTextStyle(block: ContentBlock, isTitle: Boolean): TextStyle {
 @Composable
 private fun FormattingToolbar(
     currentBlock: ContentBlock?,
+    selectionRange: Pair<Int, Int>? = null,
     onBold: () -> Unit,
     onItalic: () -> Unit,
     onUnderline: () -> Unit,
     onBlockType: (String) -> Unit,
     onColorChange: (String) -> Unit,
-    onBgColorChange: (String) -> Unit
+    onBgColorChange: (String) -> Unit,
+    onSpansChange: ((String) -> Unit)? = null
 ) {
+    val hasSelection = selectionRange != null && selectionRange.first != selectionRange.second
     val textColors = listOf(
         // Row 1 — Neutrals
         "" to Color.Transparent,            // Auto (follows theme)
@@ -1721,13 +1824,28 @@ private fun FormattingToolbar(
                     .background(MaterialTheme.colorScheme.outlineVariant)
             )
 
-            // Format buttons
+            // Format buttons — inline when selection active, block-level otherwise
             FormatButton(Icons.Default.FormatBold, "Bold",
-                active = currentBlock?.fontWeight == "bold", onClick = onBold)
+                active = currentBlock?.fontWeight == "bold",
+                onClick = {
+                    if (hasSelection && onSpansChange != null && currentBlock != null && selectionRange != null) {
+                        onSpansChange(toggleBold(currentBlock.spans, selectionRange.first, selectionRange.second))
+                    } else onBold()
+                })
             FormatButton(Icons.Default.FormatItalic, "Italic",
-                active = currentBlock?.fontStyle == "italic", onClick = onItalic)
+                active = currentBlock?.fontStyle == "italic",
+                onClick = {
+                    if (hasSelection && onSpansChange != null && currentBlock != null && selectionRange != null) {
+                        onSpansChange(toggleItalic(currentBlock.spans, selectionRange.first, selectionRange.second))
+                    } else onItalic()
+                })
             FormatButton(Icons.Default.FormatUnderlined, "Underline",
-                active = currentBlock?.textDecoration == "underline", onClick = onUnderline)
+                active = currentBlock?.textDecoration == "underline",
+                onClick = {
+                    if (hasSelection && onSpansChange != null && currentBlock != null && selectionRange != null) {
+                        onSpansChange(toggleUnderline(currentBlock.spans, selectionRange.first, selectionRange.second))
+                    } else onUnderline()
+                })
 
             Box(
                 Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
@@ -1809,7 +1927,11 @@ private fun FormattingToolbar(
                                                 shape = CircleShape
                                             )
                                             .clickable {
-                                                onColorChange(hex)
+                                                if (hasSelection && onSpansChange != null && currentBlock != null && selectionRange != null) {
+                                                    onSpansChange(setInlineColor(currentBlock.spans, selectionRange.first, selectionRange.second, hex))
+                                                } else {
+                                                    onColorChange(hex)
+                                                }
                                                 showColorDropdown = false
                                             },
                                         contentAlignment = Alignment.Center
