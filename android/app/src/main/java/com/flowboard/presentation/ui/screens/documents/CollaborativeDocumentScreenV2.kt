@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.flowboard.data.models.DocumentUserPresence
 import com.flowboard.data.models.crdt.ContentBlock
 import com.flowboard.data.remote.websocket.ConnectionState
@@ -77,9 +79,14 @@ fun CollaborativeDocumentScreenV2(
     var showSubPageDialog by remember { mutableStateOf(false) }
     var subPageTitle by remember { mutableStateOf("") }
     var showCoverPicker by remember { mutableStateOf(false) }
+    var showAiPanel by remember { mutableStateOf(false) }
+    var blockMenuBlockId by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
+
+    val blocks = document?.blocks ?: emptyList()
+    val focusedBlock = blocks.find { it.id == focusedBlockId }
 
     // Local snapshot list for smooth drag-to-reorder (avoids round-tripping through ViewModel on every step)
     val localBlocks: SnapshotStateList<com.flowboard.data.models.crdt.ContentBlock> =
@@ -114,9 +121,6 @@ fun CollaborativeDocumentScreenV2(
     LaunchedEffect(documentId) { viewModel.connectToDocument(documentId) }
     DisposableEffect(Unit) { onDispose { viewModel.disconnect() } }
 
-    val blocks = document?.blocks ?: emptyList()
-    val focusedBlock = blocks.find { it.id == focusedBlockId }
-
     // Word count derived from all block text
     val wordCount = remember(blocks) {
         blocks.filter { it.type != "divider" }
@@ -133,6 +137,16 @@ fun CollaborativeDocumentScreenV2(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showAiPanel = true },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(Icons.Default.AutoAwesome, contentDescription = "AI Assistant", modifier = Modifier.size(22.dp))
+            }
+        },
         topBar = {
             val docTitle = blocks.firstOrNull { it.type == "h1" }?.content
                 ?: blocks.firstOrNull()?.content
@@ -377,6 +391,7 @@ fun CollaborativeDocumentScreenV2(
                                     viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
                                 },
                                 onDeleteBlock = { if (blocks.size > 1) viewModel.deleteBlock(block.id) },
+                                onDuplicateBlock = { viewModel.duplicateBlock(block.id) },
                                 onSlashCommand = { showSlashMenu = true; slashMenuBlockId = block.id },
                                 onMarkdownShortcut = { type, cleanedText ->
                                     viewModel.updateBlockType(block.id, type)
@@ -445,7 +460,24 @@ fun CollaborativeDocumentScreenV2(
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                                                 )
                                             }
-                                            // ⠿ drag handle
+                                            // ⋮ block options (long press on drag handle area)
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .combinedClickable(
+                                        onClick = { blockMenuBlockId = block.id },
+                                        onLongClick = { blockMenuBlockId = block.id }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.MoreVert, null,
+                                    modifier = Modifier.size(13.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                                )
+                            }
+                            // ⠿ drag handle
                                             Icon(
                                                 Icons.Default.DragIndicator, null,
                                                 modifier = Modifier
@@ -484,6 +516,7 @@ fun CollaborativeDocumentScreenV2(
                                         viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
                                     },
                                     onDeleteBlock = { if (localBlocks.size > 1) viewModel.deleteBlock(block.id) },
+                                    onDuplicateBlock = { viewModel.duplicateBlock(block.id) },
                                     onSlashCommand = { showSlashMenu = true; slashMenuBlockId = block.id },
                                     onMarkdownShortcut = { type, cleanedText ->
                                         viewModel.updateBlockType(block.id, type)
@@ -533,6 +566,40 @@ fun CollaborativeDocumentScreenV2(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // Block options menu (duplicate / delete)
+    blockMenuBlockId?.let { menuBlockId ->
+        val menuBlock = blocks.find { it.id == menuBlockId }
+        if (menuBlock != null) {
+            ModalBottomSheet(onDismissRequest = { blockMenuBlockId = null }) {
+                Column(modifier = Modifier.padding(bottom = 32.dp)) {
+                    Text(
+                        text = menuBlock.content.take(40).ifBlank { menuBlock.type.replaceFirstChar { it.uppercase() } },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    HorizontalDivider()
+                    ListItem(
+                        headlineContent = { Text("Duplicate block") },
+                        leadingContent = { Icon(Icons.Default.ContentCopy, null) },
+                        modifier = Modifier.clickable {
+                            viewModel.duplicateBlock(menuBlockId)
+                            blockMenuBlockId = null
+                        }
+                    )
+                    ListItem(
+                        headlineContent = { Text("Delete block", color = MaterialTheme.colorScheme.error) },
+                        leadingContent = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                        modifier = Modifier.clickable {
+                            if (blocks.size > 1) viewModel.deleteBlock(menuBlockId)
+                            blockMenuBlockId = null
+                        }
+                    )
                 }
             }
         }
@@ -637,6 +704,19 @@ fun CollaborativeDocumentScreenV2(
                 showCoverPicker = false
             },
             onDismiss = { showCoverPicker = false }
+        )
+    }
+
+    // AI Assistant panel
+    if (showAiPanel) {
+        val docContext = remember(blocks) {
+            blocks.filter { it.type != "divider" && it.type != "image" }
+                .joinToString("\n") { it.content }
+                .take(4000)
+        }
+        AiAssistantSheet(
+            documentContext = docContext,
+            onDismiss = { showAiPanel = false }
         )
     }
 
@@ -950,6 +1030,7 @@ private fun DocumentBlock(
     onCursorChange: (Int) -> Unit,
     onEnterPressed: () -> Unit,
     onDeleteBlock: () -> Unit,
+    onDuplicateBlock: () -> Unit = {},
     onSlashCommand: () -> Unit,
     onMarkdownShortcut: (type: String, cleanedText: String) -> Unit,
     onNavigateToSubPage: ((String) -> Unit)? = null,
@@ -1018,6 +1099,85 @@ private fun DocumentBlock(
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        return
+    }
+
+    // Image block — shows AsyncImage from URL stored in content
+    if (block.type == "image") {
+        val context = LocalContext.current
+        var showUrlDialog by remember { mutableStateOf(false) }
+        val hasUrl = block.content.startsWith("http")
+
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 6.dp)
+        ) {
+            if (hasUrl) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(block.content)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Image",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showUrlDialog = true }
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .clickable { showUrlDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Image, null,
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            "Add image URL",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+        }
+        if (showUrlDialog) {
+            var urlInput by remember { mutableStateOf(block.content.takeIf { it.startsWith("http") } ?: "") }
+            AlertDialog(
+                onDismissRequest = { showUrlDialog = false },
+                title = { Text("Image URL") },
+                text = {
+                    OutlinedTextField(
+                        value = urlInput,
+                        onValueChange = { urlInput = it },
+                        label = { Text("https://...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        onTextChange(urlInput.trim())
+                        showUrlDialog = false
+                    }) { Text("Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUrlDialog = false }) { Text("Cancel") }
+                }
             )
         }
         return
@@ -1249,6 +1409,7 @@ private fun DocumentBlock(
             }
         }
     }
+
 }
 
 @Composable
@@ -1576,6 +1737,7 @@ private fun SlashCommandMenu(
         Triple("callout", Icons.Default.Lightbulb, "Callout"),
         Triple("code", Icons.Default.Code, "Code Block"),
         Triple("divider", Icons.Default.HorizontalRule, "Divider"),
+        Triple("image", Icons.Default.Image, "Image"),
         Triple("subpage", Icons.Default.NoteAdd, "Sub-page"),
     )
 

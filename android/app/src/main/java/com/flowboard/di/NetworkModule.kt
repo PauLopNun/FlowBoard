@@ -116,4 +116,9 @@ object NetworkModule {
     @Singleton
     fun provideTaskWebSocketClient(@WebSocketClientQualifier httpClient: HttpClient): TaskWebSocketClient =
         TaskWebSocketClient(httpClient)
+
+    @Provides
+    @Singleton
+    fun provideAiApiService(@HttpClientQualifier httpClient: HttpClient): com.flowboard.data.remote.api.AiApiService =
+        com.flowboard.data.remote.api.AiApiService(httpClient)
 }
