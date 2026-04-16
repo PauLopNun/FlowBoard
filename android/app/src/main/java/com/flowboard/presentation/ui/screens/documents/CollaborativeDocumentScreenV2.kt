@@ -2155,8 +2155,8 @@ private fun TableBlock(
     val parsed = remember(block.content) {
         runCatching {
             val obj = Json.parseToJsonElement(block.content).jsonObject
-            val rows = obj["rows"]?.jsonPrimitive?.int ?: 2
-            val cols = obj["cols"]?.jsonPrimitive?.int ?: 3
+            val rows = obj["rows"]?.jsonPrimitive?.content?.toIntOrNull() ?: 2
+            val cols = obj["cols"]?.jsonPrimitive?.content?.toIntOrNull() ?: 3
             val cells = obj["cells"]?.jsonArray?.map { rowEl ->
                 rowEl.jsonArray.map { it.jsonPrimitive.content }.toMutableList()
             }?.toMutableList() ?: MutableList(rows) { MutableList(cols) { "" } }
