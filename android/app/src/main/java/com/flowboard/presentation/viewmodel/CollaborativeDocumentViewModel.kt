@@ -326,7 +326,7 @@ class CollaborativeDocumentViewModel @Inject constructor(
      * Duplicate block — inserts a copy immediately after the original
      */
     fun duplicateBlock(blockId: String) {
-        val original = _document.value?.blocks?.find { it.id == blockId } ?: return
+        val original = document.value?.blocks?.find { it.id == blockId } ?: return
         val copy = original.copy(id = UUID.randomUUID().toString())
         addBlock(copy, afterBlockId = blockId)
     }
