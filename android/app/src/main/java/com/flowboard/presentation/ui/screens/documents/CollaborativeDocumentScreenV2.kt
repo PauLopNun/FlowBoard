@@ -85,6 +85,9 @@ fun CollaborativeDocumentScreenV2(
     val listState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
 
+    val blocks = document?.blocks ?: emptyList()
+    val focusedBlock = blocks.find { it.id == focusedBlockId }
+
     // Local snapshot list for smooth drag-to-reorder (avoids round-tripping through ViewModel on every step)
     val localBlocks: SnapshotStateList<com.flowboard.data.models.crdt.ContentBlock> =
         remember { mutableStateListOf() }
@@ -117,9 +120,6 @@ fun CollaborativeDocumentScreenV2(
     }
     LaunchedEffect(documentId) { viewModel.connectToDocument(documentId) }
     DisposableEffect(Unit) { onDispose { viewModel.disconnect() } }
-
-    val blocks = document?.blocks ?: emptyList()
-    val focusedBlock = blocks.find { it.id == focusedBlockId }
 
     // Word count derived from all block text
     val wordCount = remember(blocks) {
@@ -1039,7 +1039,6 @@ private fun DocumentBlock(
     var textFieldValue by remember(block.id) {
         mutableStateOf(TextFieldValue(block.content))
     }
-    var showBlockMenu by remember { mutableStateOf(false) }
 
     // Sync content if remote update changes it
     LaunchedEffect(block.content) {
@@ -1411,22 +1410,6 @@ private fun DocumentBlock(
         }
     }
 
-    // Block context menu (long-press style, triggered from showBlockMenu state)
-    DropdownMenu(
-        expanded = showBlockMenu,
-        onDismissRequest = { showBlockMenu = false }
-    ) {
-        DropdownMenuItem(
-            text = { Text("Duplicate") },
-            leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
-            onClick = { onDuplicateBlock(); showBlockMenu = false }
-        )
-        DropdownMenuItem(
-            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-            leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-            onClick = { onDeleteBlock(); showBlockMenu = false }
-        )
-    }
 }
 
 @Composable
