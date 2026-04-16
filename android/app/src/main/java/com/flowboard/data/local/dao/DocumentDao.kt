@@ -69,4 +69,10 @@ interface DocumentDao {
 
     @Query("SELECT * FROM documents WHERE isDeleted = 0 ORDER BY updatedAt DESC")
     fun getActiveDocuments(): Flow<List<DocumentEntity>>
+
+    @Query("SELECT * FROM documents WHERE isStarred = 1 AND isDeleted = 0 ORDER BY updatedAt DESC")
+    fun getStarredDocuments(): Flow<List<DocumentEntity>>
+
+    @Query("UPDATE documents SET isStarred = :isStarred WHERE id = :id")
+    suspend fun updateStarred(id: String, isStarred: Boolean)
 }

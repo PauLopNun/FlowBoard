@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,6 +31,7 @@ fun MyDocumentsScreen(
     onDocumentClick: (String) -> Unit,
     onCreateDocument: () -> Unit,
     onNavigateBack: () -> Unit,
+    onToggleStar: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: DocumentViewModel = hiltViewModel()
 ) {
@@ -161,7 +163,10 @@ fun MyDocumentsScreen(
                             subtitle = "Owner • ${formatDate(doc.updatedAt)}",
                             onClick = { onDocumentClick(doc.id) },
                             onDelete = { showDeleteDialog = doc.id },
-                            showDelete = true
+                            showDelete = true,
+                            isStarred = doc.isStarred,
+                            onToggleStar = { onToggleStar(doc.id) },
+                            onDuplicate = { viewModel.duplicateDocument(doc.id) }
                         )
                     }
                 }
@@ -183,7 +188,10 @@ fun MyDocumentsScreen(
                             subtitle = "Shared by ${doc.ownerName ?: "someone"} • ${formatDate(doc.updatedAt)}",
                             onClick = { onDocumentClick(doc.id) },
                             onDelete = null,
-                            showDelete = false
+                            showDelete = false,
+                            isStarred = doc.isStarred,
+                            onToggleStar = { onToggleStar(doc.id) },
+                            onDuplicate = null
                         )
                     }
                 }
@@ -223,6 +231,9 @@ private fun DocumentCard(
     onClick: () -> Unit,
     onDelete: (() -> Unit)?,
     showDelete: Boolean,
+    isStarred: Boolean = false,
+    onToggleStar: (() -> Unit)? = null,
+    onDuplicate: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -267,6 +278,17 @@ private fun DocumentCard(
                 }
             }
 
+            // Star icon button
+            if (onToggleStar != null) {
+                IconButton(onClick = onToggleStar) {
+                    Icon(
+                        imageVector = if (isStarred) Icons.Default.Star else Icons.Default.StarBorder,
+                        contentDescription = if (isStarred) "Unstar" else "Star",
+                        tint = if (isStarred) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    )
+                }
+            }
+
             if (showDelete && onDelete != null) {
                 Box {
                     IconButton(onClick = { showMenu = true }) {
@@ -276,6 +298,18 @@ private fun DocumentCard(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        if (onDuplicate != null) {
+                            DropdownMenuItem(
+                                text = { Text("Duplicate") },
+                                onClick = {
+                                    showMenu = false
+                                    onDuplicate()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.ContentCopy, null)
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Delete") },
                             onClick = {

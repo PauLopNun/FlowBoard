@@ -39,6 +39,11 @@ class DocumentViewModel @Inject constructor(
         documentDao.getDeletedDocuments()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Starred/favourited documents
+    val starredDocuments: StateFlow<List<com.flowboard.data.local.entities.DocumentEntity>> =
+        documentDao.getStarredDocuments()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // WebSocket connection state
     val connectionState: StateFlow<WebSocketState> = documentRepository.getConnectionState()
         .stateIn(
@@ -459,6 +464,42 @@ class DocumentViewModel @Inject constructor(
     fun restoreDocument(documentId: String) {
         viewModelScope.launch {
             documentDao.restoreDocument(documentId)
+        }
+    }
+
+    /**
+     * Toggle starred/favourite state for a document
+     */
+    fun toggleStar(docId: String) {
+        viewModelScope.launch {
+            val doc = documentDao.getDocumentById(docId) ?: return@launch
+            documentDao.updateStarred(docId, !doc.isStarred)
+        }
+    }
+
+    /**
+     * Duplicate a document: creates a copy with a new ID
+     */
+    fun duplicateDocument(docId: String, onSuccess: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            val original = documentDao.getDocumentById(docId) ?: return@launch
+            val newId = java.util.UUID.randomUUID().toString()
+            val now = Clock.System.now()
+                .toLocalDateTime(TimeZone.currentSystemDefault()).toString()
+            val copy = original.copy(
+                id = newId,
+                title = "${original.title} (copy)",
+                createdAt = now,
+                updatedAt = now,
+                isStarred = false,
+                isDeleted = false,
+                deletedAt = null
+            )
+            documentDao.insertDocument(copy)
+            _documentListState.update { state ->
+                state.copy(ownedDocuments = state.ownedDocuments + copy)
+            }
+            onSuccess(newId)
         }
     }
 

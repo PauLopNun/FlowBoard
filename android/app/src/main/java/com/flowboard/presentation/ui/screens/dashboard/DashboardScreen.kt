@@ -54,6 +54,7 @@ fun DashboardScreen(
     onWorkspaceClick: () -> Unit = {},
     onViewAllDocuments: () -> Unit = {},
     onEditorDemoClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     documentViewModel: DocumentViewModel = hiltViewModel(),
     loginViewModel: LoginViewModel = hiltViewModel(),
@@ -227,7 +228,7 @@ fun DashboardSidebar(
             NavigationItem(Icons.Outlined.Chat, "Chat", false, onChatNavigate)
             NavigationItem(Icons.Outlined.CalendarMonth, "Calendar", false, onCalendarNavigate)
             NavigationItem(Icons.Outlined.Group, "Workspaces", false, onWorkspaceNavigate)
-            NavigationItem(Icons.Outlined.Search, "Search", currentView == DashboardView.SEARCH) { onNavigate(DashboardView.SEARCH) }
+            NavigationItem(Icons.Outlined.Search, "Search", currentView == DashboardView.SEARCH) { scope.launch { drawerState.close() }; onSearchClick() }
             Spacer(modifier = Modifier.height(12.dp))
             NavigationItem(Icons.Default.Add, "New Page", false, onCreateDocument)
             Spacer(modifier = Modifier.height(16.dp))
