@@ -51,6 +51,10 @@ import com.flowboard.presentation.ui.components.CollaboratorRole
 import com.flowboard.presentation.ui.components.ShareDocumentDialog
 import com.flowboard.presentation.ui.components.UserAvatar
 import com.flowboard.presentation.viewmodel.CollaborativeDocumentViewModel
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.UUID
 
 /**
@@ -240,6 +244,9 @@ fun CollaborativeDocumentScreenV2(
                             },
                             onColorChange = { color ->
                                 focusedBlockId?.let { id -> viewModel.updateFormatting(id, color = color) }
+                            },
+                            onBgColorChange = { bgColor ->
+                                focusedBlockId?.let { id -> viewModel.updateFormatting(id, backgroundColor = bgColor) }
                             }
                         )
                     }
@@ -425,6 +432,7 @@ fun CollaborativeDocumentScreenV2(
                                 },
                                 onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
                                 onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
+                                onTableCellChange = { row, col, value -> viewModel.updateTableCell(block.id, row, col, value) },
                                 isTitle = true,
                                 modifier = Modifier.weight(1f)
                             )
@@ -551,6 +559,7 @@ fun CollaborativeDocumentScreenV2(
                                     },
                                     onNavigateToSubPage = { docId -> onNavigateToDocument(docId) },
                                     onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
+                                    onTableCellChange = { row, col, value -> viewModel.updateTableCell(block.id, row, col, value) },
                                     isTitle = false,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -642,10 +651,16 @@ fun CollaborativeDocumentScreenV2(
                 } else {
                     slashMenuBlockId?.let { blockId ->
                         viewModel.updateBlockType(blockId, type)
-                        // Clear the "/" from the block
-                        val block = blocks.find { it.id == blockId }
-                        if (block?.content == "/") {
-                            viewModel.insertText(blockId, "", 0)
+                        if (type == "table") {
+                            // Seed default 2×3 table JSON
+                            val defaultJson = """{"rows":2,"cols":3,"cells":[["Header 1","Header 2","Header 3"],["","",""]]}"""
+                            viewModel.insertText(blockId, defaultJson, 0)
+                        } else {
+                            // Clear the "/" from the block
+                            val block = blocks.find { it.id == blockId }
+                            if (block?.content == "/") {
+                                viewModel.insertText(blockId, "", 0)
+                            }
                         }
                     }
                 }
@@ -1062,6 +1077,7 @@ private fun DocumentBlock(
     onSlashCommand: () -> Unit,
     onMarkdownShortcut: (type: String, cleanedText: String) -> Unit,
     onNavigateToSubPage: ((String) -> Unit)? = null,
+    onTableCellChange: ((row: Int, col: Int, value: String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var textFieldValue by remember(block.id) {
@@ -1096,6 +1112,16 @@ private fun DocumentBlock(
         block.type == "toggle" -> "Toggle heading"
         isFocused -> "Type '/' for commands"
         else -> ""
+    }
+
+    // Table block — inline editable grid
+    if (block.type == "table") {
+        TableBlock(
+            block = block,
+            onCellChange = { row, col, value -> onTableCellChange?.invoke(row, col, value) },
+            modifier = modifier
+        )
+        return
     }
 
     // Subpage block — clickable inline page-link card (Notion-style)
@@ -1244,6 +1270,13 @@ private fun DocumentBlock(
         "callout" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
         else -> Color.Transparent
     }
+    val resolvedBlockBackground = if (block.backgroundColor.isNotEmpty()) {
+        try {
+            Color(android.graphics.Color.parseColor(
+                if (block.backgroundColor.startsWith("#")) block.backgroundColor else "#${block.backgroundColor}"
+            ))
+        } catch (_: Exception) { blockBackground }
+    } else blockBackground
 
     fun handleValueChange(new: TextFieldValue, allowDelete: Boolean) {
         if (block.type == "p") {
@@ -1387,8 +1420,8 @@ private fun DocumentBlock(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(blockBackground)
-            .clip(if (block.type in listOf("code", "callout")) RoundedCornerShape(8.dp) else RoundedCornerShape(0.dp))
+            .background(resolvedBlockBackground)
+            .clip(if (block.type in listOf("code", "callout") || block.backgroundColor.isNotEmpty()) RoundedCornerShape(8.dp) else RoundedCornerShape(0.dp))
             .padding(horizontal = horizontalPadding, vertical = verticalPadding)
     ) {
         when (block.type) {
@@ -1606,7 +1639,8 @@ private fun FormattingToolbar(
     onItalic: () -> Unit,
     onUnderline: () -> Unit,
     onBlockType: (String) -> Unit,
-    onColorChange: (String) -> Unit
+    onColorChange: (String) -> Unit,
+    onBgColorChange: (String) -> Unit
 ) {
     val textColors = listOf(
         // Row 1 — Neutrals
@@ -1635,10 +1669,29 @@ private fun FormattingToolbar(
         "#1E40AF" to Color(0xFF1E40AF),     // Dark blue
         "#7F1D1D" to Color(0xFF7F1D1D),     // Dark red
     )
+    val bgColors = listOf(
+        // Row 1 — None + warm pastels
+        "" to Color.Transparent,             // None
+        "#FEF3C7" to Color(0xFFFEF3C7),     // Amber
+        "#D1FAE5" to Color(0xFFD1FAE5),     // Green
+        "#DBEAFE" to Color(0xFFDBEAFE),     // Blue
+        // Row 2 — Cool pastels
+        "#EDE9FE" to Color(0xFFEDE9FE),     // Purple
+        "#FCE7F3" to Color(0xFFFCE7F3),     // Pink
+        "#FEE2E2" to Color(0xFFFEE2E2),     // Red
+        "#FFF7ED" to Color(0xFFFFF7ED),     // Orange
+        // Row 3 — Richer tones
+        "#ECFDF5" to Color(0xFFECFDF5),     // Emerald
+        "#F0F9FF" to Color(0xFFF0F9FF),     // Sky
+        "#F5F3FF" to Color(0xFFF5F3FF),     // Violet
+        "#FDF4FF" to Color(0xFFFDF4FF),     // Fuchsia
+    )
     // Empty / "#000000" / "default" all mean "auto" in the new system
     val currentColor = currentBlock?.color
         ?.takeIf { it.isNotBlank() && it != "#000000" && it != "default" } ?: ""
+    val currentBgColor = currentBlock?.backgroundColor ?: ""
     var showColorDropdown by remember { mutableStateOf(false) }
+    var showBgColorDropdown by remember { mutableStateOf(false) }
 
     Surface(
         tonalElevation = 4.dp,
@@ -1776,6 +1829,87 @@ private fun FormattingToolbar(
                     }
                 }
             }
+
+            // Background color (highlight) picker dropdown
+            Box {
+                val bgIndicatorColor = if (currentBgColor.isEmpty()) Color.Transparent
+                    else try { Color(android.graphics.Color.parseColor(currentBgColor)) }
+                    catch (_: Exception) { Color.Transparent }
+                IconButton(
+                    onClick = { showBgColorDropdown = !showBgColorDropdown },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.FormatColorFill,
+                            contentDescription = "Highlight color",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(width = 14.dp, height = 3.dp)
+                                .clip(RoundedCornerShape(1.dp))
+                                .background(
+                                    if (currentBgColor.isEmpty()) MaterialTheme.colorScheme.outlineVariant
+                                    else bgIndicatorColor
+                                )
+                        )
+                    }
+                }
+                DropdownMenu(
+                    expanded = showBgColorDropdown,
+                    onDismissRequest = { showBgColorDropdown = false }
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        bgColors.chunked(4).forEach { rowColors ->
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            ) {
+                                rowColors.forEach { (hex, color) ->
+                                    val isNone = hex.isEmpty()
+                                    val isSelected = if (isNone) currentBgColor.isEmpty()
+                                        else currentBgColor.equals(hex, ignoreCase = true)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(if (isSelected) 28.dp else 24.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (isNone) MaterialTheme.colorScheme.surface
+                                                else color
+                                            )
+                                            .border(
+                                                width = if (isSelected) 2.dp else 1.dp,
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary
+                                                    else if (isNone) MaterialTheme.colorScheme.outlineVariant
+                                                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                                shape = CircleShape
+                                            )
+                                            .clickable {
+                                                onBgColorChange(hex)
+                                                showBgColorDropdown = false
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isNone) {
+                                            Text(
+                                                "N",
+                                                style = MaterialTheme.typography.labelSmall
+                                                    .copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1841,6 +1975,7 @@ private fun SlashCommandMenu(
         Triple("code", Icons.Default.Code, "Code Block"),
         Triple("divider", Icons.Default.HorizontalRule, "Divider"),
         Triple("image", Icons.Default.Image, "Image"),
+        Triple("table", Icons.Default.TableChart, "Table"),
         Triple("subpage", Icons.Default.NoteAdd, "Sub-page"),
     )
 
@@ -1875,6 +2010,145 @@ private fun SlashCommandMenu(
                         .fillMaxWidth()
                         .clickable { onSelect(type) }
                 )
+            }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Table Block
+// ────────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun TableBlock(
+    block: ContentBlock,
+    onCellChange: (row: Int, col: Int, value: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Parse JSON; fall back to default 2×3 on any error
+    val defaultCells: List<MutableList<String>> = listOf(
+        mutableListOf("Header 1", "Header 2", "Header 3"),
+        mutableListOf("", "", "")
+    )
+    val parsed = remember(block.content) {
+        runCatching {
+            val obj = Json.parseToJsonElement(block.content).jsonObject
+            val rows = obj["rows"]?.jsonPrimitive?.int ?: 2
+            val cols = obj["cols"]?.jsonPrimitive?.int ?: 3
+            val cells = obj["cells"]?.jsonArray?.map { rowEl ->
+                rowEl.jsonArray.map { it.jsonPrimitive.content }.toMutableList()
+            }?.toMutableList() ?: MutableList(rows) { MutableList(cols) { "" } }
+            Triple(rows, cols, cells)
+        }.getOrElse { Triple(2, 3, defaultCells.map { it.toMutableList() }.toMutableList()) }
+    }
+
+    var rows by remember(block.content) { mutableStateOf(parsed.first) }
+    var cols by remember(block.content) { mutableStateOf(parsed.second) }
+    // Local mutable snapshot of cell values for immediate UI updates
+    val cells: SnapshotStateList<SnapshotStateList<String>> = remember(block.content) {
+        parsed.third.map { row -> row.toMutableStateList() }.toMutableStateList()
+    }
+
+    fun serializeAndNotify(r: Int, c: Int, value: String) {
+        onCellChange(r, c, value)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        // Table grid
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                .clip(RoundedCornerShape(6.dp))
+        ) {
+            cells.forEachIndexed { rowIdx, rowCells ->
+                val isHeader = rowIdx == 0
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    rowCells.forEachIndexed { colIdx, cellValue ->
+                        val isLastCol = colIdx == rowCells.lastIndex
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 36.dp)
+                                .background(
+                                    if (isHeader) MaterialTheme.colorScheme.surfaceVariant
+                                    else Color.Transparent
+                                )
+                                .then(
+                                    if (!isLastCol) Modifier.border(
+                                        width = 0.5.dp,
+                                        color = MaterialTheme.colorScheme.outlineVariant
+                                    ) else Modifier
+                                )
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            var localValue by remember(block.content, rowIdx, colIdx) {
+                                mutableStateOf(cellValue)
+                            }
+                            BasicTextField(
+                                value = localValue,
+                                onValueChange = { new ->
+                                    localValue = new
+                                    if (rowIdx < cells.size && colIdx < cells[rowIdx].size) {
+                                        cells[rowIdx][colIdx] = new
+                                    }
+                                    serializeAndNotify(rowIdx, colIdx, new)
+                                },
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = if (isHeader) FontWeight.SemiBold
+                                                 else FontWeight.Normal,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                ),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+                // Row divider (not after last row)
+                if (rowIdx < cells.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                }
+            }
+        }
+
+        // Control buttons
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TextButton(
+                onClick = {
+                    val newRow = MutableList(cols) { "" }.toMutableStateList()
+                    cells.add(newRow)
+                    rows += 1
+                    // Notify via the last cell of the new row
+                    val newRowIdx = cells.lastIndex
+                    serializeAndNotify(newRowIdx, 0, "")
+                }
+            ) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Add row", style = MaterialTheme.typography.labelMedium)
+            }
+            TextButton(
+                onClick = {
+                    cells.forEachIndexed { rIdx, rowCells ->
+                        rowCells.add("")
+                    }
+                    cols += 1
+                    serializeAndNotify(0, cells[0].lastIndex, "")
+                }
+            ) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Add column", style = MaterialTheme.typography.labelMedium)
             }
         }
     }

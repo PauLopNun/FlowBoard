@@ -7,6 +7,7 @@ import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.FileProvider
 import com.flowboard.data.models.crdt.ContentBlock
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
@@ -21,6 +22,26 @@ fun exportToMarkdown(blocks: List<ContentBlock>, title: String, context: Context
             "bullet" -> sb.appendLine("- $content")
             "numbered" -> sb.appendLine("1. $content")
             "code" -> sb.appendLine("```\n$content\n```\n")
+            "table" -> {
+                runCatching {
+                    val obj = JSONObject(content)
+                    val jsonCells = obj.getJSONArray("cells")
+                    val rowCount = jsonCells.length()
+                    for (r in 0 until rowCount) {
+                        val row = jsonCells.getJSONArray(r)
+                        val cells = (0 until row.length()).map { row.getString(it) }
+                        sb.append("| ")
+                        sb.append(cells.joinToString(" | "))
+                        sb.appendLine(" |")
+                        if (r == 0) {
+                            sb.append("| ")
+                            sb.append(cells.joinToString(" | ") { "---" })
+                            sb.appendLine(" |")
+                        }
+                    }
+                    sb.appendLine()
+                }
+            }
             else -> {
                 if (content.isBlank()) return@forEach
                 var text = content
@@ -93,6 +114,18 @@ fun exportToPdf(blocks: List<ContentBlock>, title: String, context: Context) {
             block.type.startsWith("h") || block.fontWeight == "bold" -> Typeface.DEFAULT_BOLD
             block.fontStyle == "italic" -> Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
             else -> Typeface.DEFAULT
+        }
+        if (block.type == "table") {
+            runCatching {
+                val obj = JSONObject(content)
+                val jsonCells = obj.getJSONArray("cells")
+                for (r in 0 until jsonCells.length()) {
+                    val row = jsonCells.getJSONArray(r)
+                    val line = (0 until row.length()).joinToString("  |  ") { row.getString(it) }
+                    renderText("| $line |")
+                }
+            }
+            return@forEach
         }
         val prefix = when (block.type) { "bullet" -> "•  "; "numbered" -> "1. "; else -> "" }
         renderText("$prefix$content")
