@@ -439,6 +439,19 @@ class CollaborativeDocumentViewModel @Inject constructor(
     /**
      * Update block type
      */
+    fun updateInlineSpans(blockId: String, spansJson: String) {
+        val documentId = _uiState.value.currentDocumentId ?: return
+        val userId = _uiState.value.currentUserId ?: return
+        val operation = com.flowboard.data.models.crdt.UpdateBlockSpansOperation(
+            operationId = UUID.randomUUID().toString(),
+            boardId = documentId,
+            blockId = blockId,
+            spans = spansJson
+        )
+        crdtEngine.applyOperation(operation)
+        viewModelScope.launch { webSocketClient.sendOperation(operation, userId) }
+    }
+
     fun updateBlockType(blockId: String, newType: String) {
         val documentId = _uiState.value.currentDocumentId ?: return
         val userId = _uiState.value.currentUserId ?: return

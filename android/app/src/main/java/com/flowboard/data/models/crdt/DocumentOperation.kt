@@ -160,3 +160,13 @@ data class CursorMoveOperation(
     val position: Int,
     val selectionEnd: Int? = null
 ) : DocumentOperation
+
+/** Updates inline character-level formatting spans for a block. */
+@Serializable
+@SerialName("UPDATE_SPANS")
+data class UpdateBlockSpansOperation(
+    override val operationId: String,
+    override val boardId: String,
+    val blockId: String,
+    val spans: String  // serialised JSON (see InlineSpan)
+) : DocumentOperation
