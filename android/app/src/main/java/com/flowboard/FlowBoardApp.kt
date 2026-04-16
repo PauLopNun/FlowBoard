@@ -12,9 +12,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,10 +45,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.navArgument
 import kotlinx.coroutines.delay
 import com.flowboard.presentation.ui.screens.auth.ForgotPasswordScreen
 import com.flowboard.presentation.ui.screens.auth.LoginScreen
@@ -51,7 +59,10 @@ import com.flowboard.presentation.ui.screens.chat.ChatListScreen
 import com.flowboard.presentation.ui.screens.chat.ChatScreen
 import com.flowboard.presentation.ui.screens.dashboard.DashboardScreen
 import com.flowboard.presentation.ui.screens.documents.CollaborativeDocumentScreenV2
+import com.flowboard.presentation.ui.screens.documents.DocumentTemplate
 import com.flowboard.presentation.ui.screens.documents.MyDocumentsScreen
+import com.flowboard.presentation.ui.screens.documents.SearchScreen
+import com.flowboard.presentation.ui.screens.documents.TemplatesBottomSheet
 import com.flowboard.presentation.ui.screens.notifications.NotificationCenterScreen
 import com.flowboard.presentation.ui.screens.profile.ProfileScreen
 import com.flowboard.presentation.ui.screens.settings.SettingsScreen
@@ -215,6 +226,7 @@ fun FlowBoardApp(
                     onCalendarClick = { navController.navigate("calendar") },
                     onWorkspaceClick = { navController.navigate("workspaces") },
                     onEditorDemoClick = { navController.navigate("my_documents") },
+                    onSearchClick = { navController.navigate("search") },
                     onLogout = {
                         loginViewModel.logout()
                         navController.navigate("login") {
@@ -234,11 +246,22 @@ fun FlowBoardApp(
                 )
             }
 
+            composable("search") {
+                SearchScreen(
+                    onDocumentClick = { documentId ->
+                        navController.navigate("document_edit/$documentId")
+                    },
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = documentViewModel
+                )
+            }
+
             composable("my_documents") {
                 MyDocumentsScreen(
                     onDocumentClick = { documentId -> navController.navigate("document_edit/$documentId") },
                     onCreateDocument = { navController.navigate("document_new") },
                     onNavigateBack = { navController.popBackStack() },
+                    onToggleStar = { documentViewModel.toggleStar(it) },
                     viewModel = documentViewModel
                 )
             }
@@ -247,6 +270,8 @@ fun FlowBoardApp(
                 val docListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
                 var title by remember { mutableStateOf("") }
                 var isCreating by remember { mutableStateOf(false) }
+                var showTemplates by remember { mutableStateOf(false) }
+                var selectedTemplate by remember { mutableStateOf<DocumentTemplate?>(null) }
 
                 LaunchedEffect(docListState.error) {
                     if (docListState.error != null && isCreating) {
@@ -258,21 +283,65 @@ fun FlowBoardApp(
                     onDismissRequest = { if (!isCreating) navController.popBackStack() },
                     title = { Text("New Document") },
                     text = {
-                        OutlinedTextField(
-                            value = title,
-                            onValueChange = { title = it },
-                            label = { Text("Document Title") },
-                            singleLine = true,
-                            enabled = !isCreating
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedTextField(
+                                value = title,
+                                onValueChange = { title = it },
+                                label = { Text("Document Title") },
+                                singleLine = true,
+                                enabled = !isCreating
+                            )
+                            if (selectedTemplate != null) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(selectedTemplate!!.emoji)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            selectedTemplate!!.name,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        TextButton(
+                                            onClick = { selectedTemplate = null },
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                        ) {
+                                            Text("Remove", style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
+                                }
+                            } else {
+                                TextButton(
+                                    onClick = { showTemplates = true },
+                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
+                                    enabled = !isCreating
+                                ) {
+                                    Text("Use a template", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
                     },
                     confirmButton = {
                         Button(
                             onClick = {
-                                val docTitle = title.trim().ifBlank { "Untitled Document" }
+                                val docTitle = title.trim().ifBlank {
+                                    selectedTemplate?.name ?: "Untitled Document"
+                                }
                                 isCreating = true
+                                val templateId = selectedTemplate?.id
                                 documentViewModel.createDocumentViaApi(docTitle) { documentId ->
-                                    navController.navigate("document_edit/$documentId") {
+                                    val route = if (templateId != null)
+                                        "document_edit/$documentId?template=$templateId"
+                                    else
+                                        "document_edit/$documentId"
+                                    navController.navigate(route) {
                                         popUpTo("document_new") { inclusive = true }
                                     }
                                 }
@@ -295,13 +364,36 @@ fun FlowBoardApp(
                         }
                     }
                 )
+
+                if (showTemplates) {
+                    TemplatesBottomSheet(
+                        onDismiss = { showTemplates = false },
+                        onSelectTemplate = { template ->
+                            selectedTemplate = template
+                            if (title.isBlank()) title = template.name
+                            showTemplates = false
+                        }
+                    )
+                }
             }
 
-            composable("document_edit/{documentId}") { backStackEntry ->
+            composable(
+                route = "document_edit/{documentId}?template={templateId}",
+                arguments = listOf(
+                    navArgument("documentId") { type = NavType.StringType },
+                    navArgument("templateId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
                 val documentId = backStackEntry.arguments?.getString("documentId") ?: return@composable
+                val templateId = backStackEntry.arguments?.getString("templateId")
 
                 CollaborativeDocumentScreenV2(
                     documentId = documentId,
+                    templateId = templateId,
                     onNavigateBack = {
                         if (!navController.popBackStack()) {
                             navController.navigate("dashboard") {
@@ -418,6 +510,7 @@ fun FlowBoardApp(
                     onDocumentClick = { navController.navigate("document_edit/$it") },
                     onCreateDocument = { navController.navigate("document_new") },
                     onNavigateBack = { navController.popBackStack() },
+                    onToggleStar = { documentViewModel.toggleStar(it) },
                     viewModel = documentViewModel
                 )
             }

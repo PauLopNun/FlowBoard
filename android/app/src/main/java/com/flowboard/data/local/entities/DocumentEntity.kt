@@ -21,5 +21,6 @@ data class DocumentEntity(
     val lastSyncAt: String? = null,
     val coverColor: String = "",
     val isDeleted: Boolean = false,
-    val deletedAt: String? = null
+    val deletedAt: String? = null,
+    val isStarred: Boolean = false
 )

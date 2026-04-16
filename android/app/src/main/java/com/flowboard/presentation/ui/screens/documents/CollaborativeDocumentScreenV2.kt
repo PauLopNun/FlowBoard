@@ -29,6 +29,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -59,6 +60,7 @@ import java.util.UUID
 @Composable
 fun CollaborativeDocumentScreenV2(
     documentId: String,
+    templateId: String? = null,
     onNavigateBack: () -> Unit,
     onNavigateToDocument: (String) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -246,14 +248,37 @@ fun CollaborativeDocumentScreenV2(
         }
     ) { padding ->
         // Auto-seed a title block for new/empty documents after the server responds with nothing
+        var templateSeeded by remember { mutableStateOf(false) }
         LaunchedEffect(connectionState) {
             if (connectionState is ConnectionState.Connected) {
                 kotlinx.coroutines.delay(2000L)
                 if (document?.blocks.isNullOrEmpty()) {
-                    viewModel.addBlock(
-                        ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
-                        null
-                    )
+                    if (templateId != null && !templateSeeded) {
+                        templateSeeded = true
+                        // Apply template blocks
+                        val template = builtInTemplates.find { it.id == templateId }
+                        if (template != null) {
+                            var afterId: String? = null
+                            template.blocks.forEach { (type, content) ->
+                                val blockId = UUID.randomUUID().toString()
+                                viewModel.addBlock(
+                                    ContentBlock(id = blockId, type = type, content = content),
+                                    afterId
+                                )
+                                afterId = blockId
+                            }
+                        } else {
+                            viewModel.addBlock(
+                                ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
+                                null
+                            )
+                        }
+                    } else {
+                        viewModel.addBlock(
+                            ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
+                            null
+                        )
+                    }
                 }
             }
         }
@@ -383,6 +408,7 @@ fun CollaborativeDocumentScreenV2(
                                 block = block,
                                 isFocused = focusedBlockId == block.id,
                                 numberedIndex = numberedIdx,
+                                mentionSuggestions = activeUsers.map { it.userName },
                                 onFocusChange = { focused -> if (focused) focusedBlockId = block.id },
                                 onTextChange = { newText -> viewModel.insertText(block.id, newText, 0) },
                                 onToggleTodo = { isChecked -> viewModel.toggleTodo(block.id, isChecked) },
@@ -508,6 +534,7 @@ fun CollaborativeDocumentScreenV2(
                                     block = block,
                                     isFocused = focusedBlockId == block.id,
                                     numberedIndex = numberedIdx,
+                                    mentionSuggestions = activeUsers.map { it.userName },
                                     onFocusChange = { focused -> if (focused) focusedBlockId = block.id },
                                     onTextChange = { newText -> viewModel.insertText(block.id, newText, 0) },
                                     onToggleTodo = { isChecked -> viewModel.toggleTodo(block.id, isChecked) },
@@ -1023,6 +1050,7 @@ private fun DocumentBlock(
     isFocused: Boolean,
     isTitle: Boolean,
     numberedIndex: Int = 1,
+    mentionSuggestions: List<String> = emptyList(),
     onFocusChange: (Boolean) -> Unit,
     onTextChange: (String) -> Unit,
     onToggleTodo: (Boolean) -> Unit,
@@ -1038,6 +1066,14 @@ private fun DocumentBlock(
 ) {
     var textFieldValue by remember(block.id) {
         mutableStateOf(TextFieldValue(block.content))
+    }
+
+    // @mention state: non-null = popup is visible with this query string
+    var mentionQuery by remember { mutableStateOf<String?>(null) }
+    val filteredMentions = remember(mentionQuery, mentionSuggestions) {
+        val q = mentionQuery ?: return@remember emptyList()
+        if (q.isEmpty()) mentionSuggestions.take(5)
+        else mentionSuggestions.filter { it.contains(q, ignoreCase = true) }.take(5)
     }
 
     // Sync content if remote update changes it
@@ -1225,11 +1261,25 @@ private fun DocumentBlock(
             if (shortcut != null) {
                 textFieldValue = TextFieldValue(shortcut.second)
                 onMarkdownShortcut(shortcut.first, shortcut.second)
+                mentionQuery = null
                 return
             }
         }
         if (new.text == "/" && textFieldValue.text.isEmpty()) { onSlashCommand(); return }
         if (allowDelete && new.text.isEmpty() && textFieldValue.text.isEmpty()) { onDeleteBlock(); return }
+
+        // @mention detection — check text before cursor
+        if (mentionSuggestions.isNotEmpty()) {
+            val cursorPos = new.selection.start
+            val textBefore = new.text.take(cursorPos)
+            val lastAt = textBefore.lastIndexOf('@')
+            mentionQuery = if (lastAt >= 0) {
+                val afterAt = textBefore.drop(lastAt + 1)
+                // Only trigger if no space in the query and not too long
+                if (!afterAt.contains(' ') && afterAt.length <= 20) afterAt else null
+            } else null
+        }
+
         textFieldValue = new
         onTextChange(new.text)
         onCursorChange(new.selection.start)
@@ -1405,6 +1455,59 @@ private fun DocumentBlock(
                     onFocusChange = onFocusChange,
                     onValueChange = { new -> handleValueChange(new, allowDelete = !isTitle) },
                     onEnterPressed = onEnterPressed
+                )
+            }
+        }
+    }
+
+    // @mention autocomplete popup
+    if (mentionQuery != null && filteredMentions.isNotEmpty()) {
+        DropdownMenu(
+            expanded = true,
+            onDismissRequest = { mentionQuery = null },
+            modifier = Modifier.widthIn(min = 160.dp)
+        ) {
+            filteredMentions.forEach { username ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    username.take(1).uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            Text("@$username", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    },
+                    onClick = {
+                        // Replace the @query with @username
+                        val cursorPos = textFieldValue.selection.start
+                        val textBefore = textFieldValue.text.take(cursorPos)
+                        val lastAt = textBefore.lastIndexOf('@')
+                        if (lastAt >= 0) {
+                            val newText = textFieldValue.text.take(lastAt) +
+                                "@$username " +
+                                textFieldValue.text.drop(cursorPos)
+                            val newCursor = lastAt + username.length + 2
+                            textFieldValue = TextFieldValue(
+                                text = newText,
+                                selection = TextRange(newCursor)
+                            )
+                            onTextChange(newText)
+                        }
+                        mentionQuery = null
+                    }
                 )
             }
         }
