@@ -40,6 +40,7 @@ fun Application.configureRouting() {
             chatRoutes(chatService)
             permissionRoutes(permissionService)
             workspaceRoutes(workspaceService)
+            aiRoutes()
         }
 
         webSocketRoutes(webSocketManager, documentService)
