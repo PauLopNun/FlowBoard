@@ -228,7 +228,7 @@ fun DashboardSidebar(
             NavigationItem(Icons.Outlined.Chat, "Chat", false, onChatNavigate)
             NavigationItem(Icons.Outlined.CalendarMonth, "Calendar", false, onCalendarNavigate)
             NavigationItem(Icons.Outlined.Group, "Workspaces", false, onWorkspaceNavigate)
-            NavigationItem(Icons.Outlined.Search, "Search", currentView == DashboardView.SEARCH) { scope.launch { drawerState.close() }; onSearchClick() }
+            NavigationItem(Icons.Outlined.Search, "Search", currentView == DashboardView.SEARCH) { onNavigate(DashboardView.SEARCH) }
             Spacer(modifier = Modifier.height(12.dp))
             NavigationItem(Icons.Default.Add, "New Page", false, onCreateDocument)
             Spacer(modifier = Modifier.height(16.dp))
