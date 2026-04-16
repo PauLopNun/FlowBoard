@@ -259,7 +259,8 @@ class CRDTEngine @Inject constructor() {
                     textDecoration = operation.textDecoration ?: block.textDecoration,
                     fontSize = operation.fontSize ?: block.fontSize,
                     color = operation.color ?: block.color,
-                    textAlign = operation.textAlign ?: block.textAlign
+                    textAlign = operation.textAlign ?: block.textAlign,
+                    backgroundColor = operation.backgroundColor ?: block.backgroundColor
                 )
             } else {
                 block

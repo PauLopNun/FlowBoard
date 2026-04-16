@@ -19,6 +19,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.*
 import java.util.UUID
 import javax.inject.Inject
 
@@ -230,6 +231,52 @@ class CollaborativeDocumentViewModel @Inject constructor(
     }
 
     /**
+     * Update a single cell in a table block.
+     * Parses the JSON stored in the block's content, replaces the value at [row][col],
+     * serialises back to JSON, and broadcasts the change via [insertText].
+     */
+    fun updateTableCell(blockId: String, row: Int, col: Int, value: String) {
+        val block = document.value?.blocks?.find { it.id == blockId } ?: return
+        val json = Json { ignoreUnknownKeys = true }
+        val obj: JsonObject = try {
+            json.parseToJsonElement(block.content).jsonObject
+        } catch (_: Exception) {
+            // Malformed / empty — build a default 2×3 structure
+            buildJsonObject {
+                put("rows", 2)
+                put("cols", 3)
+                put("cells", buildJsonArray {
+                    repeat(2) {
+                        add(buildJsonArray { repeat(3) { add("") } })
+                    }
+                })
+            }
+        }
+
+        val rows = obj["rows"]?.jsonPrimitive?.int ?: 2
+        val cols = obj["cols"]?.jsonPrimitive?.int ?: 3
+        val cells: MutableList<MutableList<String>> = obj["cells"]?.jsonArray?.map { rowEl ->
+            rowEl.jsonArray.map { it.jsonPrimitive.content }.toMutableList()
+        }?.toMutableList() ?: MutableList(rows) { MutableList(cols) { "" } }
+
+        if (row < cells.size && col < (cells.getOrNull(row)?.size ?: 0)) {
+            cells[row][col] = value
+        }
+
+        val newJson = buildJsonObject {
+            put("rows", rows)
+            put("cols", cols)
+            put("cells", buildJsonArray {
+                cells.forEach { rowList ->
+                    add(buildJsonArray { rowList.forEach { add(it) } })
+                }
+            })
+        }.toString()
+
+        insertText(blockId, newJson, 0)
+    }
+
+    /**
      * Disconnect from document
      */
     fun disconnect() {
@@ -363,7 +410,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
         textDecoration: String? = null,
         fontSize: Int? = null,
         color: String? = null,
-        textAlign: String? = null
+        textAlign: String? = null,
+        backgroundColor: String? = null
     ) {
         val documentId = _uiState.value.currentDocumentId ?: return
         val userId = _uiState.value.currentUserId ?: return
@@ -377,7 +425,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
             textDecoration = textDecoration,
             fontSize = fontSize,
             color = color,
-            textAlign = textAlign
+            textAlign = textAlign,
+            backgroundColor = backgroundColor
         )
 
         crdtEngine.applyOperation(operation)

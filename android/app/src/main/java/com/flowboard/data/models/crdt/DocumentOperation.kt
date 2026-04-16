@@ -81,7 +81,8 @@ data class UpdateBlockFormattingOperation(
     val textDecoration: String? = null,
     val fontSize: Int? = null,
     val color: String? = null,
-    val textAlign: String? = null
+    val textAlign: String? = null,
+    val backgroundColor: String? = null
 ) : DocumentOperation
 
 /**
