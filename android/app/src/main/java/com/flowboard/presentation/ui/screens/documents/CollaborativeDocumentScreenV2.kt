@@ -55,7 +55,7 @@ import java.util.UUID
 /**
  * Collaborative document editor — Notion-style block-based editor with real-time sync.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CollaborativeDocumentScreenV2(
     documentId: String,
@@ -488,7 +488,7 @@ fun CollaborativeDocumentScreenV2(
                                                             isDraggingActive = true
                                                             draggedBlockId = block.id
                                                         },
-                                                        onDragStopped = { _ ->
+                                                        onDragStopped = {
                                                             isDraggingActive = false
                                                             val movedId = draggedBlockId ?: return@draggableHandle
                                                             draggedBlockId = null
