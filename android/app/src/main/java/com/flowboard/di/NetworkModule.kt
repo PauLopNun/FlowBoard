@@ -36,9 +36,11 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideJson(): Json = Json {
-        prettyPrint = true
+        prettyPrint = false
         isLenient = true
         ignoreUnknownKeys = true
+        encodeDefaults = true
+        coerceInputValues = true
     }
 
     @Provides

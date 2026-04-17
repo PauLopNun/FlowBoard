@@ -1,5 +1,9 @@
 package com.flowboard.presentation.ui.screens.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -354,30 +358,52 @@ fun AvatarUrlDialog(
     onConfirm: (String) -> Unit
 ) {
     var url by remember { mutableStateOf(currentUrl) }
+    var showUrlField by remember { mutableStateOf(false) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        uri?.let { onConfirm(it.toString()) }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Profile Picture") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Enter an image URL for your profile picture.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = { url = it },
-                    label = { Text("Image URL") },
-                    placeholder = { Text("https://...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        galleryLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Choose from gallery")
+                }
+                TextButton(
+                    onClick = { showUrlField = !showUrlField },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (showUrlField) "Hide URL field" else "Or enter image URL")
+                }
+                if (showUrlField) {
+                    OutlinedTextField(
+                        value = url,
+                        onValueChange = { url = it },
+                        label = { Text("Image URL") },
+                        placeholder = { Text("https://...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(url.trim()) }) {
-                Text("Save")
+            if (showUrlField) {
+                Button(onClick = { onConfirm(url.trim()) }) { Text("Save URL") }
             }
         },
         dismissButton = {
