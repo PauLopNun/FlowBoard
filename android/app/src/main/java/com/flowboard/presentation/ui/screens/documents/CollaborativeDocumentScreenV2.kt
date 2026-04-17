@@ -87,6 +87,7 @@ fun CollaborativeDocumentScreenV2(
     var showSubPageDialog by remember { mutableStateOf(false) }
     var subPageTitle by remember { mutableStateOf("") }
     var showCoverPicker by remember { mutableStateOf(false) }
+    var showCoverImageDialog by remember { mutableStateOf(false) }
     var showAiPanel by remember { mutableStateOf(false) }
     var blockMenuBlockId by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -260,37 +261,58 @@ fun CollaborativeDocumentScreenV2(
             }
         }
     ) { padding ->
-        // Auto-seed a title block for new/empty documents after the server responds with nothing
+        // Auto-seed a title/template for new documents.
+        // Backend may return a single empty paragraph placeholder for blank content.
         var templateSeeded by remember { mutableStateOf(false) }
         LaunchedEffect(connectionState) {
             if (connectionState is ConnectionState.Connected) {
                 kotlinx.coroutines.delay(2000L)
-                if (document?.blocks.isNullOrEmpty()) {
+                val currentBlocks = document?.blocks.orEmpty()
+                val hasOnlyPlaceholderBlock = currentBlocks.size == 1 &&
+                    currentBlocks.first().type == "p" &&
+                    currentBlocks.first().content.isBlank()
+
+                if (currentBlocks.isEmpty() || hasOnlyPlaceholderBlock) {
                     if (templateId != null && !templateSeeded) {
                         templateSeeded = true
                         // Apply template blocks
                         val template = builtInTemplates.find { it.id == templateId }
                         if (template != null) {
+                            val placeholderId = if (hasOnlyPlaceholderBlock) currentBlocks.first().id else null
                             var afterId: String? = null
-                            template.blocks.forEach { (type, content) ->
-                                val blockId = UUID.randomUUID().toString()
-                                viewModel.addBlock(
-                                    ContentBlock(id = blockId, type = type, content = content),
-                                    afterId
-                                )
-                                afterId = blockId
+                            template.blocks.forEachIndexed { index, (type, content) ->
+                                if (index == 0 && placeholderId != null) {
+                                    viewModel.updateBlockType(placeholderId, type)
+                                    viewModel.insertText(placeholderId, content, 0)
+                                    afterId = placeholderId
+                                } else {
+                                    val blockId = UUID.randomUUID().toString()
+                                    viewModel.addBlock(
+                                        ContentBlock(id = blockId, type = type, content = content),
+                                        afterId
+                                    )
+                                    afterId = blockId
+                                }
                             }
+                        } else {
+                            if (hasOnlyPlaceholderBlock) {
+                                viewModel.updateBlockType(currentBlocks.first().id, "h1")
+                            } else {
+                                viewModel.addBlock(
+                                    ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
+                                    null
+                                )
+                            }
+                        }
+                    } else {
+                        if (hasOnlyPlaceholderBlock) {
+                            viewModel.updateBlockType(currentBlocks.first().id, "h1")
                         } else {
                             viewModel.addBlock(
                                 ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
                                 null
                             )
                         }
-                    } else {
-                        viewModel.addBlock(
-                            ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
-                            null
-                        )
                     }
                 }
             }
@@ -343,16 +365,32 @@ fun CollaborativeDocumentScreenV2(
                 // Cover image banner (shown only when a cover color is set)
                 if (coverColor.isNotEmpty()) {
                     item(key = "cover") {
+                        val isImageCover = coverColor.startsWith("http://") || coverColor.startsWith("https://")
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(160.dp)
-                                .background(
-                                    try { Color(android.graphics.Color.parseColor(
-                                        if (coverColor.startsWith("#")) coverColor else "#$coverColor"
-                                    )) } catch (_: Exception) { Color(0xFF3B82F6) }
-                                )
                         ) {
+                            if (isImageCover) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(coverColor)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Document cover",
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            try { Color(android.graphics.Color.parseColor(
+                                                if (coverColor.startsWith("#")) coverColor else "#$coverColor"
+                                            )) } catch (_: Exception) { Color(0xFF3B82F6) }
+                                        )
+                                )
+                            }
                             Row(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
@@ -365,6 +403,13 @@ fun CollaborativeDocumentScreenV2(
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                                 ) {
                                     Text("Change cover", style = MaterialTheme.typography.labelSmall)
+                                }
+                                FilledTonalButton(
+                                    onClick = { showCoverImageDialog = true },
+                                    modifier = Modifier.height(28.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                                ) {
+                                    Text("Image URL", style = MaterialTheme.typography.labelSmall)
                                 }
                                 FilledTonalButton(
                                     onClick = { viewModel.removeCover() },
@@ -400,6 +445,16 @@ fun CollaborativeDocumentScreenV2(
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                         Spacer(Modifier.width(4.dp))
                                         Text("Add cover", style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                    }
+                                    TextButton(
+                                        onClick = { showCoverImageDialog = true },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(Icons.Default.Link, null, modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Image URL", style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                     }
                                 }
@@ -759,6 +814,17 @@ fun CollaborativeDocumentScreenV2(
         )
     }
 
+    if (showCoverImageDialog) {
+        CoverImageUrlDialog(
+            current = uiState.coverColor.takeIf { it.startsWith("http://") || it.startsWith("https://") }.orEmpty(),
+            onSelect = { imageUrl ->
+                viewModel.updateCoverColor(imageUrl)
+                showCoverImageDialog = false
+            },
+            onDismiss = { showCoverImageDialog = false }
+        )
+    }
+
     // AI Assistant panel
     if (showAiPanel) {
         val docContext = remember(blocks) {
@@ -888,6 +954,37 @@ private fun CoverPickerDialog(
             }
         },
         confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun CoverImageUrlDialog(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var imageUrl by remember(current) { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cover image URL") },
+        text = {
+            OutlinedTextField(
+                value = imageUrl,
+                onValueChange = { imageUrl = it },
+                label = { Text("https://...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            val isValid = imageUrl.trim().startsWith("http://") || imageUrl.trim().startsWith("https://")
+            Button(onClick = { onSelect(imageUrl.trim()) }, enabled = isValid) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )

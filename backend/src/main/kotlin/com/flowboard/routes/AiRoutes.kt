@@ -4,6 +4,7 @@ import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -32,6 +33,11 @@ fun Route.aiRoutes() {
 
     val httpClient = HttpClient(CIO) {
         install(ContentNegotiation) { json() }
+        install(HttpTimeout) {
+            requestTimeoutMillis = 45_000
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 45_000
+        }
     }
 
     authenticate("auth-jwt") {
@@ -51,10 +57,16 @@ fun Route.aiRoutes() {
                 "You are a helpful writing assistant integrated in FlowBoard, a Notion-like app. Be concise and direct."
 
             val geminiBody = buildJsonObject {
+                putJsonObject("systemInstruction") {
+                    putJsonArray("parts") {
+                        addJsonObject { put("text", systemPrompt) }
+                    }
+                }
                 putJsonArray("contents") {
                     addJsonObject {
+                        put("role", "user")
                         putJsonArray("parts") {
-                            addJsonObject { put("text", "$systemPrompt\n\nUser: ${request.prompt}") }
+                            addJsonObject { put("text", request.prompt) }
                         }
                     }
                 }
@@ -70,21 +82,72 @@ fun Route.aiRoutes() {
                 ) {
                     parameter("key", apiKey)
                     contentType(ContentType.Application.Json)
-                    setBody(geminiBody.toString())
+                    setBody(geminiBody)
                 }
 
                 val responseText = response.bodyAsText()
+
+                if (!response.status.isSuccess()) {
+                    val errorText = runCatching {
+                        Json.parseToJsonElement(responseText).jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
+                    }.getOrNull() ?: "Upstream AI provider error"
+
+                    val status = when (response.status) {
+                        HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden -> HttpStatusCode.BadGateway
+                        HttpStatusCode.TooManyRequests -> HttpStatusCode.TooManyRequests
+                        HttpStatusCode.RequestTimeout, HttpStatusCode.GatewayTimeout -> HttpStatusCode.GatewayTimeout
+                        else -> HttpStatusCode.BadGateway
+                    }
+
+                    call.respond(status, mapOf("error" to errorText))
+                    return@post
+                }
+
                 val json = Json { ignoreUnknownKeys = true }
                 val parsed = json.parseToJsonElement(responseText).jsonObject
                 val reply = parsed["candidates"]
-                    ?.jsonArray?.firstOrNull()?.jsonObject
-                    ?.get("content")?.jsonObject
-                    ?.get("parts")?.jsonArray?.firstOrNull()?.jsonObject
-                    ?.get("text")?.jsonPrimitive?.content
-                    ?: "Sorry, I couldn't generate a response."
+                    ?.jsonArray
+                    ?.mapNotNull { it.jsonObject["content"]?.jsonObject }
+                    ?.flatMap { content ->
+                        content["parts"]
+                            ?.jsonArray
+                            ?.mapNotNull { part -> part.jsonObject["text"]?.jsonPrimitive?.contentOrNull }
+                            ?: emptyList()
+                    }
+                    ?.joinToString("\n")
+                    ?.trim()
+                    .orEmpty()
 
-                call.respond(AiResponse(reply = reply))
+                if (reply.isNotBlank()) {
+                    call.respond(AiResponse(reply = reply))
+                    return@post
+                }
+
+                val blockReason = parsed["promptFeedback"]
+                    ?.jsonObject
+                    ?.get("blockReason")
+                    ?.jsonPrimitive
+                    ?.contentOrNull
+
+                val finishReason = parsed["candidates"]
+                    ?.jsonArray
+                    ?.firstOrNull()
+                    ?.jsonObject
+                    ?.get("finishReason")
+                    ?.jsonPrimitive
+                    ?.contentOrNull
+
+                val emptyReplyError = when {
+                    !blockReason.isNullOrBlank() -> "AI blocked the request: $blockReason"
+                    !finishReason.isNullOrBlank() -> "AI returned no text (finishReason=$finishReason)"
+                    else -> "AI returned an empty response"
+                }
+
+                application.log.warn("AI empty response: $emptyReplyError")
+                call.respond(HttpStatusCode.BadGateway, mapOf("error" to emptyReplyError))
+                return@post
             } catch (e: Exception) {
+                application.log.error("AI request failed", e)
                 call.respond(HttpStatusCode.InternalServerError, mapOf("error" to (e.message ?: "AI request failed")))
             }
         }

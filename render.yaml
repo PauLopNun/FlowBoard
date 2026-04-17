@@ -26,6 +26,8 @@ services:
         value: flowboard-app
       - key: JWT_REALM
         value: FlowBoard Access
+      - key: GEMINI_API_KEY
+        sync: false
 
 databases:
   # PostgreSQL Database

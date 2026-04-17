@@ -52,7 +52,8 @@ data class DocumentDto(
                 createdAt = LocalDateTime.parse(entity.createdAt),
                 updatedAt = LocalDateTime.parse(entity.updatedAt),
                 lastEditedBy = entity.lastEditedBy,
-                lastEditedByName = entity.lastEditedByName
+                lastEditedByName = entity.lastEditedByName,
+                coverColor = entity.coverColor
             )
         }
     }
