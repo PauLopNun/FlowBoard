@@ -130,15 +130,6 @@ fun CollaborativeDocumentScreenV2(
     LaunchedEffect(documentId) { viewModel.connectToDocument(documentId) }
     DisposableEffect(Unit) { onDispose { viewModel.disconnect() } }
 
-    // Word count derived from all block text
-    val wordCount = remember(blocks) {
-        blocks.filter { it.type != "divider" }
-            .joinToString(" ") { it.content }
-            .trim()
-            .split("\\s+".toRegex())
-            .count { it.isNotBlank() }
-    }
-
     // Other users currently in the document (exclude self)
     val otherActiveUsers = remember(activeUsers, uiState.currentUserId) {
         activeUsers.filter { it.userId != uiState.currentUserId }
@@ -160,68 +151,36 @@ fun CollaborativeDocumentScreenV2(
             val docTitle = blocks.firstOrNull { it.type == "h1" }?.content
                 ?: blocks.firstOrNull()?.content
                 ?: "Untitled"
-            DocumentTopBar(
-                title = docTitle,
-                connectionState = connectionState,
-                activeUsers = activeUsers,
-                breadcrumbs = uiState.breadcrumbs,
-                onBack = onNavigateBack,
-                onSave = { viewModel.saveDocument() },
-                isSaving = isSaving,
-                onShare = { showShareDialog = true },
-                showExportMenu = showExportMenu,
-                onToggleExportMenu = { showExportMenu = !showExportMenu },
-                onDismissExportMenu = { showExportMenu = false },
-                onExportMarkdown = {
-                    showExportMenu = false
-                    exportToMarkdown(blocks, docTitle, context)
-                },
-                onExportPdf = {
-                    showExportMenu = false
-                    exportToPdf(blocks, docTitle, context)
-                }
-            )
-        },
-        bottomBar = {
             Column {
-                // Typing / presence indicator — shown when others are in the doc
-                AnimatedVisibility(
-                    visible = otherActiveUsers.isNotEmpty(),
-                    enter = slideInVertically { it } + fadeIn(),
-                    exit = slideOutVertically { it } + fadeOut()
-                ) {
-                    TypingIndicatorBar(users = otherActiveUsers)
-                }
+                DocumentTopBar(
+                    title = docTitle,
+                    connectionState = connectionState,
+                    activeUsers = activeUsers,
+                    breadcrumbs = uiState.breadcrumbs,
+                    onBack = onNavigateBack,
+                    onSave = { viewModel.saveDocument() },
+                    isSaving = isSaving,
+                    onShare = { showShareDialog = true },
+                    showExportMenu = showExportMenu,
+                    onToggleExportMenu = { showExportMenu = !showExportMenu },
+                    onDismissExportMenu = { showExportMenu = false },
+                    onExportMarkdown = {
+                        showExportMenu = false
+                        exportToMarkdown(blocks, docTitle, context)
+                    },
+                    onExportPdf = {
+                        showExportMenu = false
+                        exportToPdf(blocks, docTitle, context)
+                    }
+                )
 
                 // Formatting toolbar — shown when a block is focused
                 AnimatedVisibility(
                     visible = focusedBlockId != null,
-                    enter = slideInVertically { it } + fadeIn(),
-                    exit = slideOutVertically { it } + fadeOut()
+                    enter = slideInVertically { -it } + fadeIn(),
+                    exit = slideOutVertically { -it } + fadeOut()
                 ) {
                     Column {
-                        // Word count status row
-                        Surface(tonalElevation = 4.dp) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.TextFields,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(12.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "$wordCount ${if (wordCount == 1) "word" else "words"}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
                         FormattingToolbar(
                             currentBlock = focusedBlock,
                             selectionRange = if (selectionStart != selectionEnd) selectionStart to selectionEnd else null,
@@ -258,6 +217,16 @@ fun CollaborativeDocumentScreenV2(
                         )
                     }
                 }
+            }
+        },
+        bottomBar = {
+            // Typing / presence indicator — shown when others are in the doc
+            AnimatedVisibility(
+                visible = otherActiveUsers.isNotEmpty(),
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut()
+            ) {
+                TypingIndicatorBar(users = otherActiveUsers)
             }
         }
     ) { padding ->
@@ -360,7 +329,7 @@ fun CollaborativeDocumentScreenV2(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(bottom = 120.dp)
+                contentPadding = PaddingValues(bottom = 88.dp)
             ) {
                 // Cover image banner (shown only when a cover color is set)
                 if (coverColor.isNotEmpty()) {
