@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.data.local.entities.DocumentEntity
+import com.flowboard.presentation.viewmodel.ChatViewModel
 import com.flowboard.presentation.viewmodel.WorkspaceDocumentsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,15 +26,32 @@ fun WorkspaceDocumentsScreen(
     onNavigateBack: () -> Unit,
     onDocumentClick: (String) -> Unit,
     onCreateDocument: (workspaceId: String) -> Unit,
-    viewModel: WorkspaceDocumentsViewModel = hiltViewModel()
+    onChatClick: (chatId: String) -> Unit = {},
+    viewModel: WorkspaceDocumentsViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val chatRooms by chatViewModel.chatRooms.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(workspaceId) { viewModel.load(workspaceId) }
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let { snackbarHostState.showSnackbar(it); viewModel.clearError() }
+    }
+
+    fun openOrCreateWorkspaceChat() {
+        val existing = chatRooms.firstOrNull { it.resourceId == workspaceId }
+        if (existing != null) {
+            onChatClick(existing.id)
+        } else {
+            chatViewModel.createGroupChat(
+                name = "${uiState.workspaceName.ifBlank { "Workspace" }} Chat",
+                participantIds = emptyList(),
+                resourceId = workspaceId,
+                resourceType = com.flowboard.domain.model.ResourceType.PROJECT
+            ) { chatId -> onChatClick(chatId) }
+        }
     }
 
     Scaffold(
@@ -44,6 +62,11 @@ fun WorkspaceDocumentsScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { openOrCreateWorkspaceChat() }) {
+                        Icon(Icons.Default.Chat, "Group chat")
                     }
                 }
             )

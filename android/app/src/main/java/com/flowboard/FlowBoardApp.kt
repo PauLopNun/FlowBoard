@@ -32,6 +32,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -226,6 +227,7 @@ fun FlowBoardApp(
                     onTasksClick = { navController.navigate("tasks") },
                     onCalendarClick = { navController.navigate("calendar") },
                     onWorkspaceClick = { navController.navigate("workspaces") },
+                    onProjectsClick = { navController.navigate("projects") },
                     onEditorDemoClick = { navController.navigate("my_documents") },
                     onSearchClick = { navController.navigate("search") },
                     onLogout = {
@@ -289,6 +291,10 @@ fun FlowBoardApp(
                         isCreating = false
                     }
                 }
+
+                // Intercept system back gesture — without this, the dialog dismisses
+                // but the route stays alive showing a blank white screen.
+                BackHandler(enabled = !isCreating) { navController.popBackStack() }
 
                 AlertDialog(
                     onDismissRequest = { if (!isCreating) navController.popBackStack() },
@@ -527,9 +533,14 @@ fun FlowBoardApp(
                     workspaceId = workspaceId,
                     onNavigateBack = { navController.popBackStack() },
                     onDocumentClick = { navController.navigate("document_edit/$it") },
-                    onCreateDocument = { wsId ->
-                        navController.navigate("document_new?workspaceId=$wsId")
-                    }
+                    onCreateDocument = { wsId -> navController.navigate("document_new?workspaceId=$wsId") },
+                    onChatClick = { chatId -> navController.navigate("chat/$chatId") }
+                )
+            }
+
+            composable("projects") {
+                com.flowboard.presentation.ui.screens.projects.ProjectListScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

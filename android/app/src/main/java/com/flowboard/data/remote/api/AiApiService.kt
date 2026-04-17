@@ -29,10 +29,14 @@ class AiApiService(private val httpClient: HttpClient) {
         documentContext: String? = null,
         token: String
     ): Result<String> = runCatching {
+        // Strip JSON-invalid control characters that document blocks may contain
+        val safeContext = documentContext
+            ?.replace(Regex("[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]"), "")
+            ?.takeIf { it.isNotBlank() }
         val response = httpClient.post("${ApiConfig.API_BASE_URL}/ai/ask") {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
-            setBody(AiChatRequest(prompt = prompt, documentContext = documentContext))
+            setBody(AiChatRequest(prompt = prompt, documentContext = safeContext))
         }
 
         if (!response.status.isSuccess()) {

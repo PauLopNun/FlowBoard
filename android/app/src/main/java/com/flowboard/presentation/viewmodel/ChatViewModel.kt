@@ -28,6 +28,13 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _currentUserId.value = authRepository.getUserId()
         }
+        refreshRooms()
+    }
+
+    fun refreshRooms() {
+        viewModelScope.launch {
+            runCatching { (chatRepository as? com.flowboard.data.repository.ChatRepositoryImpl)?.refreshChatRooms() }
+        }
     }
 
     private val _activeChatId = MutableStateFlow<String?>(null)
@@ -118,6 +125,9 @@ class ChatViewModel @Inject constructor(
         _activeChatId.value = chatRoomId
         markAsRead(chatRoomId)
         connectToChat(chatRoomId)
+        viewModelScope.launch {
+            runCatching { (chatRepository as? com.flowboard.data.repository.ChatRepositoryImpl)?.refreshMessages(chatRoomId) }
+        }
     }
 
     fun deselectChat() {
@@ -196,14 +206,16 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun createGroupChat(name: String, participantIds: List<String>, onSuccess: (String) -> Unit = {}) {
+    fun createGroupChat(name: String, participantIds: List<String>, resourceId: String? = null, resourceType: ResourceType? = null, onSuccess: (String) -> Unit = {}) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
             val result = chatRepository.createChatRoom(
                 type = ChatType.GROUP,
                 name = name,
-                participantIds = participantIds
+                participantIds = participantIds,
+                resourceId = resourceId,
+                resourceType = resourceType
             )
 
             result.fold(

@@ -52,6 +52,7 @@ fun DashboardScreen(
     onTasksClick: () -> Unit = {},
     onCalendarClick: () -> Unit = {},
     onWorkspaceClick: () -> Unit = {},
+    onProjectsClick: () -> Unit = {},
     onViewAllDocuments: () -> Unit = {},
     onEditorDemoClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
@@ -90,6 +91,7 @@ fun DashboardScreen(
                     onChatNavigate = { scope.launch { drawerState.close() }; onChatClick() },
                     onCalendarNavigate = { scope.launch { drawerState.close() }; onCalendarClick() },
                     onWorkspaceNavigate = { scope.launch { drawerState.close() }; onWorkspaceClick() },
+                    onProjectsNavigate = { scope.launch { drawerState.close() }; onProjectsClick() },
                     onCreateDocument = { scope.launch { drawerState.close() }; onCreateDocument() },
                     onProfileClick = onProfileClick,
                     onSettingsClick = onSettingsClick,
@@ -170,6 +172,7 @@ fun DashboardSidebar(
     onChatNavigate: () -> Unit,
     onCalendarNavigate: () -> Unit,
     onWorkspaceNavigate: () -> Unit,
+    onProjectsNavigate: () -> Unit = {},
     onCreateDocument: () -> Unit,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -216,6 +219,7 @@ fun DashboardSidebar(
             NavigationItem(Icons.Outlined.Chat, "Chat", false, onChatNavigate)
             NavigationItem(Icons.Outlined.CalendarMonth, "Calendar", false, onCalendarNavigate)
             NavigationItem(Icons.Outlined.Group, "Workspaces", false, onWorkspaceNavigate)
+            NavigationItem(Icons.Outlined.Folder, "Projects", false, onProjectsNavigate)
             NavigationItem(Icons.Outlined.Search, "Search", currentView == DashboardView.SEARCH) { onNavigate(DashboardView.SEARCH) }
             Spacer(modifier = Modifier.height(12.dp))
             NavigationItem(Icons.Default.Add, "New Page", false, onCreateDocument)
