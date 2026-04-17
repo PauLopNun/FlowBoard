@@ -150,10 +150,11 @@ class ChatRepositoryImpl @Inject constructor(
                 senderName = currentUserName,
                 type = type.name.lowercase(),
                 content = content,
-                status = MessageStatus.SENDING.name.lowercase(),
+                status = MessageStatus.SENT.name.lowercase(),
                 mentions = mentions,
                 replyToId = replyToId,
-                createdAt = now
+                createdAt = now,
+                deliveredAt = now
             )
 
             chatDao.insertMessage(messageEntity)
