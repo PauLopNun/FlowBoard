@@ -85,12 +85,12 @@ class LoginViewModel @Inject constructor(
     }
 
     fun logout() {
+        // Reset state synchronously so any active LaunchedEffect(loginState/isLoggedIn)
+        // sees the cleared values before navigation happens on the caller side.
+        _isLoggedIn.value = false
+        _loginState.value = LoginState.Idle
         viewModelScope.launch {
-            Log.d(TAG, "Logout initiated")
             authRepository.logout()
-            _isLoggedIn.value = false
-            _loginState.value = LoginState.Idle
-            Log.d(TAG, "Logout completed")
         }
     }
 

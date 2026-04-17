@@ -33,7 +33,9 @@ class GoogleAuthManager @Inject constructor(
      * Sign in with Google and return the ID token.
      * Uses GetSignInWithGoogleOption which always shows the account picker.
      */
-    suspend fun signInWithGoogle(activity: Activity): Result<GoogleSignInResult> = withContext(Dispatchers.IO) {
+    suspend fun signInWithGoogle(activity: Activity): Result<GoogleSignInResult> = withContext(Dispatchers.Main) {
+        // Credential Manager shows a bottom-sheet UI and must run on the main thread.
+        // Using Dispatchers.IO here causes the picker to appear erratically on some devices.
         val credentialManager = CredentialManager.create(activity)
         try {
             val signInWithGoogleOption = GetSignInWithGoogleOption.Builder(webClientId).build()
@@ -43,7 +45,6 @@ class GoogleAuthManager @Inject constructor(
             val result = credentialManager.getCredential(context = activity, request = request)
             handleSignInResult(result)
         } catch (e: NoCredentialException) {
-            // No Google account on device, or framework couldn't get credentials
             Result.failure(Exception("No credential available"))
         } catch (e: GetCredentialCancellationException) {
             Result.failure(Exception("UserCancelled"))
