@@ -52,7 +52,8 @@ class WorkspaceDocumentsViewModel @Inject constructor(
         refresh(workspaceId)
     }
 
-    fun refresh(workspaceId: String = currentWorkspaceId ?: return) {
+    fun refresh(workspaceId: String? = currentWorkspaceId) {
+        if (workspaceId == null) return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             documentRepository.fetchWorkspaceDocuments(workspaceId)
