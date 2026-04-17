@@ -10,7 +10,6 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,37 +27,31 @@ class GoogleAuthManager @Inject constructor(
     suspend fun signInWithGoogle(activity: Activity): Result<GoogleSignInResult> = withContext(Dispatchers.Main) {
         val credentialManager = CredentialManager.create(activity)
 
-        // First try GetSignInWithGoogleOption (shows the styled one-tap sheet).
-        // On some real devices the tap doesn't register with that option, so fall
-        // back to GetGoogleIdOption(filterByAuthorizedAccounts=false) which uses
-        // the standard account-picker and is more reliable across devices.
-        val primaryOption = GetSignInWithGoogleOption.Builder(webClientId).build()
-        val fallbackOption = GetGoogleIdOption.Builder()
+        // GetGoogleIdOption with filterByAuthorizedAccounts=false is the most
+        // reliable option across emulators AND physical devices. The styled
+        // GetSignInWithGoogleOption can silently swallow taps on some physical
+        // devices, so we use the standard account-picker flow instead.
+        val googleIdOption = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(webClientId)
             .setAutoSelectEnabled(false)
             .build()
 
-        for ((index, option) in listOf(primaryOption, fallbackOption).withIndex()) {
-            try {
-                val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(option)
-                    .build()
-                val result = credentialManager.getCredential(context = activity, request = request)
-                return@withContext handleSignInResult(result)
-            } catch (e: GetCredentialCancellationException) {
-                return@withContext Result.failure(Exception("UserCancelled"))
-            } catch (e: NoCredentialException) {
-                if (index == 1) return@withContext Result.failure(Exception("No Google account found on this device"))
-                // primary failed silently — try fallback
-            } catch (e: GetCredentialException) {
-                if (index == 1) return@withContext Result.failure(Exception("Google Sign-In error: ${e.message}"))
-                // primary failed — try fallback
-            } catch (e: Exception) {
-                if (index == 1) return@withContext Result.failure(e)
-            }
+        return@withContext try {
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+            val result = credentialManager.getCredential(context = activity, request = request)
+            handleSignInResult(result)
+        } catch (e: GetCredentialCancellationException) {
+            Result.failure(Exception("UserCancelled"))
+        } catch (e: NoCredentialException) {
+            Result.failure(Exception("No Google account found on this device"))
+        } catch (e: GetCredentialException) {
+            Result.failure(Exception("Google Sign-In error: ${e.message}"))
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        Result.failure(Exception("Google Sign-In failed"))
     }
 
     private fun handleSignInResult(result: GetCredentialResponse): Result<GoogleSignInResult> {
