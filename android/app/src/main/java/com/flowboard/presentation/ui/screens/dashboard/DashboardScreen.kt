@@ -210,25 +210,13 @@ fun DashboardSidebar(
     }
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp).clickable { onProfileClick() }
-            ) {
-                Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(32.dp)) {
-                    Box(contentAlignment = Alignment.Center) { Text("W", fontWeight = FontWeight.Bold) }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text("My Workspace", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Icon(Icons.Default.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             NavigationItem(Icons.Outlined.Home, "Home", currentView == DashboardView.HOME) { onNavigate(DashboardView.HOME) }
             NavigationItem(Icons.Outlined.Inbox, "Inbox", currentView == DashboardView.INBOX) { onNavigate(DashboardView.INBOX) }
             NavigationItem(Icons.Outlined.CheckCircle, "Tasks", false, onTasksNavigate)
             NavigationItem(Icons.Outlined.Chat, "Chat", false, onChatNavigate)
             NavigationItem(Icons.Outlined.CalendarMonth, "Calendar", false, onCalendarNavigate)
             NavigationItem(Icons.Outlined.Group, "Workspaces", false, onWorkspaceNavigate)
-            NavigationItem(Icons.Outlined.Search, "Search", currentView == DashboardView.SEARCH) { scope.launch { drawerState.close() }; onSearchClick() }
+            NavigationItem(Icons.Outlined.Search, "Search", currentView == DashboardView.SEARCH) { onNavigate(DashboardView.SEARCH) }
             Spacer(modifier = Modifier.height(12.dp))
             NavigationItem(Icons.Default.Add, "New Page", false, onCreateDocument)
             Spacer(modifier = Modifier.height(16.dp))

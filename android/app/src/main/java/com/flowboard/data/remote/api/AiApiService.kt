@@ -4,8 +4,12 @@ import com.flowboard.data.remote.ApiConfig
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 @Serializable
 data class AiChatRequest(
@@ -25,11 +29,27 @@ class AiApiService(private val httpClient: HttpClient) {
         documentContext: String? = null,
         token: String
     ): Result<String> = runCatching {
-        val response: AiChatResponse = httpClient.post("${ApiConfig.API_BASE_URL}/ai/ask") {
+        val response = httpClient.post("${ApiConfig.API_BASE_URL}/ai/ask") {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
             setBody(AiChatRequest(prompt = prompt, documentContext = documentContext))
-        }.body()
-        response.reply
+        }
+
+        if (!response.status.isSuccess()) {
+            val body = response.bodyAsText()
+            val backendMessage = runCatching {
+                Json.parseToJsonElement(body).jsonObject["error"]?.jsonPrimitive?.content
+            }.getOrNull()
+
+            val message = backendMessage ?: when (response.status) {
+                HttpStatusCode.Unauthorized -> "Session expired. Please sign in again."
+                HttpStatusCode.ServiceUnavailable -> "AI service is not configured on the server."
+                HttpStatusCode.GatewayTimeout -> "AI request timed out. Please try again."
+                else -> "AI request failed (${response.status.value})"
+            }
+            throw Exception(message)
+        }
+
+        response.body<AiChatResponse>().reply
     }
 }

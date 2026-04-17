@@ -327,6 +327,7 @@ class DocumentSyncWorker @AssistedInject constructor(
                 // Servidor tiene versión más reciente
                 Log.d(TAG, "Server has newer version of ${localDoc.id}, updating local")
                 documentDao.updateDocument(serverDoc.copy(
+                    coverColor = if (serverDoc.coverColor.isNotBlank()) serverDoc.coverColor else localDoc.coverColor,
                     isSync = true,
                     lastSyncAt = Clock.System.now().toLocalDateTime(TimeZone.UTC).toString()
                 ))
@@ -337,6 +338,7 @@ class DocumentSyncWorker @AssistedInject constructor(
             // Si no se pueden comparar fechas, usar versión del servidor
             Log.d(TAG, "Cannot compare timestamps, using server version for ${localDoc.id}")
             documentDao.updateDocument(serverDoc.copy(
+                coverColor = if (serverDoc.coverColor.isNotBlank()) serverDoc.coverColor else localDoc.coverColor,
                 isSync = true,
                 lastSyncAt = Clock.System.now().toLocalDateTime(TimeZone.UTC).toString()
             ))

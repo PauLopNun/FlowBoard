@@ -22,5 +22,6 @@ data class ContentBlock(
     val textAlign: String = "start",
     val isChecked: Boolean = false,  // used by "todo" type
     val detail: String = "",         // used by "toggle" type (expandable body content)
-    val backgroundColor: String = "" // block highlight background color
+    val backgroundColor: String = "", // block highlight background color
+    val spans: String = ""           // JSON array of inline formatting spans (InlineSpan)
 )

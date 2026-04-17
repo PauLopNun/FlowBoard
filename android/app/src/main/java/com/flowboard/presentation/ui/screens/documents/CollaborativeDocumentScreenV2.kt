@@ -87,6 +87,7 @@ fun CollaborativeDocumentScreenV2(
     var showSubPageDialog by remember { mutableStateOf(false) }
     var subPageTitle by remember { mutableStateOf("") }
     var showCoverPicker by remember { mutableStateOf(false) }
+    var showCoverImageDialog by remember { mutableStateOf(false) }
     var showAiPanel by remember { mutableStateOf(false) }
     var blockMenuBlockId by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -129,15 +130,6 @@ fun CollaborativeDocumentScreenV2(
     LaunchedEffect(documentId) { viewModel.connectToDocument(documentId) }
     DisposableEffect(Unit) { onDispose { viewModel.disconnect() } }
 
-    // Word count derived from all block text
-    val wordCount = remember(blocks) {
-        blocks.filter { it.type != "divider" }
-            .joinToString(" ") { it.content }
-            .trim()
-            .split("\\s+".toRegex())
-            .count { it.isNotBlank() }
-    }
-
     // Other users currently in the document (exclude self)
     val otherActiveUsers = remember(activeUsers, uiState.currentUserId) {
         activeUsers.filter { it.userId != uiState.currentUserId }
@@ -159,68 +151,36 @@ fun CollaborativeDocumentScreenV2(
             val docTitle = blocks.firstOrNull { it.type == "h1" }?.content
                 ?: blocks.firstOrNull()?.content
                 ?: "Untitled"
-            DocumentTopBar(
-                title = docTitle,
-                connectionState = connectionState,
-                activeUsers = activeUsers,
-                breadcrumbs = uiState.breadcrumbs,
-                onBack = onNavigateBack,
-                onSave = { viewModel.saveDocument() },
-                isSaving = isSaving,
-                onShare = { showShareDialog = true },
-                showExportMenu = showExportMenu,
-                onToggleExportMenu = { showExportMenu = !showExportMenu },
-                onDismissExportMenu = { showExportMenu = false },
-                onExportMarkdown = {
-                    showExportMenu = false
-                    exportToMarkdown(blocks, docTitle, context)
-                },
-                onExportPdf = {
-                    showExportMenu = false
-                    exportToPdf(blocks, docTitle, context)
-                }
-            )
-        },
-        bottomBar = {
             Column {
-                // Typing / presence indicator — shown when others are in the doc
-                AnimatedVisibility(
-                    visible = otherActiveUsers.isNotEmpty(),
-                    enter = slideInVertically { it } + fadeIn(),
-                    exit = slideOutVertically { it } + fadeOut()
-                ) {
-                    TypingIndicatorBar(users = otherActiveUsers)
-                }
+                DocumentTopBar(
+                    title = docTitle,
+                    connectionState = connectionState,
+                    activeUsers = activeUsers,
+                    breadcrumbs = uiState.breadcrumbs,
+                    onBack = onNavigateBack,
+                    onSave = { viewModel.saveDocument() },
+                    isSaving = isSaving,
+                    onShare = { showShareDialog = true },
+                    showExportMenu = showExportMenu,
+                    onToggleExportMenu = { showExportMenu = !showExportMenu },
+                    onDismissExportMenu = { showExportMenu = false },
+                    onExportMarkdown = {
+                        showExportMenu = false
+                        exportToMarkdown(blocks, docTitle, context)
+                    },
+                    onExportPdf = {
+                        showExportMenu = false
+                        exportToPdf(blocks, docTitle, context)
+                    }
+                )
 
                 // Formatting toolbar — shown when a block is focused
                 AnimatedVisibility(
                     visible = focusedBlockId != null,
-                    enter = slideInVertically { it } + fadeIn(),
-                    exit = slideOutVertically { it } + fadeOut()
+                    enter = slideInVertically { -it } + fadeIn(),
+                    exit = slideOutVertically { -it } + fadeOut()
                 ) {
                     Column {
-                        // Word count status row
-                        Surface(tonalElevation = 4.dp) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.TextFields,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(12.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "$wordCount ${if (wordCount == 1) "word" else "words"}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
                         FormattingToolbar(
                             currentBlock = focusedBlock,
                             selectionRange = if (selectionStart != selectionEnd) selectionStart to selectionEnd else null,
@@ -251,6 +211,9 @@ fun CollaborativeDocumentScreenV2(
                             onBgColorChange = { bgColor ->
                                 focusedBlockId?.let { id -> viewModel.updateFormatting(id, backgroundColor = bgColor) }
                             },
+                            onFontFamilyChange = { fontToken ->
+                                focusedBlockId?.let { id -> viewModel.updateFormatting(id, textAlign = fontToken) }
+                            },
                             onSpansChange = { spans ->
                                 focusedBlockId?.let { id -> viewModel.updateInlineSpans(id, spans) }
                             }
@@ -258,39 +221,70 @@ fun CollaborativeDocumentScreenV2(
                     }
                 }
             }
+        },
+        bottomBar = {
+            // Typing / presence indicator — shown when others are in the doc
+            AnimatedVisibility(
+                visible = otherActiveUsers.isNotEmpty(),
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut()
+            ) {
+                TypingIndicatorBar(users = otherActiveUsers)
+            }
         }
     ) { padding ->
-        // Auto-seed a title block for new/empty documents after the server responds with nothing
+        // Auto-seed a title/template for new documents.
+        // Backend may return a single empty paragraph placeholder for blank content.
         var templateSeeded by remember { mutableStateOf(false) }
         LaunchedEffect(connectionState) {
             if (connectionState is ConnectionState.Connected) {
                 kotlinx.coroutines.delay(2000L)
-                if (document?.blocks.isNullOrEmpty()) {
+                val currentBlocks = document?.blocks.orEmpty()
+                val hasOnlyPlaceholderBlock = currentBlocks.size == 1 &&
+                    currentBlocks.first().type == "p" &&
+                    currentBlocks.first().content.isBlank()
+
+                if (currentBlocks.isEmpty() || hasOnlyPlaceholderBlock) {
                     if (templateId != null && !templateSeeded) {
                         templateSeeded = true
                         // Apply template blocks
                         val template = builtInTemplates.find { it.id == templateId }
                         if (template != null) {
+                            val placeholderId = if (hasOnlyPlaceholderBlock) currentBlocks.first().id else null
                             var afterId: String? = null
-                            template.blocks.forEach { (type, content) ->
-                                val blockId = UUID.randomUUID().toString()
-                                viewModel.addBlock(
-                                    ContentBlock(id = blockId, type = type, content = content),
-                                    afterId
-                                )
-                                afterId = blockId
+                            template.blocks.forEachIndexed { index, (type, content) ->
+                                if (index == 0 && placeholderId != null) {
+                                    viewModel.updateBlockType(placeholderId, type)
+                                    viewModel.insertText(placeholderId, content, 0)
+                                    afterId = placeholderId
+                                } else {
+                                    val blockId = UUID.randomUUID().toString()
+                                    viewModel.addBlock(
+                                        ContentBlock(id = blockId, type = type, content = content),
+                                        afterId
+                                    )
+                                    afterId = blockId
+                                }
                             }
+                        } else {
+                            if (hasOnlyPlaceholderBlock) {
+                                viewModel.updateBlockType(currentBlocks.first().id, "h1")
+                            } else {
+                                viewModel.addBlock(
+                                    ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
+                                    null
+                                )
+                            }
+                        }
+                    } else {
+                        if (hasOnlyPlaceholderBlock) {
+                            viewModel.updateBlockType(currentBlocks.first().id, "h1")
                         } else {
                             viewModel.addBlock(
                                 ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
                                 null
                             )
                         }
-                    } else {
-                        viewModel.addBlock(
-                            ContentBlock(id = UUID.randomUUID().toString(), type = "h1", content = ""),
-                            null
-                        )
                     }
                 }
             }
@@ -338,21 +332,37 @@ fun CollaborativeDocumentScreenV2(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(bottom = 120.dp)
+                contentPadding = PaddingValues(bottom = 88.dp)
             ) {
                 // Cover image banner (shown only when a cover color is set)
                 if (coverColor.isNotEmpty()) {
                     item(key = "cover") {
+                        val isImageCover = coverColor.startsWith("http://") || coverColor.startsWith("https://")
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(160.dp)
-                                .background(
-                                    try { Color(android.graphics.Color.parseColor(
-                                        if (coverColor.startsWith("#")) coverColor else "#$coverColor"
-                                    )) } catch (_: Exception) { Color(0xFF3B82F6) }
-                                )
                         ) {
+                            if (isImageCover) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(coverColor)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Document cover",
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            try { Color(android.graphics.Color.parseColor(
+                                                if (coverColor.startsWith("#")) coverColor else "#$coverColor"
+                                            )) } catch (_: Exception) { Color(0xFF3B82F6) }
+                                        )
+                                )
+                            }
                             Row(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
@@ -365,6 +375,13 @@ fun CollaborativeDocumentScreenV2(
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                                 ) {
                                     Text("Change cover", style = MaterialTheme.typography.labelSmall)
+                                }
+                                FilledTonalButton(
+                                    onClick = { showCoverImageDialog = true },
+                                    modifier = Modifier.height(28.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                                ) {
+                                    Text("Image URL", style = MaterialTheme.typography.labelSmall)
                                 }
                                 FilledTonalButton(
                                     onClick = { viewModel.removeCover() },
@@ -400,6 +417,16 @@ fun CollaborativeDocumentScreenV2(
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                         Spacer(Modifier.width(4.dp))
                                         Text("Add cover", style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                    }
+                                    TextButton(
+                                        onClick = { showCoverImageDialog = true },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(Icons.Default.Link, null, modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Image URL", style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                     }
                                 }
@@ -759,6 +786,17 @@ fun CollaborativeDocumentScreenV2(
         )
     }
 
+    if (showCoverImageDialog) {
+        CoverImageUrlDialog(
+            current = uiState.coverColor.takeIf { it.startsWith("http://") || it.startsWith("https://") }.orEmpty(),
+            onSelect = { imageUrl ->
+                viewModel.updateCoverColor(imageUrl)
+                showCoverImageDialog = false
+            },
+            onDismiss = { showCoverImageDialog = false }
+        )
+    }
+
     // AI Assistant panel
     if (showAiPanel) {
         val docContext = remember(blocks) {
@@ -888,6 +926,37 @@ private fun CoverPickerDialog(
             }
         },
         confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun CoverImageUrlDialog(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var imageUrl by remember(current) { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cover image URL") },
+        text = {
+            OutlinedTextField(
+                value = imageUrl,
+                onValueChange = { imageUrl = it },
+                label = { Text("https://...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            val isValid = imageUrl.trim().startsWith("http://") || imageUrl.trim().startsWith("https://")
+            Button(onClick = { onSelect(imageUrl.trim()) }, enabled = isValid) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
@@ -1721,6 +1790,12 @@ private fun buildTextStyle(block: ContentBlock, isTitle: Boolean): TextStyle {
         } catch (_: Exception) { defaultTextColor }
     }
     return base.copy(
+        fontFamily = when {
+            block.type == "code" -> FontFamily.Monospace
+            block.textAlign == "font_serif" -> FontFamily.Serif
+            block.textAlign == "font_mono" -> FontFamily.Monospace
+            else -> base.fontFamily
+        },
         fontWeight = if (block.fontWeight == "bold") FontWeight.Bold else base.fontWeight,
         fontStyle = if (block.fontStyle == "italic") FontStyle.Italic else FontStyle.Normal,
         textDecoration = if (block.textDecoration == "underline") TextDecoration.Underline else null,
@@ -1742,6 +1817,7 @@ private fun FormattingToolbar(
     onBlockType: (String) -> Unit,
     onColorChange: (String) -> Unit,
     onBgColorChange: (String) -> Unit,
+    onFontFamilyChange: (String) -> Unit,
     onSpansChange: ((String) -> Unit)? = null
 ) {
     val hasSelection = selectionRange != null && selectionRange.first != selectionRange.second
@@ -1793,8 +1869,10 @@ private fun FormattingToolbar(
     val currentColor = currentBlock?.color
         ?.takeIf { it.isNotBlank() && it != "#000000" && it != "default" } ?: ""
     val currentBgColor = currentBlock?.backgroundColor ?: ""
+    val currentFontToken = currentBlock?.textAlign?.takeIf { it == "font_serif" || it == "font_mono" } ?: "start"
     var showColorDropdown by remember { mutableStateOf(false) }
     var showBgColorDropdown by remember { mutableStateOf(false) }
+    var showFontDropdown by remember { mutableStateOf(false) }
 
     Surface(
         tonalElevation = 4.dp,
@@ -1869,6 +1947,50 @@ private fun FormattingToolbar(
                 Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
                     .background(MaterialTheme.colorScheme.outlineVariant)
             )
+
+            // Font family selector
+            Box {
+                OutlinedButton(
+                    onClick = { showFontDropdown = true },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text(
+                        text = when (currentFontToken) {
+                            "font_serif" -> "Serif"
+                            "font_mono" -> "Mono"
+                            else -> "Sans"
+                        },
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                DropdownMenu(
+                    expanded = showFontDropdown,
+                    onDismissRequest = { showFontDropdown = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Sans") },
+                        onClick = {
+                            onFontFamilyChange("start")
+                            showFontDropdown = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Serif") },
+                        onClick = {
+                            onFontFamilyChange("font_serif")
+                            showFontDropdown = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Monospace") },
+                        onClick = {
+                            onFontFamilyChange("font_mono")
+                            showFontDropdown = false
+                        }
+                    )
+                }
+            }
 
             // Color picker dropdown — same level as other format buttons
             Box {
@@ -2155,8 +2277,8 @@ private fun TableBlock(
     val parsed = remember(block.content) {
         runCatching {
             val obj = Json.parseToJsonElement(block.content).jsonObject
-            val rows = obj["rows"]?.jsonPrimitive?.int ?: 2
-            val cols = obj["cols"]?.jsonPrimitive?.int ?: 3
+            val rows = obj["rows"]?.jsonPrimitive?.content?.toIntOrNull() ?: 2
+            val cols = obj["cols"]?.jsonPrimitive?.content?.toIntOrNull() ?: 3
             val cells = obj["cells"]?.jsonArray?.map { rowEl ->
                 rowEl.jsonArray.map { it.jsonPrimitive.content }.toMutableList()
             }?.toMutableList() ?: MutableList(rows) { MutableList(cols) { "" } }

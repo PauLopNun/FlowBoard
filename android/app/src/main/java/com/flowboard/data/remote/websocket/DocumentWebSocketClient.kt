@@ -202,7 +202,12 @@ class DocumentWebSocketClient @Inject constructor(
      */
     private suspend fun handleIncomingMessage(text: String) {
         try {
-            val message = json.decodeFromString<DocumentWebSocketMessage>(text)
+            val message = try {
+                json.decodeFromString<DocumentWebSocketMessage>(text)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not decode WebSocket message, skipping: ${e.message}")
+                return
+            }
             Log.d(TAG, "Received message: ${message::class.simpleName}")
 
             when (message) {

@@ -65,6 +65,9 @@ class CRDTEngine @Inject constructor() {
             is ToggleTodoOperation -> handleToggleTodo(currentDoc.blocks, operation)
             is UpdateBlockDetailOperation -> handleUpdateDetail(currentDoc.blocks, operation)
             is MoveBlockOperation -> handleMoveBlock(currentDoc.blocks, operation)
+            is UpdateBlockSpansOperation -> currentDoc.blocks.map { block ->
+                if (block.id == operation.blockId) block.copy(spans = operation.spans) else block
+            }
             is CursorMoveOperation -> currentDoc.blocks // Cursors don't modify document
         }
 
@@ -197,6 +200,7 @@ class CRDTEngine @Inject constructor() {
             is ToggleTodoOperation -> op.blockId
             is UpdateBlockDetailOperation -> op.blockId
             is MoveBlockOperation -> op.blockId
+            is UpdateBlockSpansOperation -> op.blockId
             is CursorMoveOperation -> op.blockId
         }
     }
@@ -333,6 +337,7 @@ class CRDTEngine @Inject constructor() {
             is ToggleTodoOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is UpdateBlockDetailOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is MoveBlockOperation -> baseOp.copy(operationId = opId, boardId = boardId)
+            is UpdateBlockSpansOperation -> baseOp.copy(operationId = opId, boardId = boardId)
             is CursorMoveOperation -> baseOp.copy(operationId = opId, boardId = boardId)
         }
     }

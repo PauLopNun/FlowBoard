@@ -37,12 +37,23 @@ fun AiAssistantSheet(
         }
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        modifier = Modifier.fillMaxHeight(0.85f)
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomEnd
     ) {
-        Column(modifier = Modifier.fillMaxSize().imePadding()) {
+        val panelWidth = (maxWidth * 0.52f).coerceIn(280.dp, 420.dp)
+        val panelHeight = (maxHeight * 0.50f).coerceIn(320.dp, 560.dp)
+
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            tonalElevation = 6.dp,
+            shadowElevation = 8.dp,
+            modifier = Modifier
+                .padding(end = 16.dp, bottom = 88.dp)
+                .width(panelWidth)
+                .height(panelHeight)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
             // Header
             Row(
                 modifier = Modifier
@@ -152,8 +163,7 @@ fun AiAssistantSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .navigationBarsPadding(),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -177,6 +187,7 @@ fun AiAssistantSheet(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
                 }
+            }
             }
         }
     }

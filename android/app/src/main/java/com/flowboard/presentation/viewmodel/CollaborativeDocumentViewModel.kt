@@ -2,6 +2,7 @@ package com.flowboard.presentation.viewmodel
 
 import android.util.Log
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.flowboard.data.crdt.CRDTEngine
@@ -146,6 +147,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
                 loadBreadcrumbs(documentId)
                 // Load cover color from local Room cache
                 loadCoverColor(documentId)
+                // Ensure local cache row exists so cover updates persist in Room.
+                ensureDocumentCached(documentId)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to connect to document", e)
                 _uiState.update { it.copy(error = "Connection failed: ${e.message}") }
@@ -198,7 +201,20 @@ class CollaborativeDocumentViewModel @Inject constructor(
         val documentId = _uiState.value.currentDocumentId ?: return
         _uiState.update { it.copy(coverColor = color) }
         viewModelScope.launch {
+            ensureDocumentCached(documentId)
             documentDao.updateCoverColor(documentId, color)
+        }
+    }
+
+    private suspend fun ensureDocumentCached(documentId: String) {
+        val existing = documentDao.getDocumentById(documentId)
+        if (existing != null) return
+
+        runCatching {
+            val remoteDoc = documentApiService.getDocumentById(documentId)
+            documentDao.insertDocument(remoteDoc.copy(isSync = true, lastSyncAt = remoteDoc.updatedAt))
+        }.onFailure {
+            Log.w(TAG, "Could not cache document $documentId locally for cover persistence: ${it.message}")
         }
     }
 
@@ -515,7 +531,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
                 position = position,
                 selectionStart = selectionStart,
                 selectionEnd = selectionEnd,
-                color = getUserColor(userId).value.toString(16)
+                // Always send a stable RGB hex (RRGGBB) that the receiver can parse safely.
+                color = "%06X".format(getUserColor(userId).toArgb() and 0xFFFFFF)
             )
         }
     }
@@ -549,10 +566,27 @@ class CollaborativeDocumentViewModel @Inject constructor(
     private fun updateRemoteCursor(cursorUpdate: CursorUpdateMessage) {
         val currentCursors = _remoteCursors.value.toMutableMap()
 
+        val parsedColor = runCatching {
+            val raw = cursorUpdate.color.trim().removePrefix("#")
+            val normalized = when {
+                raw.length >= 8 -> raw.takeLast(6)
+                raw.length == 6 -> raw
+                else -> ""
+            }
+            if (normalized.isEmpty()) {
+                getUserColor(cursorUpdate.userId)
+            } else {
+                Color(android.graphics.Color.parseColor("#$normalized"))
+            }
+        }.getOrElse {
+            Log.w(TAG, "Invalid cursor color '${cursorUpdate.color}' for user ${cursorUpdate.userId}; using fallback")
+            getUserColor(cursorUpdate.userId)
+        }
+
         val cursor = RemoteCursor(
             userId = cursorUpdate.userId,
             userName = cursorUpdate.userName,
-            color = Color(android.graphics.Color.parseColor("#${cursorUpdate.color}")),
+            color = parsedColor,
             position = CursorPosition(
                 blockId = cursorUpdate.blockId,
                 position = cursorUpdate.position,
