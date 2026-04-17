@@ -11,6 +11,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -123,6 +125,7 @@ private fun WorkspaceCard(
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
 
     Card(
         onClick = onClick,
@@ -165,9 +168,12 @@ private fun WorkspaceCard(
                 }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Invite code: ${workspace.inviteCode}") },
+                        text = { Text("Copy invite code: ${workspace.inviteCode}") },
                         leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
-                        onClick = { showMenu = false }
+                        onClick = {
+                            clipboard.setText(AnnotatedString(workspace.inviteCode))
+                            showMenu = false
+                        }
                     )
                     HorizontalDivider()
                     DropdownMenuItem(
