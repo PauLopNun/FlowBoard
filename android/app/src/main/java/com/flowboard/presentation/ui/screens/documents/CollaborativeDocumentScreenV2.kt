@@ -211,6 +211,9 @@ fun CollaborativeDocumentScreenV2(
                             onBgColorChange = { bgColor ->
                                 focusedBlockId?.let { id -> viewModel.updateFormatting(id, backgroundColor = bgColor) }
                             },
+                            onFontFamilyChange = { fontToken ->
+                                focusedBlockId?.let { id -> viewModel.updateFormatting(id, textAlign = fontToken) }
+                            },
                             onSpansChange = { spans ->
                                 focusedBlockId?.let { id -> viewModel.updateInlineSpans(id, spans) }
                             }
@@ -1787,6 +1790,12 @@ private fun buildTextStyle(block: ContentBlock, isTitle: Boolean): TextStyle {
         } catch (_: Exception) { defaultTextColor }
     }
     return base.copy(
+        fontFamily = when {
+            block.type == "code" -> FontFamily.Monospace
+            block.textAlign == "font_serif" -> FontFamily.Serif
+            block.textAlign == "font_mono" -> FontFamily.Monospace
+            else -> base.fontFamily
+        },
         fontWeight = if (block.fontWeight == "bold") FontWeight.Bold else base.fontWeight,
         fontStyle = if (block.fontStyle == "italic") FontStyle.Italic else FontStyle.Normal,
         textDecoration = if (block.textDecoration == "underline") TextDecoration.Underline else null,
@@ -1808,6 +1817,7 @@ private fun FormattingToolbar(
     onBlockType: (String) -> Unit,
     onColorChange: (String) -> Unit,
     onBgColorChange: (String) -> Unit,
+    onFontFamilyChange: (String) -> Unit,
     onSpansChange: ((String) -> Unit)? = null
 ) {
     val hasSelection = selectionRange != null && selectionRange.first != selectionRange.second
@@ -1859,8 +1869,10 @@ private fun FormattingToolbar(
     val currentColor = currentBlock?.color
         ?.takeIf { it.isNotBlank() && it != "#000000" && it != "default" } ?: ""
     val currentBgColor = currentBlock?.backgroundColor ?: ""
+    val currentFontToken = currentBlock?.textAlign?.takeIf { it == "font_serif" || it == "font_mono" } ?: "start"
     var showColorDropdown by remember { mutableStateOf(false) }
     var showBgColorDropdown by remember { mutableStateOf(false) }
+    var showFontDropdown by remember { mutableStateOf(false) }
 
     Surface(
         tonalElevation = 4.dp,
@@ -1935,6 +1947,50 @@ private fun FormattingToolbar(
                 Modifier.height(24.dp).width(1.dp).padding(horizontal = 4.dp)
                     .background(MaterialTheme.colorScheme.outlineVariant)
             )
+
+            // Font family selector
+            Box {
+                OutlinedButton(
+                    onClick = { showFontDropdown = true },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text(
+                        text = when (currentFontToken) {
+                            "font_serif" -> "Serif"
+                            "font_mono" -> "Mono"
+                            else -> "Sans"
+                        },
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                DropdownMenu(
+                    expanded = showFontDropdown,
+                    onDismissRequest = { showFontDropdown = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Sans") },
+                        onClick = {
+                            onFontFamilyChange("start")
+                            showFontDropdown = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Serif") },
+                        onClick = {
+                            onFontFamilyChange("font_serif")
+                            showFontDropdown = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Monospace") },
+                        onClick = {
+                            onFontFamilyChange("font_mono")
+                            showFontDropdown = false
+                        }
+                    )
+                }
+            }
 
             // Color picker dropdown — same level as other format buttons
             Box {
