@@ -1,20 +1,22 @@
 package com.flowboard.data.repository
 
 import com.flowboard.data.local.dao.ChatDao
+import com.flowboard.data.local.entities.*
+import com.flowboard.data.remote.api.ChatApiService
 import com.flowboard.domain.model.*
 import com.flowboard.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.flowboard.data.local.entities.*
-import java.util.UUID
 
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
     private val chatDao: ChatDao,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val chatApiService: ChatApiService
 ) : ChatRepository {
 
     override fun getAllChatRooms(): Flow<List<ChatRoom>> {
@@ -57,50 +59,28 @@ class ChatRepositoryImpl @Inject constructor(
         participantIds: List<String>,
         resourceId: String?,
         resourceType: ResourceType?
-    ): Result<ChatRoom> {
-        return try {
-            val currentUserId = authRepository.getUserId() ?: return Result.failure(Exception("Not authenticated"))
-            val chatRoomId = UUID.randomUUID().toString()
-            val now = System.currentTimeMillis()
+    ): Result<ChatRoom> = runCatching {
+        val currentUserId = authRepository.getUserId() ?: throw Exception("Not authenticated")
+        val dto = chatApiService.createChatRoom(
+            type = type.name.lowercase(),
+            name = name,
+            participantIds = participantIds,
+            resourceId = resourceId,
+            resourceType = resourceType?.name?.lowercase()
+        )
+        val entity = dto.toEntity()
+        chatDao.insertChatRoom(entity)
+        entity.toChatRoom(emptyList())
+    }
 
-            val chatRoomEntity = ChatRoomEntity(
-                id = chatRoomId,
-                type = type.name.lowercase(),
-                name = name,
-                description = null,
-                participantIds = participantIds,
-                resourceId = resourceId,
-                resourceType = resourceType?.name?.lowercase(),
-                lastMessageId = null,
-                lastMessagePreview = null,
-                lastMessageTimestamp = null,
-                unreadCount = 0,
-                createdBy = currentUserId,
-                createdAt = now,
-                updatedAt = now,
-                isArchived = false,
-                isMuted = false
-            )
+    suspend fun refreshChatRooms() {
+        val rooms = chatApiService.getChatRooms()
+        rooms.forEach { chatDao.insertChatRoom(it.toEntity()) }
+    }
 
-            chatDao.insertChatRoom(chatRoomEntity)
-
-            // TODO: Add participants from user data
-            val chatRoom = ChatRoom(
-                id = chatRoomId,
-                type = type,
-                name = name,
-                participants = emptyList(),
-                resourceId = resourceId,
-                resourceType = resourceType,
-                createdBy = currentUserId,
-                createdAt = now,
-                updatedAt = now
-            )
-
-            Result.success(chatRoom)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    suspend fun refreshMessages(chatRoomId: String) {
+        val messages = chatApiService.getMessages(chatRoomId)
+        messages.forEach { chatDao.insertMessage(it.toMessageEntity()) }
     }
 
     override suspend fun archiveChatRoom(chatRoomId: String, isArchived: Boolean) {
@@ -159,7 +139,7 @@ class ChatRepositoryImpl @Inject constructor(
 
             chatDao.insertMessage(messageEntity)
 
-            // Update chat room's last message
+            // Update chat room's last message preview locally
             chatDao.getChatRoomSync(chatRoomId)?.let { room ->
                 chatDao.updateChatRoom(
                     room.copy(
@@ -171,9 +151,13 @@ class ChatRepositoryImpl @Inject constructor(
                 )
             }
 
-            // TODO: Send via WebSocket
+            // Send to backend and replace with server-assigned message
+            val serverMsg = chatApiService.sendMessage(chatRoomId, content, replyToId, mentions)
+            val serverEntity = serverMsg.toMessageEntity()
+            chatDao.deleteMessage(messageEntity)
+            chatDao.insertMessage(serverEntity)
 
-            Result.success(messageEntity.toMessage())
+            Result.success(serverEntity.toMessage())
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -337,3 +321,39 @@ class ChatRepositoryImpl @Inject constructor(
         )
     }
 }
+
+private fun com.flowboard.data.remote.api.ChatRoomDto.toEntity() = ChatRoomEntity(
+    id = id,
+    type = type,
+    name = name,
+    description = description,
+    participantIds = participantIds,
+    resourceId = resourceId,
+    resourceType = resourceType,
+    lastMessageId = null,
+    lastMessagePreview = lastMessagePreview,
+    lastMessageTimestamp = lastMessageTimestamp,
+    unreadCount = unreadCount,
+    createdBy = createdBy,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    isArchived = isArchived,
+    isMuted = isMuted
+)
+
+private fun com.flowboard.data.remote.api.MessageDto.toMessageEntity() = MessageEntity(
+    id = id,
+    chatRoomId = chatRoomId,
+    senderId = senderId,
+    senderName = senderName,
+    type = type,
+    content = content,
+    status = status,
+    mentions = mentions,
+    replyToId = replyToId,
+    isEdited = isEdited,
+    editedAt = editedAt,
+    createdAt = createdAt,
+    deliveredAt = deliveredAt,
+    readAt = readAt
+)

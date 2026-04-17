@@ -1,14 +1,18 @@
 package com.flowboard.di
 
-import com.flowboard.data.local.dao.TaskDao
 import com.flowboard.data.local.dao.ChatDao
+import com.flowboard.data.local.dao.ProjectDao
+import com.flowboard.data.local.dao.TaskDao
+import com.flowboard.data.remote.api.ChatApiService
+import com.flowboard.data.remote.api.ProjectApiService
 import com.flowboard.data.remote.api.TaskApiService
 import com.flowboard.data.remote.websocket.TaskWebSocketClient
-import com.flowboard.data.repository.TaskRepositoryImpl
-import com.flowboard.data.repository.ChatRepositoryImpl
 import com.flowboard.data.repository.AuthRepository
-import com.flowboard.domain.repository.TaskRepository
+import com.flowboard.data.repository.ChatRepositoryImpl
+import com.flowboard.data.repository.ProjectRepositoryImpl
+import com.flowboard.data.repository.TaskRepositoryImpl
 import com.flowboard.domain.repository.ChatRepository
+import com.flowboard.domain.repository.TaskRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,8 +37,19 @@ object RepositoryModule {
     @Singleton
     fun provideChatRepository(
         chatDao: ChatDao,
-        authRepository: AuthRepository
+        authRepository: AuthRepository,
+        chatApiService: ChatApiService
     ): ChatRepository {
-        return ChatRepositoryImpl(chatDao, authRepository)
+        return ChatRepositoryImpl(chatDao, authRepository, chatApiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideProjectRepository(
+        projectApiService: ProjectApiService,
+        projectDao: ProjectDao,
+        authRepository: AuthRepository
+    ): ProjectRepositoryImpl {
+        return ProjectRepositoryImpl(projectApiService, projectDao, authRepository)
     }
 }

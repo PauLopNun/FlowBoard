@@ -226,6 +226,7 @@ fun FlowBoardApp(
                     onTasksClick = { navController.navigate("tasks") },
                     onCalendarClick = { navController.navigate("calendar") },
                     onWorkspaceClick = { navController.navigate("workspaces") },
+                    onProjectsClick = { navController.navigate("projects") },
                     onEditorDemoClick = { navController.navigate("my_documents") },
                     onSearchClick = { navController.navigate("search") },
                     onLogout = {
@@ -530,6 +531,12 @@ fun FlowBoardApp(
                     onCreateDocument = { wsId ->
                         navController.navigate("document_new?workspaceId=$wsId")
                     }
+                )
+            }
+
+            composable("projects") {
+                com.flowboard.presentation.ui.screens.projects.ProjectListScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
