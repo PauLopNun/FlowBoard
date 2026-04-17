@@ -22,5 +22,7 @@ data class DocumentEntity(
     val coverColor: String = "",
     val isDeleted: Boolean = false,
     val deletedAt: String? = null,
-    val isStarred: Boolean = false
+    val isStarred: Boolean = false,
+    val visibility: String = "private",
+    val workspaceId: String? = null
 )

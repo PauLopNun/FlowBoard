@@ -33,6 +33,8 @@ fun Route.documentRoutes(
                     content = request.content,
                     ownerId = userId,
                     isPublic = request.isPublic,
+                    visibility = request.visibility,
+                    workspaceId = request.workspaceId,
                     parentId = request.parentId
                 )
 
@@ -100,7 +102,9 @@ fun Route.documentRoutes(
                     userId = userId,
                     title = request.title,
                     content = request.content,
-                    isPublic = request.isPublic
+                    isPublic = request.isPublic,
+                    visibility = request.visibility,
+                    workspaceId = request.workspaceId
                 )
 
                 if (document == null) {

@@ -43,12 +43,35 @@ class DocumentApiService @Inject constructor(
         }.body<DocumentDto>().toEntity()
     }
 
-    suspend fun createDocument(title: String, content: String = "", isPublic: Boolean = false, parentId: String? = null): DocumentEntity {
+    suspend fun createDocument(
+        title: String,
+        content: String = "",
+        isPublic: Boolean = false,
+        visibility: String = "private",
+        workspaceId: String? = null,
+        parentId: String? = null
+    ): DocumentEntity {
         val token = getAuthToken() ?: throw Exception("Not authenticated")
         return httpClient.post(DOCUMENTS_ENDPOINT) {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
-            setBody(CreateDocumentRequest(title, content, isPublic, parentId))
+            setBody(CreateDocumentRequest(title, content, isPublic, visibility, workspaceId, parentId))
+        }.body<DocumentDto>().toEntity()
+    }
+
+    suspend fun fetchWorkspaceDocuments(workspaceId: String): List<DocumentEntity> {
+        val token = getAuthToken() ?: throw Exception("Not authenticated")
+        return httpClient.get("${ApiConfig.API_BASE_URL}/workspaces/$workspaceId/documents") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+        }.body<List<DocumentDto>>().map { it.toEntity() }
+    }
+
+    suspend fun updateDocumentVisibility(id: String, visibility: String, workspaceId: String?): DocumentEntity {
+        val token = getAuthToken() ?: throw Exception("Not authenticated")
+        return httpClient.put("$DOCUMENTS_ENDPOINT/$id") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody(UpdateDocumentRequest(visibility = visibility, workspaceId = workspaceId))
         }.body<DocumentDto>().toEntity()
     }
 

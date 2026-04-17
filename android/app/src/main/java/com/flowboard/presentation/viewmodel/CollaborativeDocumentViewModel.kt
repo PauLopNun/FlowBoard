@@ -147,6 +147,8 @@ class CollaborativeDocumentViewModel @Inject constructor(
                 loadBreadcrumbs(documentId)
                 // Load cover color from local Room cache
                 loadCoverColor(documentId)
+                // Load visibility from local Room cache
+                loadDocumentVisibility(documentId)
                 // Ensure local cache row exists so cover updates persist in Room.
                 ensureDocumentCached(documentId)
             } catch (e: Exception) {
@@ -222,6 +224,34 @@ class CollaborativeDocumentViewModel @Inject constructor(
      * Remove the cover image
      */
     fun removeCover() = updateCoverColor("")
+
+    private fun loadDocumentVisibility(documentId: String) {
+        viewModelScope.launch {
+            documentDao.observeDocumentById(documentId).collect { entity ->
+                _uiState.update {
+                    it.copy(
+                        visibility = entity?.visibility ?: "private",
+                        workspaceId = entity?.workspaceId
+                    )
+                }
+            }
+        }
+    }
+
+    fun updateDocumentVisibility(visibility: String, workspaceId: String?) {
+        val documentId = _uiState.value.currentDocumentId ?: return
+        _uiState.update { it.copy(visibility = visibility, workspaceId = workspaceId) }
+        viewModelScope.launch {
+            try {
+                documentApiService.updateDocumentVisibility(documentId, visibility, workspaceId)
+                ensureDocumentCached(documentId)
+                documentDao.updateVisibility(documentId, visibility, workspaceId)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not update visibility: ${e.message}")
+                _uiState.update { it.copy(error = "Failed to update visibility: ${e.message}") }
+            }
+        }
+    }
 
     /**
      * Update toggle block detail (body) content
@@ -741,5 +771,8 @@ data class CollaborativeDocumentUiState(
     /** Breadcrumb trail: list of (documentId, title) from root to current page */
     val breadcrumbs: List<Pair<String, String>> = emptyList(),
     /** Cover color hex string (e.g. "#3B82F6"). Empty means no cover. */
-    val coverColor: String = ""
+    val coverColor: String = "",
+    /** Document visibility: "private", "shared", or "workspace" */
+    val visibility: String = "private",
+    val workspaceId: String? = null
 )

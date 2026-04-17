@@ -72,6 +72,8 @@ object Documents : UUIDTable("documents") {
     val ownerId = uuid("owner_id")
     val parentId = uuid("parent_id").nullable()
     val isPublic = bool("is_public").default(false)
+    val visibility = varchar("visibility", 20).default("private") // private, shared, workspace
+    val workspaceId = uuid("workspace_id").nullable()
     val createdAt = datetime("created_at")
     val updatedAt = datetime("updated_at")
     val lastEditedBy = uuid("last_edited_by").nullable()
