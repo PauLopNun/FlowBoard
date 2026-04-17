@@ -528,9 +528,8 @@ fun FlowBoardApp(
                     workspaceId = workspaceId,
                     onNavigateBack = { navController.popBackStack() },
                     onDocumentClick = { navController.navigate("document_edit/$it") },
-                    onCreateDocument = { wsId ->
-                        navController.navigate("document_new?workspaceId=$wsId")
-                    }
+                    onCreateDocument = { wsId -> navController.navigate("document_new?workspaceId=$wsId") },
+                    onChatClick = { chatId -> navController.navigate("chat/$chatId") }
                 )
             }
 
