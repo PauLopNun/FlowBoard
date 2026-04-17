@@ -32,6 +32,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -290,6 +291,10 @@ fun FlowBoardApp(
                         isCreating = false
                     }
                 }
+
+                // Intercept system back gesture — without this, the dialog dismisses
+                // but the route stays alive showing a blank white screen.
+                BackHandler(enabled = !isCreating) { navController.popBackStack() }
 
                 AlertDialog(
                     onDismissRequest = { if (!isCreating) navController.popBackStack() },
