@@ -4,6 +4,7 @@ import com.flowboard.data.database.DatabaseFactory.dbQuery
 import com.flowboard.data.database.Documents
 import com.flowboard.data.database.DocumentPermissions
 import com.flowboard.data.database.Users
+import com.flowboard.data.database.WorkspaceMembers
 import com.flowboard.data.models.*
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
@@ -14,7 +15,15 @@ import java.util.*
 
 class DocumentPersistenceService {
 
-    suspend fun createDocument(title: String, content: String, ownerId: String, isPublic: Boolean, parentId: String? = null): Document {
+    suspend fun createDocument(
+        title: String,
+        content: String,
+        ownerId: String,
+        isPublic: Boolean,
+        visibility: String = "private",
+        workspaceId: String? = null,
+        parentId: String? = null
+    ): Document {
         val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
         val documentId = UUID.randomUUID()
 
@@ -26,6 +35,8 @@ class DocumentPersistenceService {
                 it[Documents.ownerId] = UUID.fromString(ownerId)
                 it[Documents.parentId] = parentId?.let { p -> UUID.fromString(p) }
                 it[Documents.isPublic] = isPublic
+                it[Documents.visibility] = visibility
+                it[Documents.workspaceId] = workspaceId?.let { w -> UUID.fromString(w) }
                 it[Documents.createdAt] = now
                 it[Documents.updatedAt] = now
             }
@@ -92,6 +103,8 @@ class DocumentPersistenceService {
                 ownerId = docQuery[Documents.ownerId].toString(),
                 ownerName = docQuery[Users.username],
                 isPublic = docQuery[Documents.isPublic],
+                visibility = docQuery[Documents.visibility],
+                workspaceId = docQuery[Documents.workspaceId]?.toString(),
                 parentId = docQuery[Documents.parentId]?.toString(),
                 createdAt = docQuery[Documents.createdAt],
                 updatedAt = docQuery[Documents.updatedAt],
@@ -115,10 +128,17 @@ class DocumentPersistenceService {
         }
     }
 
-    suspend fun updateDocument(documentId: String, userId: String, title: String?, content: String?, isPublic: Boolean?): Document? {
+    suspend fun updateDocument(
+        documentId: String,
+        userId: String,
+        title: String?,
+        content: String?,
+        isPublic: Boolean?,
+        visibility: String? = null,
+        workspaceId: String? = null
+    ): Document? {
         val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
 
-        // Check if user has editor or owner permission
         val hasPermission = dbQuery {
             DocumentPermissions
                 .select {
@@ -136,6 +156,8 @@ class DocumentPersistenceService {
                 if (title != null) it[Documents.title] = title
                 if (content != null) it[Documents.content] = content
                 if (isPublic != null) it[Documents.isPublic] = isPublic
+                if (visibility != null) it[Documents.visibility] = visibility
+                if (workspaceId != null) it[Documents.workspaceId] = UUID.fromString(workspaceId)
                 it[Documents.updatedAt] = now
                 it[Documents.lastEditedBy] = UUID.fromString(userId)
             }
@@ -143,6 +165,43 @@ class DocumentPersistenceService {
 
         return getDocumentById(documentId, userId)
     }
+
+    suspend fun getWorkspaceDocuments(workspaceId: String, requesterId: String): List<Document>? {
+        return dbQuery {
+            // Verify requester is a member of the workspace
+            val isMember = WorkspaceMembers
+                .select {
+                    (WorkspaceMembers.workspaceId eq UUID.fromString(workspaceId)) and
+                    (WorkspaceMembers.userId eq UUID.fromString(requesterId))
+                }
+                .count() > 0
+            if (!isMember) return@dbQuery null
+
+            Documents
+                .leftJoin(Users, { Documents.ownerId }, { Users.id })
+                .select {
+                    (Documents.workspaceId eq UUID.fromString(workspaceId)) and
+                    (Documents.visibility eq "workspace")
+                }
+                .orderBy(Documents.updatedAt, SortOrder.DESC)
+                .map { row -> row.toDocument() }
+        }
+    }
+
+    private fun ResultRow.toDocument() = Document(
+        id = this[Documents.id].toString(),
+        title = this[Documents.title],
+        content = this[Documents.content],
+        ownerId = this[Documents.ownerId].toString(),
+        ownerName = try { this[Users.username] } catch (_: Exception) { null },
+        isPublic = this[Documents.isPublic],
+        visibility = this[Documents.visibility],
+        workspaceId = this[Documents.workspaceId]?.toString(),
+        parentId = this[Documents.parentId]?.toString(),
+        createdAt = this[Documents.createdAt],
+        updatedAt = this[Documents.updatedAt],
+        lastEditedBy = this[Documents.lastEditedBy]?.toString()
+    )
 
     suspend fun deleteDocument(documentId: String, userId: String): Boolean {
         return dbQuery {
@@ -170,53 +229,17 @@ class DocumentPersistenceService {
             val owned = Documents
                 .leftJoin(Users, { Documents.ownerId }, { Users.id })
                 .select { Documents.ownerId eq UUID.fromString(userId) }
-                .map { row ->
-                    Document(
-                        id = row[Documents.id].toString(),
-                        title = row[Documents.title],
-                        content = row[Documents.content],
-                        ownerId = row[Documents.ownerId].toString(),
-                        ownerName = row[Users.username],
-                        isPublic = row[Documents.isPublic],
-                        parentId = row[Documents.parentId]?.toString(),
-                        createdAt = row[Documents.createdAt],
-                        updatedAt = row[Documents.updatedAt],
-                        lastEditedBy = row[Documents.lastEditedBy]?.toString()
-                    )
-                }
+                .map { row -> row.toDocument() }
 
-            // Get shared documents
-            val shared = (DocumentPermissions innerJoin Documents innerJoin Users)
-                .slice(
-                    Documents.id,
-                    Documents.title,
-                    Documents.content,
-                    Documents.ownerId,
-                    Users.username,
-                    Documents.isPublic,
-                    Documents.createdAt,
-                    Documents.updatedAt,
-                    Documents.lastEditedBy
-                )
+            // Get shared documents (explicit permission grant, not workspace)
+            val shared = (DocumentPermissions innerJoin Documents)
+                .leftJoin(Users, { Documents.ownerId }, { Users.id })
                 .select {
                     (DocumentPermissions.userId eq UUID.fromString(userId)) and
                     (Documents.ownerId neq UUID.fromString(userId)) and
                     (DocumentPermissions.role neq "owner")
                 }
-                .map { row ->
-                    Document(
-                        id = row[Documents.id].toString(),
-                        title = row[Documents.title],
-                        content = row[Documents.content],
-                        ownerId = row[Documents.ownerId].toString(),
-                        ownerName = row[Users.username],
-                        isPublic = row[Documents.isPublic],
-                        parentId = row[Documents.parentId]?.toString(),
-                        createdAt = row[Documents.createdAt],
-                        updatedAt = row[Documents.updatedAt],
-                        lastEditedBy = row[Documents.lastEditedBy]?.toString()
-                    )
-                }
+                .map { row -> row.toDocument() }
 
             DocumentListResponse(
                 ownedDocuments = owned,
@@ -382,20 +405,7 @@ class DocumentPersistenceService {
             Documents
                 .leftJoin(Users, { Documents.ownerId }, { Users.id })
                 .select { Documents.parentId eq UUID.fromString(parentId) }
-                .map { row ->
-                    Document(
-                        id = row[Documents.id].toString(),
-                        title = row[Documents.title],
-                        content = row[Documents.content],
-                        ownerId = row[Documents.ownerId].toString(),
-                        ownerName = row[Users.username],
-                        isPublic = row[Documents.isPublic],
-                        parentId = row[Documents.parentId]?.toString(),
-                        createdAt = row[Documents.createdAt],
-                        updatedAt = row[Documents.updatedAt],
-                        lastEditedBy = row[Documents.lastEditedBy]?.toString()
-                    )
-                }
+                .map { row -> row.toDocument() }
         }
     }
 

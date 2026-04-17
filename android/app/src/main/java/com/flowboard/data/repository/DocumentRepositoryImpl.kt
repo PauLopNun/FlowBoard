@@ -107,10 +107,35 @@ class DocumentRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun createDocument(title: String, content: String = "", isPublic: Boolean = false, parentId: String? = null): Result<DocumentEntity> {
+    suspend fun createDocument(
+        title: String,
+        content: String = "",
+        isPublic: Boolean = false,
+        visibility: String = "private",
+        workspaceId: String? = null,
+        parentId: String? = null
+    ): Result<DocumentEntity> {
         return try {
-            val document = documentApiService.createDocument(title, content, isPublic, parentId)
+            val document = documentApiService.createDocument(title, content, isPublic, visibility, workspaceId, parentId)
             Result.success(document)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchWorkspaceDocuments(workspaceId: String): Result<List<DocumentEntity>> {
+        return try {
+            val docs = documentApiService.fetchWorkspaceDocuments(workspaceId)
+            Result.success(docs)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateDocumentVisibility(id: String, visibility: String, workspaceId: String?): Result<DocumentEntity> {
+        return try {
+            val doc = documentApiService.updateDocumentVisibility(id, visibility, workspaceId)
+            Result.success(doc)
         } catch (e: Exception) {
             Result.failure(e)
         }

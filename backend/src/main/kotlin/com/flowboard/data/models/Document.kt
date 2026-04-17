@@ -11,6 +11,8 @@ data class Document(
     val ownerId: String,
     val ownerName: String? = null,
     val isPublic: Boolean = false,
+    val visibility: String = "private", // private, shared, workspace
+    val workspaceId: String? = null,
     val parentId: String? = null,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime,
@@ -36,6 +38,8 @@ data class CreateDocumentRequest(
     val title: String,
     val content: String = "",
     val isPublic: Boolean = false,
+    val visibility: String = "private",
+    val workspaceId: String? = null,
     val parentId: String? = null
 )
 
@@ -43,7 +47,9 @@ data class CreateDocumentRequest(
 data class UpdateDocumentRequest(
     val title: String? = null,
     val content: String? = null,
-    val isPublic: Boolean? = null
+    val isPublic: Boolean? = null,
+    val visibility: String? = null,
+    val workspaceId: String? = null
 )
 
 @Serializable

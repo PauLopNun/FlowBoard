@@ -75,4 +75,10 @@ interface DocumentDao {
 
     @Query("UPDATE documents SET isStarred = :isStarred WHERE id = :id")
     suspend fun updateStarred(id: String, isStarred: Boolean)
+
+    @Query("SELECT * FROM documents WHERE workspaceId = :workspaceId AND visibility = 'workspace' AND isDeleted = 0 ORDER BY updatedAt DESC")
+    fun getWorkspaceDocuments(workspaceId: String): Flow<List<DocumentEntity>>
+
+    @Query("UPDATE documents SET visibility = :visibility, workspaceId = :workspaceId WHERE id = :id")
+    suspend fun updateVisibility(id: String, visibility: String, workspaceId: String?)
 }

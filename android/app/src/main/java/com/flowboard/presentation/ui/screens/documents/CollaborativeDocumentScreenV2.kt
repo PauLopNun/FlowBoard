@@ -157,6 +157,8 @@ fun CollaborativeDocumentScreenV2(
                     connectionState = connectionState,
                     activeUsers = activeUsers,
                     breadcrumbs = uiState.breadcrumbs,
+                    visibility = uiState.visibility,
+                    onVisibilityChange = { viewModel.updateDocumentVisibility(it, uiState.workspaceId) },
                     onBack = onNavigateBack,
                     onSave = { viewModel.saveDocument() },
                     isSaving = isSaving,
@@ -1009,6 +1011,8 @@ private fun DocumentTopBar(
     activeUsers: List<DocumentUserPresence>,
     breadcrumbs: List<Pair<String, String>>,
     showExportMenu: Boolean,
+    visibility: String,
+    onVisibilityChange: (String) -> Unit,
     onBack: () -> Unit,
     onSave: () -> Unit,
     isSaving: Boolean,
@@ -1124,6 +1128,52 @@ private fun DocumentTopBar(
                         text = { Text("Export as PDF") },
                         leadingIcon = { Icon(Icons.Default.PictureAsPdf, null) },
                         onClick = onExportPdf
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("Private") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Lock, null,
+                                tint = if (visibility == "private") MaterialTheme.colorScheme.primary
+                                       else MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        trailingIcon = {
+                            if (visibility == "private") Icon(Icons.Default.Check, null,
+                                tint = MaterialTheme.colorScheme.primary)
+                        },
+                        onClick = { onVisibilityChange("private"); onDismissExportMenu() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Shared (invited users)") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.PersonAdd, null,
+                                tint = if (visibility == "shared") MaterialTheme.colorScheme.primary
+                                       else MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        trailingIcon = {
+                            if (visibility == "shared") Icon(Icons.Default.Check, null,
+                                tint = MaterialTheme.colorScheme.primary)
+                        },
+                        onClick = { onVisibilityChange("shared"); onDismissExportMenu() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Workspace (all members)") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Group, null,
+                                tint = if (visibility == "workspace") MaterialTheme.colorScheme.primary
+                                       else MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        trailingIcon = {
+                            if (visibility == "workspace") Icon(Icons.Default.Check, null,
+                                tint = MaterialTheme.colorScheme.primary)
+                        },
+                        onClick = { onVisibilityChange("workspace"); onDismissExportMenu() }
                     )
                 }
             }

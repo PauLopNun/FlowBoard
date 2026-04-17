@@ -417,10 +417,10 @@ class DocumentViewModel @Inject constructor(
     /**
      * Create new document via API
      */
-    fun createDocumentViaApi(title: String, content: String = "", isPublic: Boolean = false, onSuccess: (String) -> Unit = {}) {
+    fun createDocumentViaApi(title: String, content: String = "", isPublic: Boolean = false, visibility: String = "private", workspaceId: String? = null, onSuccess: (String) -> Unit = {}) {
         viewModelScope.launch {
             _documentListState.update { it.copy(isLoading = true) }
-            documentRepositoryImpl.createDocument(title, content, isPublic)
+            documentRepositoryImpl.createDocument(title, content, isPublic, visibility, workspaceId)
                 .onSuccess { document ->
                     _documentListState.update { state ->
                         state.copy(

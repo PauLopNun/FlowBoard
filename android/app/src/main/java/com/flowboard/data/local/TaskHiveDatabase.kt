@@ -37,7 +37,7 @@ import com.flowboard.data.local.entities.WorkspaceEntity
         PendingOperationEntity::class,
         WorkspaceEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

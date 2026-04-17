@@ -1,6 +1,7 @@
 package com.flowboard.routes
 
 import com.flowboard.data.models.*
+import com.flowboard.domain.DocumentPersistenceService
 import com.flowboard.domain.WorkspaceService
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -10,7 +11,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
-fun Route.workspaceRoutes(workspaceService: WorkspaceService) {
+fun Route.workspaceRoutes(workspaceService: WorkspaceService, documentService: DocumentPersistenceService) {
     authenticate("auth-jwt") {
         route("/workspaces") {
 
@@ -74,6 +75,16 @@ fun Route.workspaceRoutes(workspaceService: WorkspaceService) {
                     return@delete call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Not authorized"))
                 }
                 call.respond(HttpStatusCode.OK, mapOf("message" to "Member removed"))
+            }
+
+            // Get workspace documents (visibility=workspace, members only)
+            get("/{id}/documents") {
+                val userId = call.principal<JWTPrincipal>()?.payload?.getClaim("userId")?.asString()
+                    ?: return@get call.respond(HttpStatusCode.Unauthorized)
+                val workspaceId = call.parameters["id"] ?: return@get
+                val docs = documentService.getWorkspaceDocuments(workspaceId, userId)
+                    ?: return@get call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Not a workspace member"))
+                call.respond(HttpStatusCode.OK, docs)
             }
 
             // Delete workspace

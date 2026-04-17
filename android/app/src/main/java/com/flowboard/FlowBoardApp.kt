@@ -70,6 +70,7 @@ import com.flowboard.presentation.ui.screens.tasks.CalendarScreen
 import com.flowboard.presentation.ui.screens.tasks.CreateTaskScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskDetailScreen
 import com.flowboard.presentation.ui.screens.tasks.TaskListScreen
+import com.flowboard.presentation.ui.screens.workspace.WorkspaceDocumentsScreen
 import com.flowboard.presentation.ui.screens.workspace.WorkspaceScreen
 import com.flowboard.presentation.ui.theme.FlowBoardTheme
 import com.flowboard.presentation.viewmodel.ChatViewModel
@@ -266,7 +267,17 @@ fun FlowBoardApp(
                 )
             }
 
-            composable("document_new") {
+            composable(
+                route = "document_new?workspaceId={workspaceId}",
+                arguments = listOf(
+                    navArgument("workspaceId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val initialWorkspaceId = backStackEntry.arguments?.getString("workspaceId")
                 val docListState by documentViewModel.documentListState.collectAsStateWithLifecycle()
                 var title by remember { mutableStateOf("") }
                 var isCreating by remember { mutableStateOf(false) }
@@ -336,13 +347,18 @@ fun FlowBoardApp(
                                 }
                                 isCreating = true
                                 val templateId = selectedTemplate?.id
-                                documentViewModel.createDocumentViaApi(docTitle) { documentId ->
+                                val wsVisibility = if (initialWorkspaceId != null) "workspace" else "private"
+                                documentViewModel.createDocumentViaApi(
+                                    title = docTitle,
+                                    visibility = wsVisibility,
+                                    workspaceId = initialWorkspaceId
+                                ) { documentId ->
                                     val route = if (templateId != null)
                                         "document_edit/$documentId?template=$templateId"
                                     else
                                         "document_edit/$documentId"
                                     navController.navigate(route) {
-                                        popUpTo("document_new") { inclusive = true }
+                                        popUpTo("document_new?workspaceId={workspaceId}") { inclusive = true }
                                     }
                                 }
                             },
@@ -505,13 +521,15 @@ fun FlowBoardApp(
                 )
             }
 
-            composable("workspace_docs/{workspaceId}") {
-                MyDocumentsScreen(
-                    onDocumentClick = { navController.navigate("document_edit/$it") },
-                    onCreateDocument = { navController.navigate("document_new") },
+            composable("workspace_docs/{workspaceId}") { backStackEntry ->
+                val workspaceId = backStackEntry.arguments?.getString("workspaceId") ?: ""
+                WorkspaceDocumentsScreen(
+                    workspaceId = workspaceId,
                     onNavigateBack = { navController.popBackStack() },
-                    onToggleStar = { documentViewModel.toggleStar(it) },
-                    viewModel = documentViewModel
+                    onDocumentClick = { navController.navigate("document_edit/$it") },
+                    onCreateDocument = { wsId ->
+                        navController.navigate("document_new?workspaceId=$wsId")
+                    }
                 )
             }
 
