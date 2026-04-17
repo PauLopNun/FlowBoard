@@ -73,7 +73,8 @@ class InMemoryDocumentService(
                             textDecoration = operation.textDecoration ?: it.textDecoration,
                             fontSize = operation.fontSize ?: it.fontSize,
                             color = operation.color ?: it.color,
-                            textAlign = operation.textAlign ?: it.textAlign
+                            textAlign = operation.textAlign ?: it.textAlign,
+                            backgroundColor = operation.backgroundColor ?: it.backgroundColor
                         )
                     } else {
                         it
@@ -94,6 +95,18 @@ class InMemoryDocumentService(
             is ToggleTodoOperation -> {
                 val newBlocks = document.blocks.map {
                     if (it.id == operation.blockId) it.copy(isChecked = operation.isChecked) else it
+                }
+                document.copy(blocks = newBlocks)
+            }
+            is UpdateBlockDetailOperation -> {
+                val newBlocks = document.blocks.map {
+                    if (it.id == operation.blockId) it.copy(detail = operation.detail) else it
+                }
+                document.copy(blocks = newBlocks)
+            }
+            is UpdateBlockSpansOperation -> {
+                val newBlocks = document.blocks.map {
+                    if (it.id == operation.blockId) it.copy(spans = operation.spans) else it
                 }
                 document.copy(blocks = newBlocks)
             }

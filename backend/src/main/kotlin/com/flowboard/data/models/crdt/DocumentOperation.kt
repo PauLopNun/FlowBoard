@@ -81,7 +81,17 @@ data class UpdateBlockFormattingOperation(
     val textDecoration: String? = null,
     val fontSize: Int? = null,
     val color: String? = null,
-    val textAlign: String? = null
+    val textAlign: String? = null,
+    val backgroundColor: String? = null
+) : DocumentOperation
+
+@Serializable
+@SerialName("UPDATE_DETAIL")
+data class UpdateBlockDetailOperation(
+    override val operationId: String,
+    override val boardId: String,
+    val blockId: String,
+    val detail: String
 ) : DocumentOperation
 
 /**
@@ -122,6 +132,15 @@ data class ToggleTodoOperation(
  * @param position The cursor's position within the block.
  * @param selectionEnd The end of the selection, if any.
  */
+@Serializable
+@SerialName("UPDATE_SPANS")
+data class UpdateBlockSpansOperation(
+    override val operationId: String,
+    override val boardId: String,
+    val blockId: String,
+    val spans: String
+) : DocumentOperation
+
 @Serializable
 @SerialName("CURSOR_MOVE")
 data class CursorMoveOperation(
