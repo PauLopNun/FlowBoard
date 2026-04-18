@@ -3,12 +3,10 @@ package com.flowboard.routes
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.request.*
@@ -32,7 +30,7 @@ fun Route.aiRoutes() {
     val apiKey = System.getenv("GEMINI_API_KEY") ?: ""
 
     val httpClient = HttpClient(CIO) {
-        install(ContentNegotiation) { json() }
+        // No ContentNegotiation — JSON body is built and parsed manually
         install(HttpTimeout) {
             requestTimeoutMillis = 45_000
             connectTimeoutMillis = 15_000
@@ -82,7 +80,7 @@ fun Route.aiRoutes() {
                 ) {
                     parameter("key", apiKey)
                     contentType(ContentType.Application.Json)
-                    setBody(geminiBody)
+                    setBody(geminiBody.toString())
                 }
 
                 val responseText = response.bodyAsText()
