@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.presentation.viewmodel.ProfileViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import com.flowboard.presentation.viewmodel.ProfileUiState
 
@@ -132,6 +133,7 @@ fun ProfileScreen(
                             .crossfade(true)
                             .build(),
                         contentDescription = "Profile picture",
+                        contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(120.dp)
                             .clip(CircleShape)

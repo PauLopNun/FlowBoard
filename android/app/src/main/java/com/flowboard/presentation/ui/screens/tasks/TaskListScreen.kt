@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.ViewColumn
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,8 +55,11 @@ fun TaskListScreen(
     val userId by viewModel.userId.collectAsStateWithLifecycle()
     val boardId by viewModel.boardId.collectAsStateWithLifecycle()
 
-    var selectedFilter by remember { mutableStateOf(TaskFilter.ALL) }
-    var isKanbanView by remember { mutableStateOf(false) }
+    // rememberSaveable preserves filter selection and view mode across configuration changes
+    // (e.g. screen rotation) without requiring the ViewModel to hold pure UI state.
+    var selectedFilter by rememberSaveable { mutableStateOf(TaskFilter.ALL) }
+    var isKanbanView by rememberSaveable { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     // Connect to WebSocket when screen mounts (only if auth data is available)
     LaunchedEffect(boardId, token, userId) {
@@ -267,6 +272,7 @@ fun TaskListScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {

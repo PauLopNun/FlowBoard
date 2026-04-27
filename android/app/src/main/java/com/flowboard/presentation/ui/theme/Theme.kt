@@ -106,6 +106,7 @@ fun FlowBoardTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = FlowBoardShapes,
         content = content
     )
 }

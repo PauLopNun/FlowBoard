@@ -1,5 +1,10 @@
 package com.flowboard.presentation.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,6 +15,10 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,8 +45,11 @@ fun TaskCard(
         !task.isCompleted && dueDate < Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
     } ?: false
 
+    // rememberSaveable keeps expand state across recompositions and config changes
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
     Card(
-        onClick = onClick,
+        onClick = { expanded = !expanded; onClick() },
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -92,15 +104,30 @@ fun TaskCard(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                if (task.description.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = task.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                // Spring-physics animation for expanding the description section
+                AnimatedVisibility(
+                    visible = expanded && task.description.isNotBlank(),
+                    enter = expandVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ),
+                    exit = shrinkVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
                     )
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = task.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 // Tags
