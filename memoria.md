@@ -3,11 +3,11 @@
 
 ---
 
-**Autor:** [Tu nombre completo]  
-**Tutor:** [Nombre del tutor]  
-**Centro educativo:** [Nombre del centro]  
-**Curso académico:** 2024–2025  
-**Fecha de entrega:** [Fecha]  
+**Autor:** Pau López Núñez
+**Tutor:** Isabel Martí Romeu
+**Centro educativo:** IES La Sénia 
+**Curso académico:** 2025–2026
+**Fecha de entrega:** 17/05/2026
 **Repositorio:** https://github.com/paulopnun/flowboard  
 **Backend en producción:** https://flowboard-api-phrk.onrender.com  
 
