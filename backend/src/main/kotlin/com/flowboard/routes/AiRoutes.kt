@@ -28,7 +28,12 @@ data class AiResponse(
 
 fun Route.aiRoutes() {
     val apiKey = System.getenv("GEMINI_API_KEY") ?: ""
-    val model = System.getenv("GEMINI_MODEL")?.takeIf { it.isNotBlank() } ?: "gemini-1.5-flash"
+    val configuredModel = System.getenv("GEMINI_MODEL")?.takeIf { it.isNotBlank() }
+    val modelCandidates = listOfNotNull(
+        configuredModel,
+        "gemini-2.5-flash",
+        "gemini-2.0-flash"
+    ).distinct()
 
     val httpClient = HttpClient(CIO) {
         // No ContentNegotiation — JSON body is built and parsed manually
@@ -73,34 +78,60 @@ fun Route.aiRoutes() {
             }
 
             try {
-                val response: HttpResponse = httpClient.post(
-                    "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
-                ) {
-                    parameter("key", apiKey)
-                    contentType(ContentType.Application.Json)
-                    setBody(Json.encodeToString(JsonObject.serializer(), geminiBody))
-                }
+                val json = Json { ignoreUnknownKeys = true }
+                var parsedResponse: JsonObject? = null
+                var lastProviderError = "Upstream AI provider error"
+                var lastProviderStatus = HttpStatusCode.BadGateway
 
-                val responseText = response.bodyAsText()
+                for (candidateModel in modelCandidates) {
+                    val response: HttpResponse = httpClient.post(
+                        "https://generativelanguage.googleapis.com/v1beta/models/$candidateModel:generateContent"
+                    ) {
+                        parameter("key", apiKey)
+                        contentType(ContentType.Application.Json)
+                        setBody(Json.encodeToString(JsonObject.serializer(), geminiBody))
+                    }
 
-                if (!response.status.isSuccess()) {
+                    val responseText = response.bodyAsText()
+
+                    if (response.status.isSuccess()) {
+                        parsedResponse = json.parseToJsonElement(responseText).jsonObject
+                        break
+                    }
+
                     val errorText = runCatching {
-                        Json.parseToJsonElement(responseText).jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
+                        json.parseToJsonElement(responseText).jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
                     }.getOrNull() ?: "Upstream AI provider error"
 
-                    val status = when (response.status) {
+                    lastProviderError = errorText
+                    lastProviderStatus = when (response.status) {
                         HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden -> HttpStatusCode.BadGateway
                         HttpStatusCode.TooManyRequests -> HttpStatusCode.TooManyRequests
                         HttpStatusCode.RequestTimeout, HttpStatusCode.GatewayTimeout -> HttpStatusCode.GatewayTimeout
                         else -> HttpStatusCode.BadGateway
                     }
 
-                    call.respond(status, mapOf("error" to errorText))
+                    val canRetryWithFallback =
+                        candidateModel != modelCandidates.last() &&
+                        (response.status == HttpStatusCode.NotFound ||
+                            errorText.contains("not found", ignoreCase = true) ||
+                            errorText.contains("not supported", ignoreCase = true))
+
+                    if (canRetryWithFallback) {
+                        application.log.warn("Gemini model $candidateModel failed: $errorText. Trying fallback model.")
+                        continue
+                    }
+
+                    call.respond(lastProviderStatus, mapOf("error" to errorText))
                     return@post
                 }
 
-                val json = Json { ignoreUnknownKeys = true }
-                val parsed = json.parseToJsonElement(responseText).jsonObject
+                val parsed = parsedResponse
+                if (parsed == null) {
+                    call.respond(lastProviderStatus, mapOf("error" to lastProviderError))
+                    return@post
+                }
+
                 val reply = parsed["candidates"]
                     ?.jsonArray
                     ?.mapNotNull { it.jsonObject["content"]?.jsonObject }
