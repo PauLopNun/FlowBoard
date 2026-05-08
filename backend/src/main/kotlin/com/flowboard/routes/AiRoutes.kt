@@ -29,10 +29,12 @@ data class AiResponse(
 fun Route.aiRoutes() {
     val apiKey = System.getenv("GEMINI_API_KEY") ?: ""
     val configuredModel = System.getenv("GEMINI_MODEL")
-        ?.takeIf { it.isNotBlank() && !it.startsWith("gemini-1.5", ignoreCase = true) }
+        ?.trim()
+        ?.removePrefix("models/")
+        ?.takeIf { it.isNotBlank() && !it.contains("gemini-1.5", ignoreCase = true) }
     val modelCandidates = listOfNotNull(
-        configuredModel,
         "gemini-2.5-flash",
+        configuredModel,
         "gemini-2.0-flash"
     ).distinct()
 
