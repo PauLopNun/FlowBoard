@@ -145,6 +145,75 @@ class WorkspaceService {
         return getWorkspaceById(workspaceId, userId)
     }
 
+    suspend fun inviteMember(workspaceId: String, inviterId: String, targetEmail: String): InviteWorkspaceResponse {
+        return dbQuery {
+            val workspace = Workspaces
+                .select { Workspaces.id eq UUID.fromString(workspaceId) }
+                .singleOrNull()
+                ?: return@dbQuery InviteWorkspaceResponse(
+                    success = false,
+                    message = "Workspace not found",
+                    workspaceId = workspaceId,
+                    workspaceName = ""
+                )
+
+            val inviterMembership = WorkspaceMembers
+                .select {
+                    (WorkspaceMembers.workspaceId eq UUID.fromString(workspaceId)) and
+                    (WorkspaceMembers.userId eq UUID.fromString(inviterId))
+                }
+                .singleOrNull()
+
+            val canInvite = workspace[Workspaces.ownerId].toString() == inviterId ||
+                inviterMembership?.get(WorkspaceMembers.role) in listOf("OWNER", "ADMIN")
+
+            if (!canInvite) {
+                return@dbQuery InviteWorkspaceResponse(
+                    success = false,
+                    message = "Only workspace owners and admins can invite members",
+                    workspaceId = workspaceId,
+                    workspaceName = workspace[Workspaces.name]
+                )
+            }
+
+            val targetUser = Users.select { Users.email eq targetEmail }.singleOrNull()
+                ?: return@dbQuery InviteWorkspaceResponse(
+                    success = false,
+                    message = "No FlowBoard user found for $targetEmail",
+                    workspaceId = workspaceId,
+                    workspaceName = workspace[Workspaces.name]
+                )
+
+            val targetUserId = targetUser[Users.id].toString()
+            val alreadyMember = WorkspaceMembers.select {
+                (WorkspaceMembers.workspaceId eq UUID.fromString(workspaceId)) and
+                (WorkspaceMembers.userId eq UUID.fromString(targetUserId))
+            }.count() > 0
+
+            if (alreadyMember) {
+                return@dbQuery InviteWorkspaceResponse(
+                    success = false,
+                    message = "This user is already a workspace member",
+                    workspaceId = workspaceId,
+                    workspaceName = workspace[Workspaces.name],
+                    targetUserId = targetUserId,
+                    targetUserName = targetUser[Users.username],
+                    targetUserEmail = targetUser[Users.email]
+                )
+            }
+
+            InviteWorkspaceResponse(
+                success = true,
+                message = "Workspace invitation sent",
+                workspaceId = workspaceId,
+                workspaceName = workspace[Workspaces.name],
+                targetUserId = targetUserId,
+                targetUserName = targetUser[Users.username],
+                targetUserEmail = targetUser[Users.email]
+            )
+        }
+    }
+
     suspend fun removeMember(workspaceId: String, ownerId: String, targetUserId: String): Boolean {
         return dbQuery {
             val isOwner = Workspaces

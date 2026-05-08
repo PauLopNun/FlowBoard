@@ -92,7 +92,13 @@ class ChatService {
                 .toInt()
 
             // Get participants
-            val participants = (ChatParticipants innerJoin Users)
+            val participants = ChatParticipants
+                .join(
+                    Users,
+                    JoinType.INNER,
+                    onColumn = ChatParticipants.userId,
+                    otherColumn = Users.id
+                )
                 .slice(
                     ChatParticipants.userId,
                     Users.username,
@@ -115,7 +121,13 @@ class ChatService {
                 }
 
             // Get last message
-            val lastMessage = (Messages innerJoin Users)
+            val lastMessage = Messages
+                .join(
+                    Users,
+                    JoinType.INNER,
+                    onColumn = Messages.senderId,
+                    otherColumn = Users.id
+                )
                 .slice(
                     Messages.id,
                     Messages.chatRoomId,
@@ -210,7 +222,13 @@ class ChatService {
 
     suspend fun getMessage(messageId: String, userId: String): Message? {
         return dbQuery {
-            (Messages innerJoin Users)
+            Messages
+                .join(
+                    Users,
+                    JoinType.INNER,
+                    onColumn = Messages.senderId,
+                    otherColumn = Users.id
+                )
                 .slice(
                     Messages.id,
                     Messages.chatRoomId,
@@ -256,7 +274,13 @@ class ChatService {
 
             if (!isParticipant) return@dbQuery emptyList()
 
-            (Messages innerJoin Users)
+            Messages
+                .join(
+                    Users,
+                    JoinType.INNER,
+                    onColumn = Messages.senderId,
+                    otherColumn = Users.id
+                )
                 .slice(
                     Messages.id,
                     Messages.chatRoomId,

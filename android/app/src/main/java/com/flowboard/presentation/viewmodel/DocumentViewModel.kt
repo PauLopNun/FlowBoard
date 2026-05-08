@@ -503,6 +503,48 @@ class DocumentViewModel @Inject constructor(
         }
     }
 
+    fun moveDocumentToWorkspace(documentId: String, workspaceId: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            documentRepositoryImpl.updateDocumentVisibility(documentId, "workspace", workspaceId)
+                .onSuccess { updated ->
+                    documentDao.insertDocument(updated)
+                    _documentListState.update { state ->
+                        state.copy(
+                            ownedDocuments = state.ownedDocuments.map { if (it.id == documentId) updated else it },
+                            sharedWithMe = state.sharedWithMe.map { if (it.id == documentId) updated else it }
+                        )
+                    }
+                    onSuccess()
+                }
+                .onFailure { error ->
+                    _documentListState.update {
+                        it.copy(error = error.message ?: "Failed to move document to workspace")
+                    }
+                }
+        }
+    }
+
+    fun moveDocumentToPrivate(documentId: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            documentRepositoryImpl.updateDocumentVisibility(documentId, "private", null)
+                .onSuccess { updated ->
+                    documentDao.insertDocument(updated)
+                    _documentListState.update { state ->
+                        state.copy(
+                            ownedDocuments = state.ownedDocuments.map { if (it.id == documentId) updated else it },
+                            sharedWithMe = state.sharedWithMe.map { if (it.id == documentId) updated else it }
+                        )
+                    }
+                    onSuccess()
+                }
+                .onFailure { error ->
+                    _documentListState.update {
+                        it.copy(error = error.message ?: "Failed to move document to private")
+                    }
+                }
+        }
+    }
+
     /**
      * Permanently delete a document (from Trash): removes locally and on server
      */

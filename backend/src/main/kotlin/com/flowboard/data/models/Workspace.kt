@@ -37,6 +37,22 @@ data class JoinWorkspaceRequest(
 )
 
 @Serializable
+data class InviteWorkspaceRequest(
+    val email: String
+)
+
+@Serializable
+data class InviteWorkspaceResponse(
+    val success: Boolean,
+    val message: String,
+    val workspaceId: String,
+    val workspaceName: String,
+    val targetUserId: String? = null,
+    val targetUserName: String? = null,
+    val targetUserEmail: String? = null
+)
+
+@Serializable
 data class WorkspaceListResponse(
     val owned: List<Workspace>,
     val member: List<Workspace>

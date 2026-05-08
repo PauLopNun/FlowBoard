@@ -14,6 +14,7 @@ enum class NotificationType {
     PERMISSION_REVOKED,     // Your access was revoked
     DOCUMENT_SHARED,        // Document was shared with you
     DOCUMENT_UPDATED,       // Document you're watching was updated
+    WORKSPACE_INVITATION,   // Invited to a workspace
     PROJECT_INVITATION,     // Invited to a project
     USER_JOINED,           // New user joined a project
     DEADLINE_REMINDER,     // Reminder for upcoming deadline

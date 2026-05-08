@@ -28,6 +28,7 @@ data class AiResponse(
 
 fun Route.aiRoutes() {
     val apiKey = System.getenv("GEMINI_API_KEY") ?: ""
+    val model = System.getenv("GEMINI_MODEL")?.takeIf { it.isNotBlank() } ?: "gemini-1.5-flash"
 
     val httpClient = HttpClient(CIO) {
         // No ContentNegotiation — JSON body is built and parsed manually
@@ -54,17 +55,14 @@ fun Route.aiRoutes() {
             else
                 "You are a helpful writing assistant integrated in FlowBoard, a Notion-like app. Be concise and direct."
 
+            val promptText = "$systemPrompt\n\nUser request:\n${request.prompt}"
+
             val geminiBody = buildJsonObject {
-                putJsonObject("systemInstruction") {
-                    putJsonArray("parts") {
-                        addJsonObject { put("text", systemPrompt) }
-                    }
-                }
                 putJsonArray("contents") {
                     addJsonObject {
                         put("role", "user")
                         putJsonArray("parts") {
-                            addJsonObject { put("text", request.prompt) }
+                            addJsonObject { put("text", promptText) }
                         }
                     }
                 }
@@ -76,11 +74,11 @@ fun Route.aiRoutes() {
 
             try {
                 val response: HttpResponse = httpClient.post(
-                    "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent"
+                    "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
                 ) {
                     parameter("key", apiKey)
                     contentType(ContentType.Application.Json)
-                    setBody(geminiBody.toString())
+                    setBody(Json.encodeToString(JsonObject.serializer(), geminiBody))
                 }
 
                 val responseText = response.bodyAsText()

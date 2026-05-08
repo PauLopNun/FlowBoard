@@ -54,3 +54,19 @@ data class CreateWorkspaceRequest(
 data class JoinWorkspaceRequest(
     val inviteCode: String
 )
+
+@Serializable
+data class InviteWorkspaceRequest(
+    val email: String
+)
+
+@Serializable
+data class InviteWorkspaceResponseDto(
+    val success: Boolean,
+    val message: String,
+    val workspaceId: String,
+    val workspaceName: String,
+    val targetUserId: String? = null,
+    val targetUserName: String? = null,
+    val targetUserEmail: String? = null
+)

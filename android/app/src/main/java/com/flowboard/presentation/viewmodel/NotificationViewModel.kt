@@ -2,6 +2,7 @@ package com.flowboard.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.flowboard.data.repository.AuthRepository
 import com.flowboard.domain.model.*
 import com.flowboard.domain.repository.NotificationRepository
 import com.flowboard.notification.FlowBoardNotificationManager
@@ -16,7 +17,8 @@ import javax.inject.Inject
 @HiltViewModel
 class NotificationViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
-    private val notificationManager: FlowBoardNotificationManager
+    private val notificationManager: FlowBoardNotificationManager,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotificationUiState())
@@ -57,6 +59,15 @@ class NotificationViewModel @Inject constructor(
             initialValue = 0
         )
 
+    init {
+        viewModelScope.launch {
+            authRepository.getUserId()?.let { userId ->
+                currentUserId.value = userId
+                notificationRepository.refreshNotifications()
+            }
+        }
+    }
+
     /**
      * Set current user
      */
@@ -93,6 +104,34 @@ class NotificationViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            notificationRepository.refreshNotifications()
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Failed to refresh notifications") }
+                }
+        }
+    }
+
+    fun acceptInvitation(notificationId: String, onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            notificationRepository.acceptInvitation(notificationId)
+                .onSuccess { onSuccess() }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Failed to accept invitation") }
+                }
+        }
+    }
+
+    fun declineInvitation(notificationId: String) {
+        viewModelScope.launch {
+            notificationRepository.declineInvitation(notificationId)
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Failed to decline invitation") }
+                }
         }
     }
 

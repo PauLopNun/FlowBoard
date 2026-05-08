@@ -30,6 +30,7 @@ fun WorkspaceScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
     var showJoinDialog by remember { mutableStateOf(false) }
+    var inviteWorkspaceId by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.message) {
@@ -90,6 +91,7 @@ fun WorkspaceScreen(
                     WorkspaceCard(
                         workspace = workspace,
                         onClick = { onWorkspaceClick(workspace.id) },
+                        onInvite = { inviteWorkspaceId = workspace.id },
                         onDelete = { viewModel.deleteWorkspace(workspace.id) }
                     )
                 }
@@ -116,12 +118,23 @@ fun WorkspaceScreen(
             }
         )
     }
+
+    inviteWorkspaceId?.let { workspaceId ->
+        InviteMemberDialog(
+            onDismiss = { inviteWorkspaceId = null },
+            onInvite = { email ->
+                viewModel.inviteMember(workspaceId, email)
+                inviteWorkspaceId = null
+            }
+        )
+    }
 }
 
 @Composable
 private fun WorkspaceCard(
     workspace: WorkspaceEntity,
     onClick: () -> Unit,
+    onInvite: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -168,6 +181,14 @@ private fun WorkspaceCard(
                 }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     DropdownMenuItem(
+                        text = { Text("Invite by email") },
+                        leadingIcon = { Icon(Icons.Default.PersonAdd, null) },
+                        onClick = {
+                            showMenu = false
+                            onInvite()
+                        }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Copy invite code: ${workspace.inviteCode}") },
                         leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                         onClick = {
@@ -186,6 +207,32 @@ private fun WorkspaceCard(
             }
         }
     }
+}
+
+@Composable
+private fun InviteMemberDialog(onDismiss: () -> Unit, onInvite: (String) -> Unit) {
+    var email by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Invite member") },
+        text = {
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onInvite(email.trim()) },
+                enabled = android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+            ) { Text("Send invite") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable

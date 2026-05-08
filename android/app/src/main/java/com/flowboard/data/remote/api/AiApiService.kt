@@ -54,6 +54,11 @@ class AiApiService(private val httpClient: HttpClient) {
             throw Exception(message)
         }
 
-        response.body<AiChatResponse>().reply
+        val body = response.bodyAsText()
+        runCatching {
+            Json.decodeFromString(AiChatResponse.serializer(), body).reply
+        }.getOrElse {
+            body.ifBlank { throw Exception("AI returned an empty response") }
+        }
     }
 }

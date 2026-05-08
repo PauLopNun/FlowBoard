@@ -68,5 +68,20 @@ class WorkspaceDocumentsViewModel @Inject constructor(
         }
     }
 
+    fun moveToPrivate(documentId: String) {
+        viewModelScope.launch {
+            documentRepository.updateDocumentVisibility(documentId, "private", null)
+                .onSuccess { updated ->
+                    documentDao.insertDocument(updated)
+                    _uiState.update { state ->
+                        state.copy(documents = state.documents.filter { it.id != documentId })
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Failed to move document") }
+                }
+        }
+    }
+
     fun clearError() = _uiState.update { it.copy(error = null) }
 }

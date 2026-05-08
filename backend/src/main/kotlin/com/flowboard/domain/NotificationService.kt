@@ -1,6 +1,8 @@
 package com.flowboard.domain
 
 import com.flowboard.data.database.DatabaseFactory.dbQuery
+import com.flowboard.data.database.DocumentPermissions
+import com.flowboard.data.database.WorkspaceMembers
 import com.flowboard.data.database.Notifications
 import com.flowboard.data.models.Notification
 import com.flowboard.data.models.CreateNotificationRequest
@@ -184,7 +186,7 @@ class NotificationService {
                 resourceId = documentId,
                 resourceType = "document",
                 actionUserName = senderName,
-                deepLink = "/document_edit/$documentId"
+                deepLink = "document_edit/$documentId"
             )
         )
         if (!recipientEmail.isNullOrBlank()) {
@@ -194,5 +196,147 @@ class NotificationService {
                 documentTitle = documentTitle
             )
         }
+    }
+
+    suspend fun sendDocumentInvitationNotification(
+        recipientId: String,
+        recipientEmail: String?,
+        senderId: String,
+        senderName: String,
+        documentTitle: String,
+        documentId: String,
+        role: String
+    ) {
+        createNotification(
+            CreateNotificationRequest(
+                userId = recipientId,
+                type = "DOCUMENT_SHARED",
+                title = "Document invitation",
+                message = "$senderName invited you to edit \"$documentTitle\"",
+                resourceId = documentId,
+                resourceType = "document",
+                actionUserId = senderId,
+                actionUserName = senderName,
+                deepLink = "document_edit/$documentId?role=$role"
+            )
+        )
+        if (!recipientEmail.isNullOrBlank()) {
+            EmailService.sendDocumentSharedEmail(
+                recipientEmail = recipientEmail,
+                senderName = senderName,
+                documentTitle = documentTitle
+            )
+        }
+    }
+
+    suspend fun sendWorkspaceInvitationNotification(
+        recipientId: String,
+        recipientEmail: String?,
+        senderId: String,
+        senderName: String,
+        workspaceName: String,
+        workspaceId: String
+    ) {
+        createNotification(
+            CreateNotificationRequest(
+                userId = recipientId,
+                type = "WORKSPACE_INVITATION",
+                title = "Workspace invitation",
+                message = "$senderName invited you to \"$workspaceName\"",
+                resourceId = workspaceId,
+                resourceType = "workspace",
+                actionUserId = senderId,
+                actionUserName = senderName,
+                deepLink = "workspace_docs/$workspaceId?role=MEMBER"
+            )
+        )
+        if (!recipientEmail.isNullOrBlank()) {
+            // Reuse the existing generic email sender as a lightweight fallback.
+            EmailService.sendDocumentInviteEmail(
+                recipientEmail = recipientEmail,
+                senderName = senderName,
+                documentTitle = workspaceName
+            )
+        }
+    }
+
+    suspend fun acceptInvitation(notificationId: String, userId: String): Boolean {
+        return dbQuery {
+            val notification = Notifications
+                .select {
+                    (Notifications.id eq UUID.fromString(notificationId)) and
+                    (Notifications.userId eq UUID.fromString(userId))
+                }
+                .singleOrNull()
+                ?: return@dbQuery false
+
+            val resourceId = notification[Notifications.resourceId] ?: return@dbQuery false
+            val inviterId = notification[Notifications.actionUserId] ?: return@dbQuery false
+            val role = extractRole(notification[Notifications.deepLink])
+
+            when (notification[Notifications.type]) {
+                "DOCUMENT_SHARED" -> {
+                    val existing = DocumentPermissions.select {
+                        (DocumentPermissions.documentId eq resourceId) and
+                        (DocumentPermissions.userId eq UUID.fromString(userId))
+                    }.singleOrNull()
+
+                    val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+                    if (existing == null) {
+                        DocumentPermissions.insert {
+                            it[DocumentPermissions.id] = UUID.randomUUID()
+                            it[DocumentPermissions.documentId] = resourceId
+                            it[DocumentPermissions.userId] = UUID.fromString(userId)
+                            it[DocumentPermissions.role] = role.takeIf { r -> r in listOf("viewer", "editor") } ?: "editor"
+                            it[DocumentPermissions.grantedBy] = inviterId
+                            it[DocumentPermissions.grantedAt] = now
+                        }
+                    } else if (existing[DocumentPermissions.role] != "owner") {
+                        DocumentPermissions.update({ DocumentPermissions.id eq existing[DocumentPermissions.id].value }) {
+                            it[DocumentPermissions.role] = role.takeIf { r -> r in listOf("viewer", "editor") } ?: "editor"
+                            it[DocumentPermissions.grantedBy] = inviterId
+                            it[DocumentPermissions.grantedAt] = now
+                        }
+                    }
+                }
+                "WORKSPACE_INVITATION" -> {
+                    val alreadyMember = WorkspaceMembers.select {
+                        (WorkspaceMembers.workspaceId eq resourceId) and
+                        (WorkspaceMembers.userId eq UUID.fromString(userId))
+                    }.count() > 0
+                    if (!alreadyMember) {
+                        WorkspaceMembers.insert {
+                            it[WorkspaceMembers.id] = UUID.randomUUID()
+                            it[WorkspaceMembers.workspaceId] = resourceId
+                            it[WorkspaceMembers.userId] = UUID.fromString(userId)
+                            it[WorkspaceMembers.role] = "MEMBER"
+                            it[WorkspaceMembers.joinedAt] = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+                        }
+                    }
+                }
+                else -> return@dbQuery false
+            }
+
+            Notifications.update({ Notifications.id eq UUID.fromString(notificationId) }) {
+                it[Notifications.isRead] = true
+            }
+            true
+        }
+    }
+
+    suspend fun declineInvitation(notificationId: String, userId: String): Boolean {
+        return dbQuery {
+            Notifications.update({
+                (Notifications.id eq UUID.fromString(notificationId)) and
+                (Notifications.userId eq UUID.fromString(userId))
+            }) {
+                it[Notifications.isRead] = true
+            } > 0
+        }
+    }
+
+    private fun extractRole(deepLink: String?): String {
+        if (deepLink.isNullOrBlank() || !deepLink.contains("role=")) return "editor"
+        return deepLink.substringAfter("role=").substringBefore("&").trim()
     }
 }

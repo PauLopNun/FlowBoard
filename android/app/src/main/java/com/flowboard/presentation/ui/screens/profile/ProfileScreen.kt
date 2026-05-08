@@ -119,37 +119,44 @@ fun ProfileScreen(
             // Avatar
             Box(
                 modifier = Modifier
-                    .size(120.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .size(136.dp)
                     .clickable { showAvatarDialog = true },
                 contentAlignment = Alignment.Center
             ) {
-                if (profileImageUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(profileImageUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Profile picture",
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
-                    )
-                } else {
-                    Text(
-                        text = user?.username?.firstOrNull()?.uppercase() ?: "U",
-                        style = MaterialTheme.typography.displayLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .size(120.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (profileImageUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(profileImageUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Profile picture",
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        Text(
+                            text = user?.username?.firstOrNull()?.uppercase() ?: "U",
+                            style = MaterialTheme.typography.displayLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                 }
-                // Camera overlay hint
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .size(32.dp)
+                        .offset(x = (-4).dp, y = (-4).dp)
+                        .size(36.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(MaterialTheme.colorScheme.primary)
+                        .border(3.dp, MaterialTheme.colorScheme.background, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(

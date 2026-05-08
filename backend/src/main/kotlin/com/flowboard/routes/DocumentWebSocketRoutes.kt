@@ -2,6 +2,7 @@ package com.flowboard.routes
 
 import com.flowboard.data.models.*
 import com.flowboard.data.models.crdt.*
+import com.flowboard.domain.AuthService
 import com.flowboard.domain.DocumentPersistenceService
 import com.flowboard.domain.DocumentService
 import io.ktor.server.application.*
@@ -47,10 +48,12 @@ fun Route.documentWebSocketRoutes(
                 ?.takeIf { it.isNotBlank() }
                 ?: principal?.payload?.getClaim("email")?.asString()?.substringBefore("@")
                 ?: "Anonymous"
+            val profileImageUrl = runCatching { AuthService.getUserById(userId)?.profileImageUrl }.getOrNull()
 
             val session = DocumentWebSocketSession(
                 id = userId,
                 userName = userName,
+                profileImageUrl = profileImageUrl,
                 webSocketSession = this
             )
 
@@ -92,6 +95,7 @@ fun Route.documentWebSocketRoutes(
                         user = DocumentUserPresence(
                             userId = userId,
                             userName = userName,
+                            profileImageUrl = profileImageUrl,
                             color = getUserColor(userId),
                             isOnline = true
                         )
@@ -217,6 +221,7 @@ private suspend fun sendJoinedMessage(
         DocumentUserPresence(
             userId = s.id,
             userName = s.userName,
+            profileImageUrl = s.profileImageUrl,
             color = getUserColor(s.id),
             isOnline = true
         )
@@ -286,6 +291,7 @@ private suspend fun handleIncomingMessage(
                     DocumentUserPresence(
                         userId = s.id,
                         userName = s.userName,
+                        profileImageUrl = s.profileImageUrl,
                         color = getUserColor(s.id),
                         isOnline = true
                     )
@@ -356,6 +362,7 @@ private fun getUserColor(userId: String): String {
 data class DocumentWebSocketSession(
     val id: String,
     val userName: String,
+    val profileImageUrl: String?,
     val webSocketSession: DefaultWebSocketServerSession
 ) {
     suspend fun send(message: String) {

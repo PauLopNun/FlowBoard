@@ -108,15 +108,26 @@ class DocumentSyncWorker @AssistedInject constructor(
             Log.d(TAG, "Sync completed successfully")
             Result.success()
         } catch (e: Exception) {
-            Log.e(TAG, "Sync failed: ${e.message}")
+            Log.e(TAG, "Sync failed", e)
 
-            // Reintentar si hay error
-            if (runAttemptCount < 3) {
+            if (shouldRetry(e)) {
                 Result.retry()
             } else {
                 Result.failure()
             }
         }
+    }
+
+    private fun shouldRetry(error: Exception): Boolean {
+        val message = error.message.orEmpty()
+        val isAuthOrPermissionError = listOf("HTTP 401", "HTTP 403", "Not authenticated").any { message.contains(it) }
+        val isNotFound = message.contains("HTTP 404")
+
+        if (isAuthOrPermissionError || isNotFound) {
+            return false
+        }
+
+        return runAttemptCount < 3
     }
 
     /**

@@ -47,6 +47,19 @@ class WorkspaceRepositoryImpl @Inject constructor(
         }
     }
 
+    suspend fun inviteMember(workspaceId: String, email: String): Result<String> {
+        return try {
+            val response = workspaceApiService.inviteMember(workspaceId, email)
+            if (response.success) {
+                Result.success(response.message)
+            } else {
+                Result.failure(Exception(response.message))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteWorkspace(id: String): Result<Unit> {
         return try {
             workspaceApiService.deleteWorkspace(id)

@@ -25,22 +25,32 @@ class DocumentApiService @Inject constructor(
         return authRepository.getToken()
     }
 
+    private suspend fun HttpResponse.requireSuccess(operation: String): HttpResponse {
+        if (!status.isSuccess()) {
+            val details = runCatching { bodyAsText() }
+                .getOrNull()
+                ?.take(800)
+                ?.trim()
+                .orEmpty()
+            val suffix = if (details.isBlank()) "" else ": $details"
+            throw Exception("$operation failed: HTTP ${status.value}$suffix")
+        }
+        return this
+    }
+
     suspend fun getAllDocuments(): DocumentListResponse {
         val token = getAuthToken() ?: throw Exception("Not authenticated")
         val response = httpClient.get(DOCUMENTS_ENDPOINT) {
             header(HttpHeaders.Authorization, "Bearer $token")
         }
-        if (!response.status.isSuccess()) {
-            throw Exception("Server error ${response.status.value}")
-        }
-        return response.body<DocumentListResponse>()
+        return response.requireSuccess("GET /documents").body<DocumentListResponse>()
     }
 
     suspend fun getDocumentById(id: String): DocumentEntity {
         val token = getAuthToken() ?: throw Exception("Not authenticated")
         return httpClient.get("$DOCUMENTS_ENDPOINT/$id") {
             header(HttpHeaders.Authorization, "Bearer $token")
-        }.body<DocumentDto>().toEntity()
+        }.requireSuccess("GET /documents/$id").body<DocumentDto>().toEntity()
     }
 
     suspend fun createDocument(
@@ -56,14 +66,14 @@ class DocumentApiService @Inject constructor(
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
             setBody(CreateDocumentRequest(title, content, isPublic, visibility, workspaceId, parentId))
-        }.body<DocumentDto>().toEntity()
+        }.requireSuccess("POST /documents").body<DocumentDto>().toEntity()
     }
 
     suspend fun fetchWorkspaceDocuments(workspaceId: String): List<DocumentEntity> {
         val token = getAuthToken() ?: throw Exception("Not authenticated")
         return httpClient.get("${ApiConfig.API_BASE_URL}/workspaces/$workspaceId/documents") {
             header(HttpHeaders.Authorization, "Bearer $token")
-        }.body<List<DocumentDto>>().map { it.toEntity() }
+        }.requireSuccess("GET /workspaces/$workspaceId/documents").body<List<DocumentDto>>().map { it.toEntity() }
     }
 
     suspend fun updateDocumentVisibility(id: String, visibility: String, workspaceId: String?): DocumentEntity {
@@ -72,14 +82,14 @@ class DocumentApiService @Inject constructor(
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
             setBody(UpdateDocumentRequest(visibility = visibility, workspaceId = workspaceId))
-        }.body<DocumentDto>().toEntity()
+        }.requireSuccess("PUT /documents/$id visibility").body<DocumentDto>().toEntity()
     }
 
     suspend fun getChildDocuments(parentId: String): List<DocumentEntity> {
         val token = getAuthToken() ?: throw Exception("Not authenticated")
         return httpClient.get("$DOCUMENTS_ENDPOINT/$parentId/children") {
             header(HttpHeaders.Authorization, "Bearer $token")
-        }.body<List<DocumentDto>>().map { it.toEntity() }
+        }.requireSuccess("GET /documents/$parentId/children").body<List<DocumentDto>>().map { it.toEntity() }
     }
 
     suspend fun updateDocument(id: String, title: String? = null, content: String? = null, isPublic: Boolean? = null): DocumentEntity {
@@ -88,14 +98,14 @@ class DocumentApiService @Inject constructor(
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
             setBody(UpdateDocumentRequest(title, content, isPublic))
-        }.body<DocumentDto>().toEntity()
+        }.requireSuccess("PUT /documents/$id").body<DocumentDto>().toEntity()
     }
 
     suspend fun deleteDocument(id: String) {
         val token = getAuthToken() ?: throw Exception("Not authenticated")
         httpClient.delete("$DOCUMENTS_ENDPOINT/$id") {
             header(HttpHeaders.Authorization, "Bearer $token")
-        }
+        }.requireSuccess("DELETE /documents/$id")
     }
 
     suspend fun shareDocument(documentId: String, email: String, role: String) {
@@ -104,13 +114,13 @@ class DocumentApiService @Inject constructor(
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
             setBody(ShareDocumentRequest(email, role))
-        }
+        }.requireSuccess("POST /documents/$documentId/share")
     }
 
     suspend fun getDocumentPermissions(documentId: String): List<DocumentPermissionDto> {
         val token = getAuthToken() ?: throw Exception("Not authenticated")
         return httpClient.get("$DOCUMENTS_ENDPOINT/$documentId/permissions") {
             header(HttpHeaders.Authorization, "Bearer $token")
-        }.body<List<DocumentPermissionDto>>()
+        }.requireSuccess("GET /documents/$documentId/permissions").body<List<DocumentPermissionDto>>()
     }
 }

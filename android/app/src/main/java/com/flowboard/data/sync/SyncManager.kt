@@ -30,6 +30,7 @@ class SyncManager @Inject constructor(
         const val PERIODIC_SYNC_WORK_NAME = "periodic_document_sync"
         const val IMMEDIATE_SYNC_WORK_NAME = "immediate_document_sync"
         const val PERIODIC_SYNC_INTERVAL_MINUTES = 30L
+        private const val IMMEDIATE_SYNC_THROTTLE_MS = 60_000L
     }
 
     private val workManager = WorkManager.getInstance(context)
@@ -37,6 +38,8 @@ class SyncManager @Inject constructor(
 
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var isNetworkCallbackRegistered = false
+    @Volatile
+    private var lastImmediateSyncAtMs = 0L
 
     /**
      * Inicializar el SyncManager
@@ -73,6 +76,7 @@ class SyncManager @Inject constructor(
             TimeUnit.MINUTES
         )
             .setConstraints(constraints)
+            .setInitialDelay(PERIODIC_SYNC_INTERVAL_MINUTES, TimeUnit.MINUTES)
             .setInputData(
                 workDataOf(
                     DocumentSyncWorker.SYNC_MODE_KEY to DocumentSyncWorker.SYNC_MODE_BIDIRECTIONAL
@@ -81,10 +85,10 @@ class SyncManager @Inject constructor(
             .addTag("periodic_sync")
             .build()
 
-        // ExistingPeriodicWorkPolicy.KEEP mantiene el trabajo existente si ya está programado
+        // UPDATE applies the initial delay/backoff changes to older installed work.
         workManager.enqueueUniquePeriodicWork(
             PERIODIC_SYNC_WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             periodicSyncRequest
         )
     }
@@ -163,6 +167,13 @@ class SyncManager @Inject constructor(
      * Disparar sincronización inmediata
      */
     fun triggerImmediateSync() {
+        val now = System.currentTimeMillis()
+        if (now - lastImmediateSyncAtMs < IMMEDIATE_SYNC_THROTTLE_MS) {
+            Log.d(TAG, "Immediate sync skipped; another sync was requested recently")
+            return
+        }
+        lastImmediateSyncAtMs = now
+
         Log.d(TAG, "Triggering immediate sync")
 
         val constraints = Constraints.Builder()
@@ -172,7 +183,7 @@ class SyncManager @Inject constructor(
         val immediateSyncRequest = OneTimeWorkRequestBuilder<DocumentSyncWorker>()
             .setConstraints(constraints)
             .setInitialDelay(10, TimeUnit.SECONDS) // wait for Render cold-start
-            .setBackoffCriteria(BackoffPolicy.LINEAR, 15, TimeUnit.SECONDS)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 60, TimeUnit.SECONDS)
             .setInputData(
                 workDataOf(
                     DocumentSyncWorker.SYNC_MODE_KEY to DocumentSyncWorker.SYNC_MODE_BIDIRECTIONAL

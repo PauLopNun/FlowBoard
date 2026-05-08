@@ -11,9 +11,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.flowboard.data.remote.dto.UserPresenceInfo
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
@@ -80,6 +84,7 @@ fun UserAvatar(
     modifier: Modifier = Modifier,
     size: androidx.compose.ui.unit.Dp = 40.dp
 ) {
+    val context = LocalContext.current
     Box(
         modifier = modifier
             .size(size)
@@ -88,21 +93,32 @@ fun UserAvatar(
             .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        // Mostrar iniciales del usuario
-        val initials = user.fullName
-            .split(" ")
-            .take(2)
-            .mapNotNull { it.firstOrNull()?.uppercase() }
-            .joinToString("")
-            .ifEmpty { user.username.take(2).uppercase() }
+        if (!user.profileImageUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(user.profileImageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "${user.username} avatar",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            val initials = user.fullName
+                .split(" ")
+                .take(2)
+                .mapNotNull { it.firstOrNull()?.uppercase() }
+                .joinToString("")
+                .ifEmpty { user.username.take(2).uppercase() }
 
-        Text(
-            text = initials,
-            style = MaterialTheme.typography.labelMedium,
-            fontSize = (size.value / 2.5).sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimary
-        )
+            Text(
+                text = initials,
+                style = MaterialTheme.typography.labelMedium,
+                fontSize = (size.value / 2.5).sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        }
 
         // Indicador de online (círculo verde en la esquina)
         if (user.isOnline) {

@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.data.local.entities.DocumentEntity
 import com.flowboard.presentation.viewmodel.DocumentViewModel
+import com.flowboard.presentation.viewmodel.WorkspaceViewModel
 
 /**
  * Pantalla de lista de documentos.
@@ -33,10 +34,13 @@ fun MyDocumentsScreen(
     onNavigateBack: () -> Unit,
     onToggleStar: (String) -> Unit = {},
     modifier: Modifier = Modifier,
-    viewModel: DocumentViewModel = hiltViewModel()
+    viewModel: DocumentViewModel = hiltViewModel(),
+    workspaceViewModel: WorkspaceViewModel = hiltViewModel()
 ) {
     val listState by viewModel.documentListState.collectAsStateWithLifecycle()
+    val workspaceState by workspaceViewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
+    var moveToWorkspaceDoc by remember { mutableStateOf<DocumentEntity?>(null) }
 
     // Cargar documentos del servidor al entrar
     LaunchedEffect(Unit) {
@@ -105,10 +109,11 @@ fun MyDocumentsScreen(
             return@Scaffold
         }
 
-        val ownedDocs = listState.ownedDocuments
+        val ownedDocs = listState.ownedDocuments.filter { it.visibility != "workspace" }
+        val ownedWorkspaceDocs = listState.ownedDocuments.filter { it.visibility == "workspace" }
         val sharedDocs = listState.sharedWithMe
 
-        if (ownedDocs.isEmpty() && sharedDocs.isEmpty()) {
+        if (ownedDocs.isEmpty() && ownedWorkspaceDocs.isEmpty() && sharedDocs.isEmpty()) {
             Box(
                 modifier = modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center
@@ -166,7 +171,33 @@ fun MyDocumentsScreen(
                             showDelete = true,
                             isStarred = doc.isStarred,
                             onToggleStar = { onToggleStar(doc.id) },
-                            onDuplicate = { viewModel.duplicateDocument(doc.id) }
+                            onDuplicate = { viewModel.duplicateDocument(doc.id) },
+                            onMoveToWorkspace = { moveToWorkspaceDoc = doc }
+                        )
+                    }
+                }
+
+                if (ownedWorkspaceDocs.isNotEmpty()) {
+                    item {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "In Workspaces (${ownedWorkspaceDocs.size})",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                    items(items = ownedWorkspaceDocs, key = { "owned_ws_${it.id}" }) { doc ->
+                        DocumentCard(
+                            title = doc.title,
+                            subtitle = "Workspace document • ${formatDate(doc.updatedAt)}",
+                            onClick = { onDocumentClick(doc.id) },
+                            onDelete = { showDeleteDialog = doc.id },
+                            showDelete = true,
+                            isStarred = doc.isStarred,
+                            onToggleStar = { onToggleStar(doc.id) },
+                            onDuplicate = { viewModel.duplicateDocument(doc.id) },
+                            onMakePrivate = { viewModel.moveDocumentToPrivate(doc.id) }
                         )
                     }
                 }
@@ -221,6 +252,40 @@ fun MyDocumentsScreen(
                 }
             )
         }
+
+        moveToWorkspaceDoc?.let { doc ->
+            AlertDialog(
+                onDismissRequest = { moveToWorkspaceDoc = null },
+                title = { Text("Move to workspace") },
+                text = {
+                    if (workspaceState.workspaces.isEmpty()) {
+                        Text("Create or join a workspace first.")
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            workspaceState.workspaces.forEach { workspace ->
+                                ListItem(
+                                    headlineContent = { Text(workspace.name) },
+                                    supportingContent = {
+                                        Text("${workspace.memberCount} member${if (workspace.memberCount == 1) "" else "s"}")
+                                    },
+                                    leadingContent = { Icon(Icons.Default.Group, null) },
+                                    modifier = Modifier.clickable {
+                                        viewModel.moveDocumentToWorkspace(doc.id, workspace.id)
+                                        moveToWorkspaceDoc = null
+                                    }
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { moveToWorkspaceDoc = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -234,6 +299,8 @@ private fun DocumentCard(
     isStarred: Boolean = false,
     onToggleStar: (() -> Unit)? = null,
     onDuplicate: (() -> Unit)? = null,
+    onMoveToWorkspace: (() -> Unit)? = null,
+    onMakePrivate: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -307,6 +374,30 @@ private fun DocumentCard(
                                 },
                                 leadingIcon = {
                                     Icon(Icons.Default.ContentCopy, null)
+                                }
+                            )
+                        }
+                        if (onMoveToWorkspace != null) {
+                            DropdownMenuItem(
+                                text = { Text("Move to workspace") },
+                                onClick = {
+                                    showMenu = false
+                                    onMoveToWorkspace()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.DriveFileMove, null)
+                                }
+                            )
+                        }
+                        if (onMakePrivate != null) {
+                            DropdownMenuItem(
+                                text = { Text("Move to private") },
+                                onClick = {
+                                    showMenu = false
+                                    onMakePrivate()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Lock, null)
                                 }
                             )
                         }

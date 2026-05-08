@@ -98,6 +98,54 @@ fun Route.notificationRoutes(notificationService: NotificationService) {
                 call.respond(HttpStatusCode.OK, mapOf("message" to "Notification marked as read"))
             }
 
+            post("/{id}/accept") {
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.getClaim("userId")?.asString()
+
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Unauthorized"))
+                    return@post
+                }
+
+                val notificationId = call.parameters["id"]
+                if (notificationId == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing notification ID"))
+                    return@post
+                }
+
+                val accepted = notificationService.acceptInvitation(notificationId, userId)
+                if (!accepted) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invitation could not be accepted"))
+                    return@post
+                }
+
+                call.respond(HttpStatusCode.OK, mapOf("message" to "Invitation accepted"))
+            }
+
+            post("/{id}/decline") {
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.getClaim("userId")?.asString()
+
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Unauthorized"))
+                    return@post
+                }
+
+                val notificationId = call.parameters["id"]
+                if (notificationId == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Missing notification ID"))
+                    return@post
+                }
+
+                val declined = notificationService.declineInvitation(notificationId, userId)
+                if (!declined) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "Notification not found"))
+                    return@post
+                }
+
+                call.respond(HttpStatusCode.OK, mapOf("message" to "Invitation declined"))
+            }
+
             // Mark all notifications as read
             patch("/read-all") {
                 val principal = call.principal<JWTPrincipal>()

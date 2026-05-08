@@ -49,7 +49,7 @@ fun WorkspaceDocumentsScreen(
                 name = "${uiState.workspaceName.ifBlank { "Workspace" }} Chat",
                 participantIds = emptyList(),
                 resourceId = workspaceId,
-                resourceType = com.flowboard.domain.model.ResourceType.PROJECT
+                resourceType = com.flowboard.domain.model.ResourceType.WORKSPACE
             ) { chatId -> onChatClick(chatId) }
         }
     }
@@ -140,7 +140,8 @@ fun WorkspaceDocumentsScreen(
                     items(uiState.documents, key = { it.id }) { doc ->
                         WorkspaceDocumentCard(
                             document = doc,
-                            onClick = { onDocumentClick(doc.id) }
+                            onClick = { onDocumentClick(doc.id) },
+                            onMovePrivate = { viewModel.moveToPrivate(doc.id) }
                         )
                     }
                 }
@@ -150,7 +151,12 @@ fun WorkspaceDocumentsScreen(
 }
 
 @Composable
-private fun WorkspaceDocumentCard(document: DocumentEntity, onClick: () -> Unit) {
+private fun WorkspaceDocumentCard(
+    document: DocumentEntity,
+    onClick: () -> Unit,
+    onMovePrivate: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -187,6 +193,21 @@ private fun WorkspaceDocumentCard(document: DocumentEntity, onClick: () -> Unit)
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                 modifier = Modifier.size(16.dp)
             )
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.MoreVert, "More options")
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Move to private") },
+                        leadingIcon = { Icon(Icons.Default.Lock, null) },
+                        onClick = {
+                            showMenu = false
+                            onMovePrivate()
+                        }
+                    )
+                }
+            }
         }
     }
 }

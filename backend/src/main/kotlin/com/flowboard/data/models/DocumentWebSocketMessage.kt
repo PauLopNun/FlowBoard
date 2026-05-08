@@ -117,6 +117,7 @@ data class DocumentUserPresence(
     val userId: String,
     val userName: String,
     val email: String? = null,
+    val profileImageUrl: String? = null,
     val color: String,
     val cursor: CursorPosition? = null,
     val isOnline: Boolean = true

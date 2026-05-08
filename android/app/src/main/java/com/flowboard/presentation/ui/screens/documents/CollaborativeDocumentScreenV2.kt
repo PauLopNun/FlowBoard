@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -49,7 +50,6 @@ import com.flowboard.data.models.crdt.ContentBlock
 import com.flowboard.data.remote.websocket.ConnectionState
 import com.flowboard.presentation.ui.components.CollaboratorRole
 import com.flowboard.presentation.ui.components.ShareDocumentDialog
-import com.flowboard.presentation.ui.components.UserAvatar
 import com.flowboard.presentation.viewmodel.CollaborativeDocumentViewModel
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -158,7 +158,6 @@ fun CollaborativeDocumentScreenV2(
                     activeUsers = activeUsers,
                     breadcrumbs = uiState.breadcrumbs,
                     visibility = uiState.visibility,
-                    onVisibilityChange = { viewModel.updateDocumentVisibility(it, uiState.workspaceId) },
                     onBack = onNavigateBack,
                     onSave = { viewModel.saveDocument() },
                     isSaving = isSaving,
@@ -1012,7 +1011,6 @@ private fun DocumentTopBar(
     breadcrumbs: List<Pair<String, String>>,
     showExportMenu: Boolean,
     visibility: String,
-    onVisibilityChange: (String) -> Unit,
     onBack: () -> Unit,
     onSave: () -> Unit,
     isSaving: Boolean,
@@ -1072,6 +1070,15 @@ private fun DocumentTopBar(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary)
                     }
+                    Text(
+                        text = when (visibility) {
+                            "workspace" -> "· Workspace"
+                            "shared" -> "· Shared"
+                            else -> "· Private"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         },
@@ -1087,7 +1094,7 @@ private fun DocumentTopBar(
                     modifier = Modifier.padding(end = 4.dp)
                 ) {
                     activeUsers.take(4).forEach { user ->
-                        UserAvatar(username = user.userName, isOnline = true, size = 28.dp)
+                        PresenceAvatar(user = user, size = 28.dp)
                     }
                     if (activeUsers.size > 4) {
                         Box(
@@ -1129,52 +1136,6 @@ private fun DocumentTopBar(
                         leadingIcon = { Icon(Icons.Default.PictureAsPdf, null) },
                         onClick = onExportPdf
                     )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text("Private") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Lock, null,
-                                tint = if (visibility == "private") MaterialTheme.colorScheme.primary
-                                       else MaterialTheme.colorScheme.onSurface
-                            )
-                        },
-                        trailingIcon = {
-                            if (visibility == "private") Icon(Icons.Default.Check, null,
-                                tint = MaterialTheme.colorScheme.primary)
-                        },
-                        onClick = { onVisibilityChange("private"); onDismissExportMenu() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Shared (invited users)") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.PersonAdd, null,
-                                tint = if (visibility == "shared") MaterialTheme.colorScheme.primary
-                                       else MaterialTheme.colorScheme.onSurface
-                            )
-                        },
-                        trailingIcon = {
-                            if (visibility == "shared") Icon(Icons.Default.Check, null,
-                                tint = MaterialTheme.colorScheme.primary)
-                        },
-                        onClick = { onVisibilityChange("shared"); onDismissExportMenu() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Workspace (all members)") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Group, null,
-                                tint = if (visibility == "workspace") MaterialTheme.colorScheme.primary
-                                       else MaterialTheme.colorScheme.onSurface
-                            )
-                        },
-                        trailingIcon = {
-                            if (visibility == "workspace") Icon(Icons.Default.Check, null,
-                                tint = MaterialTheme.colorScheme.primary)
-                        },
-                        onClick = { onVisibilityChange("workspace"); onDismissExportMenu() }
-                    )
                 }
             }
         },
@@ -1182,6 +1143,50 @@ private fun DocumentTopBar(
             containerColor = MaterialTheme.colorScheme.surface
         )
     )
+}
+
+@Composable
+private fun PresenceAvatar(user: DocumentUserPresence, size: androidx.compose.ui.unit.Dp) {
+    val context = LocalContext.current
+    Box(modifier = Modifier.size(size)) {
+        Surface(
+            modifier = Modifier.size(size),
+            shape = CircleShape,
+            color = runCatching { Color(android.graphics.Color.parseColor("#${user.color.removePrefix("#")}")) }
+                .getOrElse { MaterialTheme.colorScheme.primary },
+            border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.surface)
+        ) {
+            if (!user.profileImageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(user.profileImageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "${user.userName} avatar",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = user.userName.take(1).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        if (user.isOnline) {
+            Box(
+                modifier = Modifier
+                    .size(size * 0.32f)
+                    .align(Alignment.BottomEnd)
+                    .background(Color(0xFF4CAF50), CircleShape)
+                    .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape)
+            )
+        }
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────────────────

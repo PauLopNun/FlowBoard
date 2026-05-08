@@ -28,6 +28,18 @@ class DocumentPersistenceService {
         val documentId = UUID.randomUUID()
 
         dbQuery {
+            if (visibility == "workspace") {
+                val targetWorkspaceId = workspaceId?.let { UUID.fromString(it) }
+                    ?: throw IllegalArgumentException("Workspace document requires a workspaceId")
+                val isMember = WorkspaceMembers.select {
+                    (WorkspaceMembers.workspaceId eq targetWorkspaceId) and
+                    (WorkspaceMembers.userId eq UUID.fromString(ownerId))
+                }.count() > 0
+                if (!isMember) {
+                    throw IllegalArgumentException("Only workspace members can create workspace documents")
+                }
+            }
+
             Documents.insert {
                 it[Documents.id] = documentId
                 it[Documents.title] = title
@@ -75,7 +87,14 @@ class DocumentPersistenceService {
 
             val isOwner = docQuery[Documents.ownerId].toString() == requesterId
 
-            if (!hasPermission && !isOwner && !docQuery[Documents.isPublic]) {
+            val hasWorkspaceAccess = docQuery[Documents.visibility] == "workspace" &&
+                docQuery[Documents.workspaceId] != null &&
+                WorkspaceMembers.select {
+                    (WorkspaceMembers.workspaceId eq docQuery[Documents.workspaceId]!!) and
+                    (WorkspaceMembers.userId eq UUID.fromString(requesterId))
+                }.count() > 0
+
+            if (!hasPermission && !isOwner && !hasWorkspaceAccess && !docQuery[Documents.isPublic]) {
                 return@dbQuery null
             }
 
@@ -140,24 +159,59 @@ class DocumentPersistenceService {
         val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
 
         val hasPermission = dbQuery {
-            DocumentPermissions
+            val directPermission = DocumentPermissions
                 .select {
                     (DocumentPermissions.documentId eq UUID.fromString(documentId)) and
                     (DocumentPermissions.userId eq UUID.fromString(userId)) and
                     (DocumentPermissions.role inList listOf("editor", "owner"))
                 }
                 .count() > 0
+
+            if (directPermission) {
+                true
+            } else {
+                val document = Documents.select { Documents.id eq UUID.fromString(documentId) }.singleOrNull()
+                    ?: return@dbQuery false
+                document[Documents.visibility] == "workspace" &&
+                    document[Documents.workspaceId] != null &&
+                    WorkspaceMembers.select {
+                        (WorkspaceMembers.workspaceId eq document[Documents.workspaceId]!!) and
+                        (WorkspaceMembers.userId eq UUID.fromString(userId))
+                    }.count() > 0
+            }
         }
 
         if (!hasPermission) return null
 
         dbQuery {
+            val nextWorkspaceId = when {
+                visibility == null -> workspaceId?.let { UUID.fromString(it) }
+                visibility == "workspace" -> {
+                    val rawWorkspaceId = workspaceId ?: Documents
+                        .select { Documents.id eq UUID.fromString(documentId) }
+                        .singleOrNull()
+                        ?.get(Documents.workspaceId)
+                        ?.toString()
+                    val parsedWorkspaceId = rawWorkspaceId?.let { UUID.fromString(it) }
+                        ?: throw IllegalArgumentException("Workspace visibility requires a workspaceId")
+                    val isMember = WorkspaceMembers.select {
+                        (WorkspaceMembers.workspaceId eq parsedWorkspaceId) and
+                        (WorkspaceMembers.userId eq UUID.fromString(userId))
+                    }.count() > 0
+                    if (!isMember) {
+                        throw IllegalArgumentException("Only workspace members can move documents into this workspace")
+                    }
+                    parsedWorkspaceId
+                }
+                else -> null
+            }
+
             Documents.update({ Documents.id eq UUID.fromString(documentId) }) {
                 if (title != null) it[Documents.title] = title
                 if (content != null) it[Documents.content] = content
                 if (isPublic != null) it[Documents.isPublic] = isPublic
                 if (visibility != null) it[Documents.visibility] = visibility
-                if (workspaceId != null) it[Documents.workspaceId] = UUID.fromString(workspaceId)
+                if (visibility != null || workspaceId != null) it[Documents.workspaceId] = nextWorkspaceId
                 it[Documents.updatedAt] = now
                 it[Documents.lastEditedBy] = UUID.fromString(userId)
             }
@@ -232,7 +286,13 @@ class DocumentPersistenceService {
                 .map { row -> row.toDocument() }
 
             // Get shared documents (explicit permission grant, not workspace)
-            val shared = (DocumentPermissions innerJoin Documents)
+            val shared = DocumentPermissions
+                .join(
+                    Documents,
+                    JoinType.INNER,
+                    onColumn = DocumentPermissions.documentId,
+                    otherColumn = Documents.id
+                )
                 .leftJoin(Users, { Documents.ownerId }, { Users.id })
                 .select {
                     (DocumentPermissions.userId eq UUID.fromString(userId)) and
@@ -250,7 +310,6 @@ class DocumentPersistenceService {
 
     suspend fun shareDocument(documentId: String, ownerId: String, targetEmail: String, role: String): ShareDocumentResponse {
         return dbQuery {
-            // Verify requester is owner
             val isOwner = Documents
                 .select {
                     (Documents.id eq UUID.fromString(documentId)) and
@@ -265,13 +324,11 @@ class DocumentPersistenceService {
                 )
             }
 
-            // Find user by email
             val targetUser = Users
                 .select { Users.email eq targetEmail }
                 .singleOrNull()
 
             if (targetUser == null) {
-                // User not registered yet — send an invite email and return success
                 return@dbQuery ShareDocumentResponse(
                     success = true,
                     message = "Invitation email sent to $targetEmail (they must create a FlowBoard account to access the document)"
@@ -279,8 +336,6 @@ class DocumentPersistenceService {
             }
 
             val targetUserId = targetUser[Users.id].toString()
-
-            // Check if already shared
             val existing = DocumentPermissions
                 .select {
                     (DocumentPermissions.documentId eq UUID.fromString(documentId)) and
@@ -288,46 +343,50 @@ class DocumentPersistenceService {
                 }
                 .singleOrNull()
 
-            val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
-            val permissionId: UUID
-
             if (existing != null) {
-                // Update existing permission
-                permissionId = existing[DocumentPermissions.id].value
-                DocumentPermissions.update({
-                    DocumentPermissions.id eq permissionId
-                }) {
-                    it[DocumentPermissions.role] = role
-                    it[DocumentPermissions.grantedAt] = now
+                if (existing[DocumentPermissions.role] == "owner") {
+                    return@dbQuery ShareDocumentResponse(
+                        success = false,
+                        message = "Document owner already has access"
+                    )
                 }
-            } else {
-                // Create new permission
-                permissionId = UUID.randomUUID()
-                DocumentPermissions.insert {
-                    it[DocumentPermissions.id] = permissionId
-                    it[DocumentPermissions.documentId] = UUID.fromString(documentId)
-                    it[DocumentPermissions.userId] = UUID.fromString(targetUserId)
-                    it[DocumentPermissions.role] = role
-                    it[DocumentPermissions.grantedBy] = UUID.fromString(ownerId)
-                    it[DocumentPermissions.grantedAt] = now
-                }
-            }
 
-            val permission = DocumentPermissionResponse(
-                id = permissionId.toString(),
-                documentId = documentId,
-                userId = targetUserId,
-                userName = targetUser[Users.username],
-                userEmail = targetUser[Users.email],
-                role = role,
-                grantedBy = ownerId,
-                grantedAt = now
-            )
+                val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+                val permissionId = existing[DocumentPermissions.id].value
+                DocumentPermissions.update({ DocumentPermissions.id eq permissionId }) {
+                    it[DocumentPermissions.role] = role
+                    it[DocumentPermissions.grantedAt] = now
+                }
+
+                val permission = DocumentPermissionResponse(
+                    id = permissionId.toString(),
+                    documentId = documentId,
+                    userId = targetUserId,
+                    userName = targetUser[Users.username],
+                    userEmail = targetUser[Users.email],
+                    role = role,
+                    grantedBy = ownerId,
+                    grantedAt = now
+                )
+
+                return@dbQuery ShareDocumentResponse(
+                    success = true,
+                    message = "Access updated successfully",
+                    permission = permission,
+                    targetUserId = targetUserId,
+                    targetUserName = targetUser[Users.username],
+                    targetUserEmail = targetUser[Users.email],
+                    role = role
+                )
+            }
 
             ShareDocumentResponse(
                 success = true,
-                message = "Document shared successfully",
-                permission = permission
+                message = "Invitation sent",
+                targetUserId = targetUserId,
+                targetUserName = targetUser[Users.username],
+                targetUserEmail = targetUser[Users.email],
+                role = role
             )
         }
     }

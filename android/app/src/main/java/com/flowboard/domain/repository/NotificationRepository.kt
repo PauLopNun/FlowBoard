@@ -33,6 +33,12 @@ interface NotificationRepository {
      */
     fun getUnreadCount(userId: String): Flow<Int>
 
+    suspend fun refreshNotifications(): Result<Unit>
+
+    suspend fun acceptInvitation(notificationId: String): Result<Unit>
+
+    suspend fun declineInvitation(notificationId: String): Result<Unit>
+
     /**
      * Get notification statistics
      */

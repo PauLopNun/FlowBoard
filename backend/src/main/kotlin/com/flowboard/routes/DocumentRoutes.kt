@@ -51,8 +51,19 @@ fun Route.documentRoutes(
                     return@get
                 }
 
-                val documents = documentService.getUserDocuments(userId)
-                call.respond(HttpStatusCode.OK, documents)
+                try {
+                    val documents = documentService.getUserDocuments(userId)
+                    call.respond(HttpStatusCode.OK, documents)
+                } catch (e: Exception) {
+                    application.log.error("Failed to load documents for user $userId", e)
+                    call.respond(
+                        HttpStatusCode.InternalServerError,
+                        mapOf(
+                            "error" to "Failed to load documents",
+                            "detail" to (e.message ?: "Unknown server error")
+                        )
+                    )
+                }
             }
 
             // Get document by ID
@@ -193,13 +204,23 @@ fun Route.documentRoutes(
                 val document = documentService.getDocumentById(documentId, userId)
                 if (document != null) {
                     if (response.permission != null) {
-                        // Registered user — in-app notification + email
+                        // Existing collaborator — access was updated immediately.
                         notificationService.sendDocumentSharedNotification(
                             recipientId = response.permission.userId,
                             recipientEmail = response.permission.userEmail,
                             senderName = userName ?: "Someone",
                             documentTitle = document.title,
                             documentId = documentId
+                        )
+                    } else if (response.targetUserId != null) {
+                        notificationService.sendDocumentInvitationNotification(
+                            recipientId = response.targetUserId,
+                            recipientEmail = response.targetUserEmail,
+                            senderId = userId,
+                            senderName = userName ?: "Someone",
+                            documentTitle = document.title,
+                            documentId = documentId,
+                            role = response.role ?: request.role
                         )
                     } else {
                         // Non-registered user — send invite email only

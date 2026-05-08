@@ -20,6 +20,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import java.util.UUID
 import javax.inject.Inject
@@ -653,7 +654,7 @@ class CollaborativeDocumentViewModel @Inject constructor(
         val title = blocks.firstOrNull { it.type == "h1" }?.content
             ?: blocks.firstOrNull()?.content
             ?: "Untitled"
-        val content = blocks.joinToString("\n") { it.content }
+        val content = Json { encodeDefaults = true }.encodeToString(blocks)
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }

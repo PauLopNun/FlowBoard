@@ -66,7 +66,7 @@ class DocumentRepositoryImpl @Inject constructor(
                     userId = user.userId,
                     username = user.userName,
                     fullName = user.userName,
-                    profileImageUrl = null,
+                    profileImageUrl = user.profileImageUrl,
                     isOnline = user.isOnline,
                     lastActivity = Clock.System.now().toLocalDateTime(TimeZone.UTC)
                 )

@@ -39,7 +39,7 @@ fun Application.configureRouting() {
             notificationRoutes(notificationService)
             chatRoutes(chatService)
             permissionRoutes(permissionService)
-            workspaceRoutes(workspaceService, documentPersistenceService)
+            workspaceRoutes(workspaceService, documentPersistenceService, notificationService)
             aiRoutes()
         }
 

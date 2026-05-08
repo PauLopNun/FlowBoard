@@ -1,6 +1,10 @@
 package com.flowboard
 
 import android.app.Activity
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -17,13 +21,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -53,6 +64,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import kotlinx.coroutines.delay
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.util.UUID
+import com.flowboard.data.models.crdt.ContentBlock
 import com.flowboard.presentation.ui.screens.auth.ForgotPasswordScreen
 import com.flowboard.presentation.ui.screens.auth.LoginScreen
 import com.flowboard.presentation.ui.screens.auth.RegisterScreen
@@ -285,6 +300,25 @@ fun FlowBoardApp(
                 var isCreating by remember { mutableStateOf(false) }
                 var showTemplates by remember { mutableStateOf(false) }
                 var selectedTemplate by remember { mutableStateOf<DocumentTemplate?>(null) }
+                var importedContent by remember { mutableStateOf("") }
+                var importedFileName by remember { mutableStateOf<String?>(null) }
+                val context = LocalContext.current
+                val importLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.OpenDocument()
+                ) { uri: Uri? ->
+                    uri ?: return@rememberLauncherForActivityResult
+                    val rawText = readTextFromUri(context, uri).trim()
+                    if (rawText.isNotBlank()) {
+                        val name = uri.lastPathSegment
+                            ?.substringAfterLast("/")
+                            ?.substringBeforeLast(".")
+                            ?.takeIf { it.isNotBlank() }
+                        if (title.isBlank() && name != null) title = name
+                        val finalTitle = title.trim().ifBlank { name ?: "Imported Document" }
+                        importedContent = markdownToFlowBoardContent(finalTitle, rawText)
+                        importedFileName = name ?: "Imported file"
+                    }
+                }
 
                 LaunchedEffect(docListState.error) {
                     if (docListState.error != null && isCreating) {
@@ -292,100 +326,138 @@ fun FlowBoardApp(
                     }
                 }
 
-                // Intercept system back gesture — without this, the dialog dismisses
-                // but the route stays alive showing a blank white screen.
-                BackHandler(enabled = !isCreating) { navController.popBackStack() }
-
-                AlertDialog(
-                    onDismissRequest = { if (!isCreating) navController.popBackStack() },
-                    title = { Text("New Document") },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedTextField(
-                                value = title,
-                                onValueChange = { title = it },
-                                label = { Text("Document Title") },
-                                singleLine = true,
-                                enabled = !isCreating
-                            )
-                            if (selectedTemplate != null) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(selectedTemplate!!.emoji)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            selectedTemplate!!.name,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        TextButton(
-                                            onClick = { selectedTemplate = null },
-                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                        ) {
-                                            Text("Remove", style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
-                                }
-                            } else {
-                                TextButton(
-                                    onClick = { showTemplates = true },
-                                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
-                                    enabled = !isCreating
-                                ) {
-                                    Text("Use a template", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                val docTitle = title.trim().ifBlank {
-                                    selectedTemplate?.name ?: "Untitled Document"
-                                }
-                                isCreating = true
-                                val templateId = selectedTemplate?.id
-                                val wsVisibility = if (initialWorkspaceId != null) "workspace" else "private"
-                                documentViewModel.createDocumentViaApi(
-                                    title = docTitle,
-                                    visibility = wsVisibility,
-                                    workspaceId = initialWorkspaceId
-                                ) { documentId ->
-                                    val route = if (templateId != null)
-                                        "document_edit/$documentId?template=$templateId"
-                                    else
-                                        "document_edit/$documentId"
-                                    navController.navigate(route) {
-                                        popUpTo("document_new?workspaceId={workspaceId}") { inclusive = true }
-                                    }
-                                }
-                            },
-                            enabled = !isCreating
-                        ) {
-                            if (isCreating) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                            } else {
-                                Text("Create")
-                            }
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = { navController.popBackStack() },
-                            enabled = !isCreating
-                        ) {
-                            Text("Cancel")
+                fun closeNewDocument() {
+                    if (!navController.popBackStack()) {
+                        navController.navigate("dashboard") {
+                            popUpTo(0) { inclusive = true }
                         }
                     }
-                )
+                }
+
+                // Intercept system back gesture — without this, the dialog dismisses
+                // but the route stays alive showing a blank white screen.
+                BackHandler(enabled = !isCreating) { closeNewDocument() }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
+                    AlertDialog(
+                        onDismissRequest = { if (!isCreating) closeNewDocument() },
+                        title = { Text("New Document") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedTextField(
+                                    value = title,
+                                    onValueChange = { title = it },
+                                    label = { Text("Document Title") },
+                                    singleLine = true,
+                                    enabled = !isCreating
+                                )
+                                if (selectedTemplate != null) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(selectedTemplate!!.emoji)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                selectedTemplate!!.name,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            TextButton(
+                                                onClick = { selectedTemplate = null },
+                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                            ) {
+                                                Text("Remove", style = MaterialTheme.typography.labelSmall)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    TextButton(
+                                        onClick = { showTemplates = true },
+                                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
+                                        enabled = !isCreating
+                                    ) {
+                                        Text("Use a template", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                                OutlinedButton(
+                                    onClick = { importLauncher.launch(arrayOf("text/*", "text/markdown", "application/octet-stream")) },
+                                    enabled = !isCreating && selectedTemplate == null,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(if (importedFileName == null) "Import Markdown/Text" else "Imported: $importedFileName")
+                                }
+                                if (importedFileName != null) {
+                                    TextButton(
+                                        onClick = {
+                                            importedContent = ""
+                                            importedFileName = null
+                                        },
+                                        enabled = !isCreating
+                                    ) {
+                                        Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Remove import")
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    val docTitle = title.trim().ifBlank {
+                                        selectedTemplate?.name ?: importedFileName ?: "Untitled Document"
+                                    }
+                                    isCreating = true
+                                    val templateId = selectedTemplate?.id
+                                    val wsVisibility = if (initialWorkspaceId != null) "workspace" else "private"
+                                    val content = importedContent.ifBlank { "" }
+                                    documentViewModel.createDocumentViaApi(
+                                        title = docTitle,
+                                        content = content,
+                                        visibility = wsVisibility,
+                                        workspaceId = initialWorkspaceId
+                                    ) { documentId ->
+                                        val route = if (templateId != null)
+                                            "document_edit/$documentId?template=$templateId"
+                                        else
+                                            "document_edit/$documentId"
+                                        navController.navigate(route) {
+                                            popUpTo("document_new?workspaceId={workspaceId}") { inclusive = true }
+                                        }
+                                    }
+                                },
+                                enabled = !isCreating
+                            ) {
+                                if (isCreating) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                                } else {
+                                    Text("Create")
+                                }
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = { closeNewDocument() },
+                                enabled = !isCreating
+                            ) {
+                                Text("Cancel")
+                            }
+                        }
+                    )
+                }
 
                 if (showTemplates) {
                     TemplatesBottomSheet(
@@ -474,17 +546,29 @@ fun FlowBoardApp(
                 val notifications by notificationViewModel.allNotifications.collectAsStateWithLifecycle()
                 val unreadCount by notificationViewModel.unreadCount.collectAsStateWithLifecycle()
 
+                LaunchedEffect(Unit) {
+                    notificationViewModel.refresh()
+                }
+
                 NotificationCenterScreen(
                     notifications = notifications,
                     unreadCount = unreadCount,
                     onNotificationClick = { notification ->
-                        notificationViewModel.markAsRead(notification.id)
-                        notification.deepLink?.let { navController.navigate(it) }
+                        if (!notification.title.contains("invitation", ignoreCase = true)) {
+                            notificationViewModel.markAsRead(notification.id)
+                            notification.deepLink?.let { navController.navigate(it.substringBefore("?")) }
+                        }
                     },
                     onMarkAsRead = { notificationViewModel.markAsRead(it) },
                     onMarkAllAsRead = { notificationViewModel.markAllAsRead() },
                     onDeleteNotification = { notificationViewModel.deleteNotification(it) },
                     onDeleteAll = { notificationViewModel.deleteAllNotifications() },
+                    onAcceptInvitation = { notification ->
+                        notificationViewModel.acceptInvitation(notification.id) {
+                            documentViewModel.fetchAllDocuments()
+                        }
+                    },
+                    onDeclineInvitation = { notificationViewModel.declineInvitation(it.id) },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
@@ -570,6 +654,75 @@ fun FlowBoardApp(
             SplashScreen()
         }
     }
+}
+
+private fun readTextFromUri(context: Context, uri: Uri): String {
+    return runCatching {
+        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
+    }.getOrDefault("")
+}
+
+private fun markdownToFlowBoardContent(title: String, rawText: String): String {
+    val blocks = mutableListOf<ContentBlock>()
+    blocks += ContentBlock(
+        id = UUID.randomUUID().toString(),
+        type = "h1",
+        content = title.ifBlank { "Imported Document" }
+    )
+
+    val lines = rawText.replace("\r\n", "\n").split("\n")
+    var inCode = false
+    val codeBuffer = StringBuilder()
+
+    fun addCodeBlock() {
+        blocks += ContentBlock(
+            id = UUID.randomUUID().toString(),
+            type = "code",
+            content = codeBuffer.toString().trimEnd()
+        )
+        codeBuffer.clear()
+    }
+
+    lines.forEach { rawLine ->
+        val line = rawLine.trimEnd()
+        if (line.trim().startsWith("```")) {
+            if (inCode) addCodeBlock()
+            inCode = !inCode
+            return@forEach
+        }
+        if (inCode) {
+            codeBuffer.appendLine(line)
+            return@forEach
+        }
+
+        val trimmed = line.trim()
+        if (trimmed.isBlank()) return@forEach
+
+        val block = when {
+            trimmed.startsWith("### ") -> ContentBlock(UUID.randomUUID().toString(), "h3", trimmed.removePrefix("### ").trim())
+            trimmed.startsWith("## ") -> ContentBlock(UUID.randomUUID().toString(), "h2", trimmed.removePrefix("## ").trim())
+            trimmed.startsWith("# ") -> ContentBlock(UUID.randomUUID().toString(), "h1", trimmed.removePrefix("# ").trim())
+            trimmed.startsWith("- [ ] ", ignoreCase = true) -> ContentBlock(UUID.randomUUID().toString(), "todo", trimmed.drop(6).trim(), isChecked = false)
+            trimmed.startsWith("- [x] ", ignoreCase = true) -> ContentBlock(UUID.randomUUID().toString(), "todo", trimmed.drop(6).trim(), isChecked = true)
+            trimmed.startsWith("- ") -> ContentBlock(UUID.randomUUID().toString(), "bullet", trimmed.removePrefix("- ").trim())
+            trimmed.startsWith("* ") -> ContentBlock(UUID.randomUUID().toString(), "bullet", trimmed.removePrefix("* ").trim())
+            Regex("""^\d+\.\s+""").containsMatchIn(trimmed) -> ContentBlock(
+                UUID.randomUUID().toString(),
+                "numbered",
+                trimmed.replaceFirst(Regex("""^\d+\.\s+"""), "").trim()
+            )
+            trimmed.startsWith("> ") -> ContentBlock(UUID.randomUUID().toString(), "quote", trimmed.removePrefix("> ").trim())
+            trimmed == "---" || trimmed == "***" -> ContentBlock(UUID.randomUUID().toString(), "divider", "")
+            else -> ContentBlock(UUID.randomUUID().toString(), "p", trimmed)
+        }
+        blocks += block
+    }
+
+    if (inCode && codeBuffer.isNotBlank()) {
+        addCodeBlock()
+    }
+
+    return Json { encodeDefaults = true }.encodeToString(blocks)
 }
 
 @Composable

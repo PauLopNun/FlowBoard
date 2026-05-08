@@ -46,6 +46,14 @@ class WorkspaceApiService @Inject constructor(
         }.body()
     }
 
+    suspend fun inviteMember(workspaceId: String, email: String): InviteWorkspaceResponseDto {
+        return httpClient.post("$endpoint/$workspaceId/invite") {
+            header(HttpHeaders.Authorization, "Bearer ${token()}")
+            contentType(ContentType.Application.Json)
+            setBody(InviteWorkspaceRequest(email))
+        }.body()
+    }
+
     suspend fun deleteWorkspace(id: String) {
         httpClient.delete("$endpoint/$id") {
             header(HttpHeaders.Authorization, "Bearer ${token()}")

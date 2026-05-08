@@ -5,6 +5,8 @@ import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
 
@@ -39,11 +41,30 @@ object DatabaseFactory {
                     Workspaces,
                     WorkspaceMembers
                 )
-                // Add any missing columns to existing tables
-                try {
-                    SchemaUtils.createMissingTablesAndColumns(Documents)
-                    SchemaUtils.createMissingTablesAndColumns(ChatParticipants)
-                } catch (_: Exception) {}
+
+                runCompatibilityMigrations()
+
+                listOf<Table>(
+                    Users,
+                    Tasks,
+                    Projects,
+                    BoardPermissions,
+                    Documents,
+                    DocumentPermissions,
+                    Notifications,
+                    ChatRooms,
+                    ChatParticipants,
+                    Messages,
+                    PasswordResetTokens,
+                    Workspaces,
+                    WorkspaceMembers
+                ).forEach { table ->
+                    try {
+                        SchemaUtils.createMissingTablesAndColumns(table)
+                    } catch (e: Exception) {
+                        System.err.println("Schema sync skipped for ${table.tableName}: ${e.message}")
+                    }
+                }
             }
             initialized = true
             println("✅ Database initialized successfully")
@@ -123,6 +144,37 @@ object DatabaseFactory {
             validate()
         }
         return HikariDataSource(config)
+    }
+
+    private fun Transaction.runCompatibilityMigrations() {
+        exec("ALTER TABLE documents ADD COLUMN IF NOT EXISTS parent_id UUID")
+        exec("ALTER TABLE documents ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) NOT NULL DEFAULT 'private'")
+        exec("ALTER TABLE documents ADD COLUMN IF NOT EXISTS workspace_id UUID")
+        exec("ALTER TABLE documents ADD COLUMN IF NOT EXISTS last_edited_by UUID")
+        exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_url VARCHAR(500)")
+        exec("ALTER TABLE document_permissions ADD COLUMN IF NOT EXISTS role VARCHAR(50) NOT NULL DEFAULT 'viewer'")
+        exec("ALTER TABLE document_permissions ADD COLUMN IF NOT EXISTS granted_by UUID")
+        exec(
+            """
+            UPDATE document_permissions dp
+            SET granted_by = d.owner_id
+            FROM documents d
+            WHERE dp.document_id = d.id AND dp.granted_by IS NULL
+            """.trimIndent()
+        )
+        exec("UPDATE document_permissions SET granted_by = user_id WHERE granted_by IS NULL")
+        exec("ALTER TABLE document_permissions ALTER COLUMN granted_by SET NOT NULL")
+        exec("ALTER TABLE document_permissions ADD COLUMN IF NOT EXISTS granted_at TIMESTAMP")
+        exec(
+            """
+            UPDATE document_permissions dp
+            SET granted_at = COALESCE(d.created_at, NOW())
+            FROM documents d
+            WHERE dp.document_id = d.id AND dp.granted_at IS NULL
+            """.trimIndent()
+        )
+        exec("UPDATE document_permissions SET granted_at = NOW() WHERE granted_at IS NULL")
+        exec("ALTER TABLE document_permissions ALTER COLUMN granted_at SET NOT NULL")
     }
     
     suspend fun <T> dbQuery(block: suspend () -> T): T =

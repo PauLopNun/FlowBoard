@@ -66,6 +66,14 @@ class WorkspaceViewModel @Inject constructor(
         }
     }
 
+    fun inviteMember(workspaceId: String, email: String) {
+        viewModelScope.launch {
+            workspaceRepository.inviteMember(workspaceId, email)
+                .onSuccess { message -> _uiState.update { it.copy(message = message) } }
+                .onFailure { e -> _uiState.update { it.copy(error = e.message) } }
+        }
+    }
+
     fun deleteWorkspace(id: String) {
         viewModelScope.launch {
             workspaceRepository.deleteWorkspace(id)

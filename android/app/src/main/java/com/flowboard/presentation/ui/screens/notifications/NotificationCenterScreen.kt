@@ -29,6 +29,8 @@ fun NotificationCenterScreen(
     onMarkAllAsRead: () -> Unit,
     onDeleteNotification: (String) -> Unit,
     onDeleteAll: () -> Unit,
+    onAcceptInvitation: (Notification) -> Unit,
+    onDeclineInvitation: (Notification) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -129,7 +131,9 @@ fun NotificationCenterScreen(
                                 }
                                 onNotificationClick(notification)
                             },
-                            onDelete = { onDeleteNotification(notification.id) }
+                            onDelete = { onDeleteNotification(notification.id) },
+                            onAcceptInvitation = { onAcceptInvitation(notification) },
+                            onDeclineInvitation = { onDeclineInvitation(notification) }
                         )
                     }
                 }
@@ -160,7 +164,8 @@ private fun FilterChips(
         listOf(
             NotificationType.TASK_ASSIGNED to "Tasks",
             NotificationType.COMMENT_MENTION to "Comments",
-            NotificationType.DOCUMENT_SHARED to "Documents"
+            NotificationType.DOCUMENT_SHARED to "Documents",
+            NotificationType.WORKSPACE_INVITATION to "Workspaces"
         ).forEach { (type, label) ->
             FilterChip(
                 selected = selectedType == type,
@@ -175,9 +180,14 @@ private fun FilterChips(
 private fun NotificationItem(
     notification: Notification,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onAcceptInvitation: () -> Unit,
+    onDeclineInvitation: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val isInvitation = notification.type == NotificationType.WORKSPACE_INVITATION ||
+        (notification.type == NotificationType.DOCUMENT_SHARED &&
+            notification.title.contains("invitation", ignoreCase = true))
 
     Card(
         modifier = Modifier
@@ -254,6 +264,25 @@ private fun NotificationItem(
                             )
                         }
                     }
+                    if (isInvitation && !notification.isRead) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = onAcceptInvitation,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text("Accept")
+                            }
+                            OutlinedButton(
+                                onClick = onDeclineInvitation,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text("Decline")
+                            }
+                        }
+                    }
                 }
             }
 
@@ -298,6 +327,7 @@ private fun NotificationIcon(type: NotificationType, priority: NotificationPrior
         NotificationType.COMMENT_REPLY -> Icons.Default.Reply to MaterialTheme.colorScheme.primary
         NotificationType.PERMISSION_GRANTED -> Icons.Default.Lock to MaterialTheme.colorScheme.tertiary
         NotificationType.DOCUMENT_SHARED -> Icons.Default.Share to MaterialTheme.colorScheme.primary
+        NotificationType.WORKSPACE_INVITATION -> Icons.Default.GroupAdd to MaterialTheme.colorScheme.secondary
         NotificationType.PROJECT_INVITATION -> Icons.Default.Group to MaterialTheme.colorScheme.secondary
         else -> Icons.Default.Notifications to MaterialTheme.colorScheme.onSurfaceVariant
     }

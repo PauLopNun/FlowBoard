@@ -67,7 +67,11 @@ data class UpdatePermissionRequest(
 data class ShareDocumentResponse(
     val success: Boolean,
     val message: String,
-    val permission: DocumentPermissionResponse? = null
+    val permission: DocumentPermissionResponse? = null,
+    val targetUserId: String? = null,
+    val targetUserName: String? = null,
+    val targetUserEmail: String? = null,
+    val role: String? = null
 )
 
 @Serializable

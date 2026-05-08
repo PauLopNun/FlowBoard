@@ -123,4 +123,12 @@ object NetworkModule {
     @Singleton
     fun provideAiApiService(@HttpClientQualifier httpClient: HttpClient): com.flowboard.data.remote.api.AiApiService =
         com.flowboard.data.remote.api.AiApiService(httpClient)
+
+    @Provides
+    @Singleton
+    fun provideNotificationApiService(
+        @HttpClientQualifier httpClient: HttpClient,
+        authRepository: AuthRepository
+    ): com.flowboard.data.remote.api.NotificationApiService =
+        com.flowboard.data.remote.api.NotificationApiService(httpClient, authRepository)
 }

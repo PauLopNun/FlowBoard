@@ -2,6 +2,7 @@ package com.flowboard.routes
 
 import com.flowboard.data.models.*
 import com.flowboard.domain.DocumentPersistenceService
+import com.flowboard.domain.NotificationService
 import com.flowboard.domain.WorkspaceService
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -11,7 +12,11 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
-fun Route.workspaceRoutes(workspaceService: WorkspaceService, documentService: DocumentPersistenceService) {
+fun Route.workspaceRoutes(
+    workspaceService: WorkspaceService,
+    documentService: DocumentPersistenceService,
+    notificationService: NotificationService
+) {
     authenticate("auth-jwt") {
         route("/workspaces") {
 
@@ -75,6 +80,31 @@ fun Route.workspaceRoutes(workspaceService: WorkspaceService, documentService: D
                     return@delete call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Not authorized"))
                 }
                 call.respond(HttpStatusCode.OK, mapOf("message" to "Member removed"))
+            }
+
+            post("/{id}/invite") {
+                val principal = call.principal<JWTPrincipal>()
+                val inviterId = principal?.payload?.getClaim("userId")?.asString()
+                    ?: return@post call.respond(HttpStatusCode.Unauthorized)
+                val inviterName = principal.payload.getClaim("username")?.asString() ?: "Someone"
+                val workspaceId = call.parameters["id"] ?: return@post
+                val request = call.receive<InviteWorkspaceRequest>()
+
+                val response = workspaceService.inviteMember(workspaceId, inviterId, request.email)
+                if (!response.success || response.targetUserId == null) {
+                    return@post call.respond(HttpStatusCode.BadRequest, response)
+                }
+
+                notificationService.sendWorkspaceInvitationNotification(
+                    recipientId = response.targetUserId,
+                    recipientEmail = response.targetUserEmail,
+                    senderId = inviterId,
+                    senderName = inviterName,
+                    workspaceName = response.workspaceName,
+                    workspaceId = response.workspaceId
+                )
+
+                call.respond(HttpStatusCode.OK, response)
             }
 
             // Get workspace documents (visibility=workspace, members only)
