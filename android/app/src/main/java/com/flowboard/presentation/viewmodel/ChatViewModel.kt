@@ -40,8 +40,14 @@ class ChatViewModel @Inject constructor(
     private val _activeChatId = MutableStateFlow<String?>(null)
     val activeChatId: StateFlow<String?> = _activeChatId.asStateFlow()
 
-    // Chat rooms
+    // Chat rooms — deduplicate direct chats by participant pair (keep most recent)
     val chatRooms: StateFlow<List<ChatRoom>> = chatRepository.getAllChatRooms()
+        .map { rooms ->
+            val direct = rooms.filter { it.type == ChatType.DIRECT }
+                .groupBy { room -> room.participants.map { it.userId }.sorted().joinToString(",") }
+                .values.map { dupes -> dupes.maxByOrNull { it.updatedAt } ?: dupes.first() }
+            rooms.filter { it.type != ChatType.DIRECT } + direct
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
