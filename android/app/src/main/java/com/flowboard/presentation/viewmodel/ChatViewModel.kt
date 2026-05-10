@@ -126,6 +126,7 @@ class ChatViewModel @Inject constructor(
         markAsRead(chatRoomId)
         connectToChat(chatRoomId)
         viewModelScope.launch {
+            runCatching { (chatRepository as? com.flowboard.data.repository.ChatRepositoryImpl)?.refreshChatRooms() }
             runCatching { (chatRepository as? com.flowboard.data.repository.ChatRepositoryImpl)?.refreshMessages(chatRoomId) }
         }
     }

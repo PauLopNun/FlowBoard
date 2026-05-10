@@ -167,7 +167,8 @@ class FlowBoardNotificationManager @Inject constructor(
     private fun getChannelIdForType(type: NotificationType): String {
         return when (type) {
             NotificationType.COMMENT_MENTION,
-            NotificationType.COMMENT_REPLY -> CHANNEL_ID_MESSAGES
+            NotificationType.COMMENT_REPLY,
+            NotificationType.CHAT_MESSAGE -> CHANNEL_ID_MESSAGES
             else -> CHANNEL_ID_DEFAULT
         }
     }
@@ -190,7 +191,8 @@ class FlowBoardNotificationManager @Inject constructor(
         return when (type) {
             NotificationType.TASK_ASSIGNED -> android.R.drawable.ic_menu_today
             NotificationType.COMMENT_MENTION,
-            NotificationType.COMMENT_REPLY -> android.R.drawable.ic_menu_send
+            NotificationType.COMMENT_REPLY,
+            NotificationType.CHAT_MESSAGE -> android.R.drawable.ic_menu_send
             NotificationType.PERMISSION_GRANTED -> android.R.drawable.ic_menu_share
             NotificationType.DOCUMENT_SHARED -> android.R.drawable.ic_menu_share
             NotificationType.TASK_DUE_SOON, NotificationType.TASK_OVERDUE -> android.R.drawable.ic_menu_recent_history
@@ -207,6 +209,7 @@ class FlowBoardNotificationManager @Inject constructor(
             NotificationType.TASK_DUE_SOON -> 0xFFFFA000.toInt() // Orange
             NotificationType.TASK_ASSIGNED -> 0xFF1976D2.toInt() // Blue
             NotificationType.COMMENT_MENTION -> 0xFF388E3C.toInt() // Green
+            NotificationType.CHAT_MESSAGE -> 0xFF388E3C.toInt() // Green
             NotificationType.PERMISSION_GRANTED -> 0xFF7B1FA2.toInt() // Purple
             else -> 0xFF1976D2.toInt() // Default blue
         }
@@ -223,7 +226,8 @@ class FlowBoardNotificationManager @Inject constructor(
             NotificationType.TASK_OVERDUE -> "tasks"
 
             NotificationType.COMMENT_MENTION,
-            NotificationType.COMMENT_REPLY -> "messages"
+            NotificationType.COMMENT_REPLY,
+            NotificationType.CHAT_MESSAGE -> "messages"
 
             NotificationType.PERMISSION_GRANTED,
             NotificationType.PERMISSION_REVOKED -> "permissions"

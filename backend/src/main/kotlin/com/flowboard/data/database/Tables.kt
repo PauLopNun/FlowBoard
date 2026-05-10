@@ -11,7 +11,7 @@ object Users : UUIDTable("users") {
     val fullName = varchar("full_name", 255)
     val passwordHash = varchar("password_hash", 255)
     val role = enumeration("role", com.flowboard.data.models.UserRole::class).default(com.flowboard.data.models.UserRole.USER)
-    val profileImageUrl = varchar("profile_image_url", 500).nullable()
+    val profileImageUrl = text("profile_image_url").nullable()
     val isActive = bool("is_active").default(true)
     val createdAt = datetime("created_at")
     val lastLoginAt = datetime("last_login_at").nullable()
@@ -116,6 +116,7 @@ object PasswordResetTokens : UUIDTable("password_reset_tokens") {
 object Workspaces : UUIDTable("workspaces") {
     val name = varchar("name", 255)
     val description = text("description").nullable()
+    val imageUrl = text("image_url").nullable()
     val ownerId = uuid("owner_id")
     val inviteCode = varchar("invite_code", 12).uniqueIndex()
     val createdAt = datetime("created_at")

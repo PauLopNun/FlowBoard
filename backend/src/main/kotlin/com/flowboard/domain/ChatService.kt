@@ -4,6 +4,7 @@ import com.flowboard.data.database.DatabaseFactory.dbQuery
 import com.flowboard.data.database.ChatRooms
 import com.flowboard.data.database.ChatParticipants
 import com.flowboard.data.database.Messages
+import com.flowboard.data.database.Notifications
 import com.flowboard.data.database.Users
 import com.flowboard.data.models.*
 import kotlinx.datetime.Clock
@@ -103,6 +104,7 @@ class ChatService {
                     ChatParticipants.userId,
                     Users.username,
                     Users.email,
+                    Users.profileImageUrl,
                     ChatParticipants.role,
                     ChatParticipants.joinedAt,
                     ChatParticipants.isMuted
@@ -113,6 +115,7 @@ class ChatService {
                         userId = row[ChatParticipants.userId].toString(),
                         userName = row[Users.username],
                         email = row[Users.email],
+                        avatarUrl = row[Users.profileImageUrl],
                         role = row[ChatParticipants.role],
                         isOnline = false, // TODO: Implement online status
                         joinedAt = row[ChatParticipants.joinedAt],
@@ -194,13 +197,26 @@ class ChatService {
     suspend fun sendMessage(chatRoomId: String, senderId: String, request: SendMessageRequest): Message {
         val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
         val messageId = UUID.randomUUID()
+        val roomUuid = UUID.fromString(chatRoomId)
+        val senderUuid = UUID.fromString(senderId)
 
         dbQuery {
+            val isParticipant = ChatParticipants
+                .select {
+                    (ChatParticipants.chatRoomId eq roomUuid) and
+                        (ChatParticipants.userId eq senderUuid)
+                }
+                .count() > 0
+
+            if (!isParticipant) {
+                error("Chat room not found or access denied")
+            }
+
             // Insert message
             Messages.insert {
                 it[Messages.id] = messageId
-                it[Messages.chatRoomId] = UUID.fromString(chatRoomId)
-                it[Messages.senderId] = UUID.fromString(senderId)
+                it[Messages.chatRoomId] = roomUuid
+                it[Messages.senderId] = senderUuid
                 it[Messages.type] = request.type
                 it[Messages.content] = request.content
                 it[Messages.replyToId] = request.replyToId?.let { UUID.fromString(it) }
@@ -211,9 +227,55 @@ class ChatService {
             }
 
             // Update chat room updatedAt
-            ChatRooms.update({ ChatRooms.id eq UUID.fromString(chatRoomId) }) {
+            ChatRooms.update({ ChatRooms.id eq roomUuid }) {
                 it[ChatRooms.updatedAt] = now
             }
+
+            val senderRow = Users
+                .slice(Users.username, Users.fullName)
+                .select { Users.id eq senderUuid }
+                .singleOrNull()
+
+            val senderName = senderRow
+                ?.get(Users.fullName)
+                ?.takeIf { it.isNotBlank() }
+                ?: senderRow?.get(Users.username)
+                ?: "Someone"
+
+            val roomName = ChatRooms
+                .slice(ChatRooms.name)
+                .select { ChatRooms.id eq roomUuid }
+                .singleOrNull()
+                ?.get(ChatRooms.name)
+                ?.takeIf { it.isNotBlank() }
+
+            val title = roomName?.let { "$senderName in $it" } ?: senderName
+            val preview = request.content.trim().replace(Regex("\\s+"), " ").take(140)
+            val messageText = if (preview.isBlank()) "Sent a message" else preview
+
+            ChatParticipants
+                .select {
+                    (ChatParticipants.chatRoomId eq roomUuid) and
+                        (ChatParticipants.userId neq senderUuid) and
+                        (ChatParticipants.isMuted eq false)
+                }
+                .forEach { participant ->
+                    Notifications.insert {
+                        it[Notifications.id] = UUID.randomUUID()
+                        it[Notifications.userId] = participant[ChatParticipants.userId]
+                        it[Notifications.type] = "CHAT_MESSAGE"
+                        it[Notifications.title] = title
+                        it[Notifications.message] = messageText
+                        it[Notifications.resourceId] = roomUuid
+                        it[Notifications.resourceType] = "chat"
+                        it[Notifications.actionUserId] = senderUuid
+                        it[Notifications.actionUserName] = senderName
+                        it[Notifications.deepLink] = "chat/$chatRoomId"
+                        it[Notifications.isRead] = false
+                        it[Notifications.createdAt] = now
+                        it[Notifications.expiresAt] = null
+                    }
+                }
         }
 
         return getMessage(messageId.toString(), senderId)

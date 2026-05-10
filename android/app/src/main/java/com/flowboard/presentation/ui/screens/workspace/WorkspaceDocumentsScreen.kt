@@ -1,5 +1,6 @@
 package com.flowboard.presentation.ui.screens.workspace
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,11 +12,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.flowboard.data.local.entities.DocumentEntity
+import com.flowboard.data.local.entities.WorkspaceEntity
 import com.flowboard.presentation.viewmodel.ChatViewModel
 import com.flowboard.presentation.viewmodel.WorkspaceDocumentsViewModel
 
@@ -33,6 +37,7 @@ fun WorkspaceDocumentsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val chatRooms by chatViewModel.chatRooms.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var moveToWorkspaceDoc by remember { mutableStateOf<DocumentEntity?>(null) }
 
     LaunchedEffect(workspaceId) { viewModel.load(workspaceId) }
 
@@ -58,7 +63,35 @@ fun WorkspaceDocumentsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(uiState.workspaceName.ifBlank { "Workspace" }) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (!uiState.workspaceImageUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = uiState.workspaceImageUrl,
+                                        contentDescription = uiState.workspaceName,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Text(
+                                        uiState.workspaceName.take(1).uppercase().ifBlank { "W" },
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Text(uiState.workspaceName.ifBlank { "Workspace" })
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -141,12 +174,26 @@ fun WorkspaceDocumentsScreen(
                         WorkspaceDocumentCard(
                             document = doc,
                             onClick = { onDocumentClick(doc.id) },
-                            onMovePrivate = { viewModel.moveToPrivate(doc.id) }
+                            hasOtherWorkspaces = uiState.workspaces.any { it.id != workspaceId },
+                            onMovePrivate = { viewModel.moveToPrivate(doc.id) },
+                            onMoveWorkspace = { moveToWorkspaceDoc = doc }
                         )
                     }
                 }
             }
         }
+    }
+
+    moveToWorkspaceDoc?.let { doc ->
+        MoveWorkspaceDocumentDialog(
+            document = doc,
+            workspaces = uiState.workspaces.filter { it.id != workspaceId },
+            onDismiss = { moveToWorkspaceDoc = null },
+            onMove = { targetWorkspaceId ->
+                viewModel.moveToWorkspace(doc.id, targetWorkspaceId)
+                moveToWorkspaceDoc = null
+            }
+        )
     }
 }
 
@@ -154,7 +201,9 @@ fun WorkspaceDocumentsScreen(
 private fun WorkspaceDocumentCard(
     document: DocumentEntity,
     onClick: () -> Unit,
-    onMovePrivate: () -> Unit
+    hasOtherWorkspaces: Boolean,
+    onMovePrivate: () -> Unit,
+    onMoveWorkspace: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     Card(
@@ -206,8 +255,52 @@ private fun WorkspaceDocumentCard(
                             onMovePrivate()
                         }
                     )
+                    if (hasOtherWorkspaces) {
+                        DropdownMenuItem(
+                            text = { Text("Move to another workspace") },
+                            leadingIcon = { Icon(Icons.Default.DriveFileMove, null) },
+                            onClick = {
+                                showMenu = false
+                                onMoveWorkspace()
+                            }
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun MoveWorkspaceDocumentDialog(
+    document: DocumentEntity,
+    workspaces: List<WorkspaceEntity>,
+    onDismiss: () -> Unit,
+    onMove: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Move to workspace") },
+        text = {
+            if (workspaces.isEmpty()) {
+                Text("No other workspaces available.")
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(document.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    workspaces.forEach { workspace ->
+                        ListItem(
+                            headlineContent = { Text(workspace.name) },
+                            supportingContent = { Text("${workspace.memberCount} member${if (workspace.memberCount == 1) "" else "s"}") },
+                            leadingContent = { Icon(Icons.Default.Group, null) },
+                            modifier = Modifier.fillMaxWidth().clickable { onMove(workspace.id) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }

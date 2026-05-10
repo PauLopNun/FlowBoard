@@ -8,6 +8,7 @@ data class Workspace(
     val id: String,
     val name: String,
     val description: String? = null,
+    val imageUrl: String? = null,
     val ownerId: String,
     val ownerName: String? = null,
     val inviteCode: String,
@@ -28,7 +29,15 @@ data class WorkspaceMember(
 @Serializable
 data class CreateWorkspaceRequest(
     val name: String,
-    val description: String? = null
+    val description: String? = null,
+    val imageUrl: String? = null
+)
+
+@Serializable
+data class UpdateWorkspaceRequest(
+    val name: String? = null,
+    val description: String? = null,
+    val imageUrl: String? = null
 )
 
 @Serializable

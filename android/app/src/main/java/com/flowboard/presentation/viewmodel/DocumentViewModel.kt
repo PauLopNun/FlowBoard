@@ -510,8 +510,8 @@ class DocumentViewModel @Inject constructor(
                     documentDao.insertDocument(updated)
                     _documentListState.update { state ->
                         state.copy(
-                            ownedDocuments = state.ownedDocuments.map { if (it.id == documentId) updated else it },
-                            sharedWithMe = state.sharedWithMe.map { if (it.id == documentId) updated else it }
+                            ownedDocuments = state.ownedDocuments.filter { it.id != documentId },
+                            sharedWithMe = state.sharedWithMe.filter { it.id != documentId }
                         )
                     }
                     onSuccess()
@@ -530,9 +530,10 @@ class DocumentViewModel @Inject constructor(
                 .onSuccess { updated ->
                     documentDao.insertDocument(updated)
                     _documentListState.update { state ->
+                        val existingOwned = state.ownedDocuments.filter { it.id != documentId }
                         state.copy(
-                            ownedDocuments = state.ownedDocuments.map { if (it.id == documentId) updated else it },
-                            sharedWithMe = state.sharedWithMe.map { if (it.id == documentId) updated else it }
+                            ownedDocuments = existingOwned + updated,
+                            sharedWithMe = state.sharedWithMe.filter { it.id != documentId }
                         )
                     }
                     onSuccess()
@@ -552,6 +553,15 @@ class DocumentViewModel @Inject constructor(
         viewModelScope.launch {
             documentDao.deleteDocumentById(documentId)
             documentRepositoryImpl.deleteDocument(documentId) // best-effort server delete
+        }
+    }
+
+    fun permanentlyDeleteDocuments(documentIds: List<String>) {
+        viewModelScope.launch {
+            documentIds.distinct().forEach { documentId ->
+                documentDao.deleteDocumentById(documentId)
+                documentRepositoryImpl.deleteDocument(documentId) // best-effort server delete
+            }
         }
     }
 }

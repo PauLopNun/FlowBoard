@@ -1,5 +1,7 @@
 package com.flowboard.presentation.ui.screens.documents
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -50,8 +52,13 @@ import com.flowboard.data.models.crdt.ContentBlock
 import com.flowboard.data.remote.websocket.ConnectionState
 import com.flowboard.presentation.ui.components.CollaboratorRole
 import com.flowboard.presentation.ui.components.ShareDocumentDialog
+import com.flowboard.presentation.viewmodel.AiEditProposal
+import com.flowboard.presentation.viewmodel.AiEditTarget
+import com.flowboard.presentation.viewmodel.AiProposedBlock
 import com.flowboard.presentation.viewmodel.CollaborativeDocumentViewModel
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -80,6 +87,7 @@ fun CollaborativeDocumentScreenV2(
     var showShareDialog by remember { mutableStateOf(false) }
     var showExportMenu by remember { mutableStateOf(false) }
     var focusedBlockId by remember { mutableStateOf<String?>(null) }
+    var selectionBlockId by remember { mutableStateOf<String?>(null) }
     var selectionStart by remember { mutableStateOf(0) }
     var selectionEnd by remember { mutableStateOf(0) }
     var showSlashMenu by remember { mutableStateOf(false) }
@@ -95,7 +103,31 @@ fun CollaborativeDocumentScreenV2(
     val haptic = LocalHapticFeedback.current
 
     val blocks = document?.blocks ?: emptyList()
+    val coroutineScope = rememberCoroutineScope()
+    val savePdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        val saved = savePdfToUri(blocks, context, uri)
+        coroutineScope.launch {
+            snackbarHostState.showSnackbar(
+                if (saved) "PDF saved to device" else "Could not save PDF"
+            )
+        }
+    }
     val focusedBlock = blocks.find { it.id == focusedBlockId }
+    val focusedSelectionRange = remember(focusedBlockId, selectionBlockId, selectionStart, selectionEnd, focusedBlock?.content) {
+        val blockText = focusedBlock?.content ?: return@remember null
+        if (selectionBlockId != focusedBlockId) return@remember null
+
+        val start = minOf(selectionStart, selectionEnd).coerceIn(0, blockText.length)
+        val end = maxOf(selectionStart, selectionEnd).coerceIn(0, blockText.length)
+        if (start == end) null else start to end
+    }
+    val selectedTextForAi = remember(focusedBlock?.content, focusedSelectionRange) {
+        val blockText = focusedBlock?.content ?: return@remember null
+        focusedSelectionRange?.let { (start, end) -> blockText.substring(start, end) }
+    }
 
     // Local snapshot list for smooth drag-to-reorder (avoids round-tripping through ViewModel on every step)
     val localBlocks: SnapshotStateList<com.flowboard.data.models.crdt.ContentBlock> =
@@ -135,6 +167,71 @@ fun CollaborativeDocumentScreenV2(
         activeUsers.filter { it.userId != uiState.currentUserId }
     }
 
+    fun updateFocusedBlockWithAiText(aiText: String, range: Pair<Int, Int>?) {
+        val block = focusedBlock ?: return
+        val replacement = aiText.toEditableAiText()
+        if (replacement.isBlank()) return
+
+        val blockText = block.content
+        val safeRange = range?.let { (start, end) ->
+            start.coerceIn(0, blockText.length) to end.coerceIn(0, blockText.length)
+        }
+        val newText = if (safeRange != null) {
+            blockText.replaceRange(safeRange.first, safeRange.second, replacement)
+        } else {
+            val cursor = if (selectionBlockId == focusedBlockId) selectionEnd else blockText.length
+            val safeCursor = cursor.coerceIn(0, blockText.length)
+            blockText.replaceRange(safeCursor, safeCursor, replacement)
+        }
+
+        viewModel.insertText(block.id, newText, 0)
+    }
+
+    fun replaceDocumentWithAiBlocks(proposedBlocks: List<AiProposedBlock>?, aiText: String) {
+        val revisedBlocks = proposedBlocks
+            ?.map { it.type to it.content }
+            ?.takeIf { it.isNotEmpty() }
+            ?: aiText.toAiBlocks()
+        if (revisedBlocks.isEmpty()) return
+
+        var afterBlockId: String? = null
+        revisedBlocks.forEachIndexed { index, (type, content) ->
+            val existingBlock = blocks.getOrNull(index)
+            if (existingBlock != null) {
+                viewModel.updateBlockType(existingBlock.id, type)
+                viewModel.insertText(existingBlock.id, content, 0)
+                viewModel.updateInlineSpans(existingBlock.id, "")
+                afterBlockId = existingBlock.id
+            } else {
+                val newBlock = ContentBlock(
+                    id = UUID.randomUUID().toString(),
+                    type = type,
+                    content = content
+                )
+                viewModel.addBlock(newBlock, afterBlockId)
+                afterBlockId = newBlock.id
+            }
+        }
+
+        blocks.drop(revisedBlocks.size).forEach { block ->
+            viewModel.deleteBlock(block.id)
+        }
+    }
+
+    fun applyAiEditProposal(proposal: AiEditProposal) {
+        when (proposal.target) {
+            AiEditTarget.DOCUMENT -> replaceDocumentWithAiBlocks(proposal.proposedBlocks, proposal.proposedText)
+            AiEditTarget.SELECTION -> updateFocusedBlockWithAiText(proposal.proposedText, focusedSelectionRange)
+            AiEditTarget.BLOCK -> focusedBlock?.let { block ->
+                val replacement = proposal.proposedText.toEditableAiText()
+                if (replacement.isNotBlank()) {
+                    viewModel.insertText(block.id, replacement, 0)
+                    viewModel.updateInlineSpans(block.id, "")
+                }
+            }
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
@@ -169,11 +266,15 @@ fun CollaborativeDocumentScreenV2(
                         showExportMenu = false
                         exportToMarkdown(blocks, docTitle, context)
                     },
-                    onExportPdf = {
-                        showExportMenu = false
-                        exportToPdf(blocks, docTitle, context)
-                    }
-                )
+                onExportPdf = {
+                    showExportMenu = false
+                    exportToPdf(blocks, docTitle, context)
+                },
+                onSavePdfToDevice = {
+                    showExportMenu = false
+                    savePdfLauncher.launch(suggestedPdfFileName(docTitle))
+                }
+            )
 
                 // Formatting toolbar — shown when a block is focused
                 AnimatedVisibility(
@@ -468,7 +569,11 @@ fun CollaborativeDocumentScreenV2(
                                 onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
                                 onTableCellChange = { row, col, value -> viewModel.updateTableCell(block.id, row, col, value) },
                                 onSpansChange = { spans -> viewModel.updateInlineSpans(block.id, spans) },
-                                onSelectionChange = { s, e -> selectionStart = s; selectionEnd = e },
+                                onSelectionChange = { s, e ->
+                                    selectionBlockId = block.id
+                                    selectionStart = s
+                                    selectionEnd = e
+                                },
                                 isTitle = true,
                                 modifier = Modifier.weight(1f)
                             )
@@ -597,7 +702,11 @@ fun CollaborativeDocumentScreenV2(
                                     onToggleDetail = { detail -> viewModel.updateBlockDetail(block.id, detail) },
                                     onTableCellChange = { row, col, value -> viewModel.updateTableCell(block.id, row, col, value) },
                                     onSpansChange = { spans -> viewModel.updateInlineSpans(block.id, spans) },
-                                    onSelectionChange = { s, e -> selectionStart = s; selectionEnd = e },
+                                    onSelectionChange = { s, e ->
+                                        selectionBlockId = block.id
+                                        selectionStart = s
+                                        selectionEnd = e
+                                    },
                                     isTitle = false,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -802,11 +911,17 @@ fun CollaborativeDocumentScreenV2(
     if (showAiPanel) {
         val docContext = remember(blocks) {
             blocks.filter { it.type != "divider" && it.type != "image" }
-                .joinToString("\n") { it.content }
-                .take(4000)
+                .joinToString("\n\n") { it.content }
+        }
+        val docStructure = remember(blocks) {
+            blocks.toAiAgentBlockStructure()
         }
         AiAssistantSheet(
             documentContext = docContext,
+            documentStructure = docStructure,
+            selectedText = selectedTextForAi,
+            focusedBlockText = focusedBlock?.content,
+            onApplyProposal = { proposal -> applyAiEditProposal(proposal) },
             onDismiss = { showAiPanel = false }
         )
     }
@@ -819,6 +934,147 @@ fun CollaborativeDocumentScreenV2(
         }
     }
 }
+
+private val aiEditJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
+private fun String.toEditableAiText(): String {
+    val cleaned = stripAiCodeFence()
+    return cleaned.toPlainTextFromStructuredEditJson() ?: cleaned
+}
+
+private fun String.toAiBlocks(): List<Pair<String, String>> {
+    val cleaned = stripAiCodeFence()
+    if (cleaned.isBlank()) return emptyList()
+
+    val structuredBlocks = cleaned.toStructuredAiBlocks()
+    if (structuredBlocks.isNotEmpty()) return structuredBlocks
+    if (cleaned.looksLikeStructuredEditJson()) return emptyList()
+
+    return cleaned
+        .split(Regex("\\n{2,}"))
+        .flatMap { paragraph ->
+            val lines = paragraph.lines().map { it.trimEnd() }.filter { it.isNotBlank() }
+            if (lines.size > 1 && lines.all { it.trimStart().startsWith("- ") || it.trimStart().matches(Regex("\\d+\\.\\s+.*")) }) {
+                lines.map { it.toAiBlock() }
+            } else {
+                listOf(paragraph.trim().toAiBlock())
+            }
+        }
+        .filter { (_, content) -> content.isNotBlank() }
+}
+
+private fun String.toAiBlock(): Pair<String, String> {
+    val value = trim()
+    return when {
+        value.startsWith("### ") -> "h3" to value.removePrefix("### ").trim()
+        value.startsWith("## ") -> "h2" to value.removePrefix("## ").trim()
+        value.startsWith("# ") -> "h1" to value.removePrefix("# ").trim()
+        value.startsWith("- ") || value.startsWith("* ") -> "bullet" to value.drop(2).trim()
+        value.matches(Regex("\\d+\\.\\s+.*")) -> "numbered" to value.replaceFirst(Regex("\\d+\\.\\s+"), "").trim()
+        value.startsWith("> ") -> "quote" to value.removePrefix("> ").trim()
+        else -> "p" to value
+    }
+}
+
+private fun String.stripAiCodeFence(): String {
+    val trimmed = trim()
+    if (!trimmed.startsWith("```") || !trimmed.endsWith("```")) return trimmed
+
+    val lines = trimmed.lines()
+    if (lines.size < 2) return trimmed
+    return lines.drop(1).dropLast(1).joinToString("\n").trim()
+}
+
+private fun String.toStructuredAiBlocks(): List<Pair<String, String>> {
+    val payload = extractStructuredEditJsonPayload() ?: return emptyList()
+    return runCatching {
+        val root = aiEditJson.parseToJsonElement(payload).jsonObject
+        root["blocks"]?.jsonArray
+            ?.mapNotNull { blockElement ->
+                val block = blockElement.jsonObject
+                val type = normalizeAiBlockType(
+                    block["type"]?.jsonPrimitive?.contentOrNull
+                        ?: block["blockType"]?.jsonPrimitive?.contentOrNull
+                        ?: block["kind"]?.jsonPrimitive?.contentOrNull
+                        ?: "p"
+                )
+                val content = (
+                    block["content"]?.jsonPrimitive?.contentOrNull
+                        ?: block["text"]?.jsonPrimitive?.contentOrNull
+                        ?: block["value"]?.jsonPrimitive?.contentOrNull
+                        ?: ""
+                    ).trim()
+                if (content.isBlank() && type != "divider") null else type to content
+            }
+            .orEmpty()
+    }.getOrDefault(emptyList())
+}
+
+private fun String.toPlainTextFromStructuredEditJson(): String? {
+    val payload = extractStructuredEditJsonPayload() ?: return null
+    return runCatching {
+        val root = aiEditJson.parseToJsonElement(payload).jsonObject
+        val text = root["text"]?.jsonPrimitive?.contentOrNull?.trim()
+        if (!text.isNullOrBlank() && !text.looksLikeStructuredEditJson()) {
+            return@runCatching text
+        }
+
+        val blocks = toStructuredAiBlocks()
+        if (blocks.isEmpty()) null else blocks.toPlainAiText()
+    }.getOrNull()
+}
+
+private fun String.extractStructuredEditJsonPayload(): String? {
+    val cleaned = stripAiCodeFence()
+    if (!cleaned.looksLikeStructuredEditJson()) return null
+    val start = cleaned.indexOf('{')
+    val end = cleaned.lastIndexOf('}')
+    if (start < 0 || end <= start) return null
+    return cleaned.substring(start, end + 1)
+}
+
+private fun String.looksLikeStructuredEditJson(): Boolean {
+    val value = trim()
+    return value.startsWith("{") && (value.contains("\"blocks\"") || value.contains("\"text\""))
+}
+
+private fun normalizeAiBlockType(type: String): String = when (type.trim().lowercase()) {
+    "h1", "title", "heading1", "heading_1" -> "h1"
+    "h2", "heading2", "heading_2" -> "h2"
+    "h3", "heading3", "heading_3" -> "h3"
+    "p", "paragraph", "text", "normal", "body" -> "p"
+    "bullet", "bulleted", "ul", "list", "list_item" -> "bullet"
+    "numbered", "ordered", "ol", "numbered_list" -> "numbered"
+    "todo", "task", "checklist", "checkbox" -> "todo"
+    "quote", "blockquote" -> "quote"
+    "callout", "code", "divider" -> type.trim().lowercase()
+    else -> "p"
+}
+
+private fun List<Pair<String, String>>.toPlainAiText(): String =
+    joinToString("\n\n") { (type, content) ->
+        when (type) {
+            "h1" -> "# $content"
+            "h2" -> "## $content"
+            "h3" -> "### $content"
+            "bullet" -> "- $content"
+            "numbered" -> "1. $content"
+            "quote" -> "> $content"
+            "divider" -> "---"
+            else -> content
+        }
+    }.trim()
+
+private fun List<ContentBlock>.toAiAgentBlockStructure(): String =
+    filter { it.type != "image" }
+        .mapIndexed { index, block ->
+            val content = block.content
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .take(700)
+            """[$index] {"type":"${block.type}","content":"$content"}"""
+        }
+        .joinToString("\n")
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Emoji Picker Dialog
@@ -1018,7 +1274,8 @@ private fun DocumentTopBar(
     onToggleExportMenu: () -> Unit,
     onDismissExportMenu: () -> Unit,
     onExportMarkdown: () -> Unit,
-    onExportPdf: () -> Unit
+    onExportPdf: () -> Unit,
+    onSavePdfToDevice: () -> Unit
 ) {
     TopAppBar(
         title = {
@@ -1132,9 +1389,14 @@ private fun DocumentTopBar(
                         onClick = onExportMarkdown
                     )
                     DropdownMenuItem(
-                        text = { Text("Export as PDF") },
+                        text = { Text("Share PDF") },
                         leadingIcon = { Icon(Icons.Default.PictureAsPdf, null) },
                         onClick = onExportPdf
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Save PDF to device") },
+                        leadingIcon = { Icon(Icons.Default.Download, null) },
+                        onClick = onSavePdfToDevice
                     )
                 }
             }
@@ -2261,6 +2523,7 @@ private fun SlashCommandMenu(
     onSelect: (String) -> Unit
 ) {
     val commands = listOf(
+        Triple("subpage", Icons.Default.NoteAdd, "Sub-page"),
         Triple("h1", Icons.Default.Title, "Heading 1"),
         Triple("h2", Icons.Default.Title, "Heading 2"),
         Triple("h3", Icons.Default.Title, "Heading 3"),
@@ -2275,7 +2538,6 @@ private fun SlashCommandMenu(
         Triple("divider", Icons.Default.HorizontalRule, "Divider"),
         Triple("image", Icons.Default.Image, "Image"),
         Triple("table", Icons.Default.TableChart, "Table"),
-        Triple("subpage", Icons.Default.NoteAdd, "Sub-page"),
     )
 
     ModalBottomSheet(

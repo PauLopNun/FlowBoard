@@ -160,7 +160,7 @@ fun Route.documentRoutes(
                     return@get
                 }
                 val documentId = call.parameters["id"] ?: return@get
-                val children = documentService.getChildDocuments(documentId)
+                val children = documentService.getChildDocuments(documentId, userId)
                 call.respond(HttpStatusCode.OK, children)
             }
 

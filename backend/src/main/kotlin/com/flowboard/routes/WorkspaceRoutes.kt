@@ -30,7 +30,7 @@ fun Route.workspaceRoutes(
                     return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Name is required"))
                 }
 
-                val workspace = workspaceService.createWorkspace(request.name, request.description, userId)
+                val workspace = workspaceService.createWorkspace(request.name, request.description, request.imageUrl, userId)
                 call.respond(HttpStatusCode.Created, workspace)
             }
 
@@ -63,6 +63,23 @@ fun Route.workspaceRoutes(
                 val workspaceId = call.parameters["id"] ?: return@get
                 val workspace = workspaceService.getWorkspaceById(workspaceId, userId)
                     ?: return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "Workspace not found"))
+
+                call.respond(HttpStatusCode.OK, workspace)
+            }
+
+            put("/{id}") {
+                val userId = call.principal<JWTPrincipal>()?.payload?.getClaim("userId")?.asString()
+                    ?: return@put call.respond(HttpStatusCode.Unauthorized)
+
+                val workspaceId = call.parameters["id"] ?: return@put
+                val request = call.receive<UpdateWorkspaceRequest>()
+                val workspace = workspaceService.updateWorkspace(
+                    workspaceId = workspaceId,
+                    requesterId = userId,
+                    name = request.name,
+                    description = request.description,
+                    imageUrl = request.imageUrl
+                ) ?: return@put call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Not authorized"))
 
                 call.respond(HttpStatusCode.OK, workspace)
             }

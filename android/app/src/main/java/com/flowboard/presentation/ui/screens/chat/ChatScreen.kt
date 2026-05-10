@@ -120,7 +120,8 @@ fun ChatScreen(
                     activeChatRoom?.let { chatRoom ->
                         ChatAvatar(
                             chatRoom = chatRoom,
-                            size = 36.dp
+                            size = 36.dp,
+                            currentUserId = currentUserId
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                     }

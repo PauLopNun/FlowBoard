@@ -14,10 +14,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.flowboard.domain.model.ChatParticipant
 import com.flowboard.domain.model.ChatRoom
 import com.flowboard.domain.model.ChatType
 import com.flowboard.presentation.viewmodel.ChatViewModel
@@ -34,6 +39,10 @@ fun ChatListScreen(
     val chatRooms by viewModel.chatRooms.collectAsState()
     val archivedChatRooms by viewModel.archivedChatRooms.collectAsState()
     val totalUnreadCount by viewModel.totalUnreadCount.collectAsState()
+    val currentUserId by viewModel.currentUserId.collectAsState()
+
+    // Refresh participant data (including avatars) every time this screen is shown
+    LaunchedEffect(Unit) { viewModel.refreshRooms() }
 
     var selectedTab by remember { mutableStateOf(0) }
     var showArchived by remember { mutableStateOf(false) }
@@ -124,6 +133,7 @@ fun ChatListScreen(
                     ) { chatRoom ->
                         ChatRoomItem(
                             chatRoom = chatRoom,
+                            currentUserId = currentUserId,
                             onClick = { onChatClick(chatRoom.id) },
                             onArchive = {
                                 viewModel.archiveChat(chatRoom.id, !chatRoom.isArchived)
@@ -157,6 +167,7 @@ fun ChatListScreen(
 @Composable
 fun ChatRoomItem(
     chatRoom: ChatRoom,
+    currentUserId: String?,
     onClick: () -> Unit,
     onArchive: () -> Unit,
     onMute: () -> Unit,
@@ -172,7 +183,7 @@ fun ChatRoomItem(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = chatRoom.name ?: getChatRoomDisplayName(chatRoom),
+                    text = chatRoom.name ?: getChatRoomDisplayName(chatRoom, currentUserId),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = if (chatRoom.unreadCount > 0) FontWeight.Bold else FontWeight.Normal,
                     maxLines = 1,
@@ -209,7 +220,8 @@ fun ChatRoomItem(
             Box {
                 ChatAvatar(
                     chatRoom = chatRoom,
-                    size = 56.dp
+                    size = 56.dp,
+                    currentUserId = currentUserId
                 )
 
                 // Online indicator for direct chats
@@ -325,8 +337,13 @@ fun ChatRoomItem(
 @Composable
 fun ChatAvatar(
     chatRoom: ChatRoom,
-    size: androidx.compose.ui.unit.Dp = 40.dp
+    size: androidx.compose.ui.unit.Dp = 40.dp,
+    currentUserId: String? = null
 ) {
+    val context = LocalContext.current
+    val directParticipant = getDirectChatParticipant(chatRoom, currentUserId)
+    val directAvatarUrl = directParticipant?.avatarUrl
+
     Box(
         modifier = Modifier
             .size(size)
@@ -334,17 +351,42 @@ fun ChatAvatar(
             .background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = when (chatRoom.type) {
-                ChatType.DIRECT -> Icons.Default.Person
-                ChatType.GROUP -> Icons.Default.Group
-                ChatType.PROJECT -> Icons.Default.Work
-                ChatType.TASK_THREAD -> Icons.Default.Task
-            },
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.size(size * 0.6f)
-        )
+        when {
+            chatRoom.type == ChatType.DIRECT && !directAvatarUrl.isNullOrBlank() -> {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(directAvatarUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = directParticipant.userName,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(size)
+                        .clip(CircleShape)
+                )
+            }
+            chatRoom.type == ChatType.DIRECT && directParticipant != null -> {
+                Text(
+                    text = initialsFor(directParticipant.userName),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            else -> {
+                Icon(
+                    imageVector = when (chatRoom.type) {
+                        ChatType.DIRECT -> Icons.Default.Person
+                        ChatType.GROUP -> Icons.Default.Group
+                        ChatType.PROJECT -> Icons.Default.Work
+                        ChatType.TASK_THREAD -> Icons.Default.Task
+                    },
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(size * 0.6f)
+                )
+            }
+        }
     }
 }
 
@@ -389,10 +431,10 @@ fun EmptyChatState(
 
 // ==================== Helper Functions ====================
 
-private fun getChatRoomDisplayName(chatRoom: ChatRoom): String {
+private fun getChatRoomDisplayName(chatRoom: ChatRoom, currentUserId: String?): String {
     return when (chatRoom.type) {
         ChatType.DIRECT -> {
-            chatRoom.participants.firstOrNull()?.userName ?: "Unknown User"
+            getDirectChatParticipant(chatRoom, currentUserId)?.userName ?: "Unknown User"
         }
         ChatType.GROUP -> {
             chatRoom.participants.joinToString(", ") { it.userName }
@@ -404,6 +446,21 @@ private fun getChatRoomDisplayName(chatRoom: ChatRoom): String {
             "Task Discussion"
         }
     }
+}
+
+private fun getDirectChatParticipant(chatRoom: ChatRoom, currentUserId: String?): ChatParticipant? {
+    return chatRoom.participants.firstOrNull { currentUserId != null && it.userId != currentUserId }
+        ?: chatRoom.participants.firstOrNull()
+}
+
+private fun initialsFor(name: String): String {
+    return name.trim()
+        .split(Regex("\\s+"))
+        .filter { it.isNotBlank() }
+        .take(2)
+        .mapNotNull { it.firstOrNull()?.uppercase() }
+        .joinToString("")
+        .ifBlank { "?" }
 }
 
 private fun formatTimestamp(timestamp: Long): String {

@@ -2,7 +2,9 @@ package com.flowboard
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -68,6 +70,10 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import com.flowboard.data.models.crdt.ContentBlock
+import com.flowboard.domain.model.NotificationType
+import com.itextpdf.kernel.pdf.PdfDocument as ITextPdfDocument
+import com.itextpdf.kernel.pdf.PdfReader
+import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor
 import com.flowboard.presentation.ui.screens.auth.ForgotPasswordScreen
 import com.flowboard.presentation.ui.screens.auth.LoginScreen
 import com.flowboard.presentation.ui.screens.auth.RegisterScreen
@@ -242,7 +248,8 @@ fun FlowBoardApp(
                     onTasksClick = { navController.navigate("tasks") },
                     onCalendarClick = { navController.navigate("calendar") },
                     onWorkspaceClick = { navController.navigate("workspaces") },
-                    onProjectsClick = { navController.navigate("projects") },
+                    onWorkspaceSelected = { workspaceId -> navController.navigate("workspace_docs/$workspaceId") },
+                    onCreateWorkspaceDocument = { workspaceId -> navController.navigate("document_new?workspaceId=$workspaceId") },
                     onEditorDemoClick = { navController.navigate("my_documents") },
                     onSearchClick = { navController.navigate("search") },
                     onLogout = {
@@ -307,16 +314,37 @@ fun FlowBoardApp(
                     contract = ActivityResultContracts.OpenDocument()
                 ) { uri: Uri? ->
                     uri ?: return@rememberLauncherForActivityResult
-                    val rawText = readTextFromUri(context, uri).trim()
-                    if (rawText.isNotBlank()) {
-                        val name = uri.lastPathSegment
+                    runCatching {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    }
+                    val displayName = displayNameFromUri(context, uri)
+                    val name = displayName
+                        ?.substringBeforeLast(".")
+                        ?.takeIf { it.isNotBlank() }
+                        ?: uri.lastPathSegment
                             ?.substringAfterLast("/")
                             ?.substringBeforeLast(".")
                             ?.takeIf { it.isNotBlank() }
+                    val isPdf = isPdfUri(context, uri, displayName)
+                    val rawText = if (isPdf) {
+                        readPdfTextFromUri(context, uri).trim()
+                    } else {
+                        readTextFromUri(context, uri).trim()
+                    }
+                    if (rawText.isNotBlank()) {
                         if (title.isBlank() && name != null) title = name
                         val finalTitle = title.trim().ifBlank { name ?: "Imported Document" }
                         importedContent = markdownToFlowBoardContent(finalTitle, rawText)
-                        importedFileName = name ?: "Imported file"
+                        importedFileName = displayName ?: name ?: "Imported file"
+                    } else if (isPdf) {
+                        val fallbackName = displayName ?: name ?: "Imported PDF"
+                        if (title.isBlank() && name != null) title = name
+                        val finalTitle = title.trim().ifBlank { name ?: "Imported PDF" }
+                        importedContent = pdfFallbackContent(finalTitle, fallbackName)
+                        importedFileName = fallbackName
                     }
                 }
 
@@ -391,13 +419,13 @@ fun FlowBoardApp(
                                     }
                                 }
                                 OutlinedButton(
-                                    onClick = { importLauncher.launch(arrayOf("text/*", "text/markdown", "application/octet-stream")) },
+                                    onClick = { importLauncher.launch(arrayOf("application/pdf", "text/*", "text/markdown", "application/octet-stream")) },
                                     enabled = !isCreating && selectedTemplate == null,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text(if (importedFileName == null) "Import Markdown/Text" else "Imported: $importedFileName")
+                                    Text(if (importedFileName == null) "Import PDF/Markdown/Text" else "Imported: $importedFileName")
                                 }
                                 if (importedFileName != null) {
                                     TextButton(
@@ -554,7 +582,10 @@ fun FlowBoardApp(
                     notifications = notifications,
                     unreadCount = unreadCount,
                     onNotificationClick = { notification ->
-                        if (!notification.title.contains("invitation", ignoreCase = true)) {
+                        val isInvitation = notification.type == NotificationType.WORKSPACE_INVITATION ||
+                            (notification.type == NotificationType.DOCUMENT_SHARED &&
+                                notification.title.contains("invitation", ignoreCase = true))
+                        if (!isInvitation) {
                             notificationViewModel.markAsRead(notification.id)
                             notification.deepLink?.let { navController.navigate(it.substringBefore("?")) }
                         }
@@ -566,6 +597,13 @@ fun FlowBoardApp(
                     onAcceptInvitation = { notification ->
                         notificationViewModel.acceptInvitation(notification.id) {
                             documentViewModel.fetchAllDocuments()
+                            when (notification.type) {
+                                NotificationType.WORKSPACE_INVITATION -> navController.navigate("workspaces")
+                                NotificationType.DOCUMENT_SHARED -> notification.resourceId?.let {
+                                    navController.navigate("document_edit/$it")
+                                }
+                                else -> Unit
+                            }
                         }
                     },
                     onDeclineInvitation = { notificationViewModel.declineInvitation(it.id) },
@@ -622,12 +660,6 @@ fun FlowBoardApp(
                 )
             }
 
-            composable("projects") {
-                com.flowboard.presentation.ui.screens.projects.ProjectListScreen(
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
             composable("profile") {
                 ProfileScreen(
                     onNavigateBack = { navController.popBackStack() },
@@ -660,6 +692,51 @@ private fun readTextFromUri(context: Context, uri: Uri): String {
     return runCatching {
         context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
     }.getOrDefault("")
+}
+
+private fun readPdfTextFromUri(context: Context, uri: Uri): String {
+    return runCatching {
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            val pdfDocument = ITextPdfDocument(PdfReader(inputStream))
+            try {
+                (1..pdfDocument.numberOfPages)
+                    .joinToString("\n\n") { pageNumber ->
+                        PdfTextExtractor.getTextFromPage(pdfDocument.getPage(pageNumber)).trim()
+                    }
+                    .trim()
+            } finally {
+                pdfDocument.close()
+            }
+        }.orEmpty()
+    }.getOrDefault("")
+}
+
+private fun displayNameFromUri(context: Context, uri: Uri): String? {
+    return runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0) cursor.getString(index) else null
+        }
+    }.getOrNull()
+}
+
+private fun isPdfUri(context: Context, uri: Uri, displayName: String?): Boolean {
+    val mimeType = runCatching { context.contentResolver.getType(uri) }.getOrNull()
+    return mimeType == "application/pdf" || displayName?.endsWith(".pdf", ignoreCase = true) == true
+}
+
+private fun pdfFallbackContent(title: String, fileName: String): String {
+    return markdownToFlowBoardContent(
+        title,
+        "PDF imported: $fileName\n\nFlowBoard could not extract selectable text from this PDF. It may be scanned, protected, or image-only."
+    )
 }
 
 private fun markdownToFlowBoardContent(title: String, rawText: String): String {

@@ -18,7 +18,8 @@ import kotlinx.serialization.json.*
 @Serializable
 data class AiRequest(
     val prompt: String,
-    val documentContext: String? = null
+    val documentContext: String? = null,
+    val structuredJson: Boolean = false
 )
 
 @Serializable
@@ -76,7 +77,40 @@ fun Route.aiRoutes() {
                 }
                 putJsonObject("generationConfig") {
                     put("maxOutputTokens", 1024)
-                    put("temperature", 0.7)
+                    put("temperature", if (request.structuredJson) 0.3 else 0.7)
+                    if (request.structuredJson) {
+                        put("responseMimeType", "application/json")
+                        putJsonObject("responseSchema") {
+                            put("type", "OBJECT")
+                            putJsonObject("properties") {
+                                putJsonObject("text") {
+                                    put("type", "STRING")
+                                    put("description", "Replacement text for selection or block edits.")
+                                }
+                                putJsonObject("blocks") {
+                                    put("type", "ARRAY")
+                                    put("description", "Revised FlowBoard document blocks for document-level edits.")
+                                    putJsonObject("items") {
+                                        put("type", "OBJECT")
+                                        putJsonObject("properties") {
+                                            putJsonObject("type") {
+                                                put("type", "STRING")
+                                                put("description", "One of h1, h2, h3, p, bullet, numbered, todo, quote, callout, code, divider.")
+                                            }
+                                            putJsonObject("content") {
+                                                put("type", "STRING")
+                                                put("description", "Plain block content without markdown markers.")
+                                            }
+                                        }
+                                        putJsonArray("required") {
+                                            add("type")
+                                            add("content")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

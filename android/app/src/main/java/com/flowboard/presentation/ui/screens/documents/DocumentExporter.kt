@@ -4,12 +4,14 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.net.Uri
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.FileProvider
 import com.flowboard.data.models.crdt.ContentBlock
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
 
 fun exportToMarkdown(blocks: List<ContentBlock>, title: String, context: Context) {
     val sb = StringBuilder()
@@ -59,6 +61,21 @@ fun exportToMarkdown(blocks: List<ContentBlock>, title: String, context: Context
 }
 
 fun exportToPdf(blocks: List<ContentBlock>, title: String, context: Context) {
+    val file = File(context.cacheDir, suggestedPdfFileName(title))
+    FileOutputStream(file).use { writePdfToStream(blocks, it) }
+    shareFile(file, "application/pdf", "Export as PDF", context)
+}
+
+fun savePdfToUri(blocks: List<ContentBlock>, context: Context, uri: Uri): Boolean {
+    val outputStream = context.contentResolver.openOutputStream(uri) ?: return false
+    return runCatching {
+        outputStream.use { writePdfToStream(blocks, it) }
+    }.isSuccess
+}
+
+fun suggestedPdfFileName(title: String): String = "${safeFileName(title)}.pdf"
+
+private fun writePdfToStream(blocks: List<ContentBlock>, outputStream: OutputStream) {
     val pageWidth = 595
     val pageHeight = 842
     val leftMargin = 50f
@@ -104,41 +121,42 @@ fun exportToPdf(blocks: List<ContentBlock>, title: String, context: Context) {
         y += paint.textSize * 0.4f
     }
 
-    blocks.forEach { block ->
-        val content = block.content.ifBlank { return@forEach }
-        paint.textSize = when (block.type) {
-            "h1" -> 22f; "h2" -> 18f; "h3" -> 15f; "code" -> 11f; else -> 13f
-        }
-        paint.typeface = when {
-            block.type == "code" -> Typeface.MONOSPACE
-            block.type.startsWith("h") || block.fontWeight == "bold" -> Typeface.DEFAULT_BOLD
-            block.fontStyle == "italic" -> Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
-            else -> Typeface.DEFAULT
-        }
-        if (block.type == "table") {
-            runCatching {
-                val obj = JSONObject(content)
-                val jsonCells = obj.getJSONArray("cells")
-                for (r in 0 until jsonCells.length()) {
-                    val row = jsonCells.getJSONArray(r)
-                    val line = (0 until row.length()).joinToString("  |  ") { row.getString(it) }
-                    renderText("| $line |")
-                }
+    try {
+        blocks.forEach { block ->
+            val content = block.content.ifBlank { return@forEach }
+            paint.textSize = when (block.type) {
+                "h1" -> 22f; "h2" -> 18f; "h3" -> 15f; "code" -> 11f; else -> 13f
             }
-            return@forEach
+            paint.typeface = when {
+                block.type == "code" -> Typeface.MONOSPACE
+                block.type.startsWith("h") || block.fontWeight == "bold" -> Typeface.DEFAULT_BOLD
+                block.fontStyle == "italic" -> Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+                else -> Typeface.DEFAULT
+            }
+            if (block.type == "table") {
+                runCatching {
+                    val obj = JSONObject(content)
+                    val jsonCells = obj.getJSONArray("cells")
+                    for (r in 0 until jsonCells.length()) {
+                        val row = jsonCells.getJSONArray(r)
+                        val line = (0 until row.length()).joinToString("  |  ") { row.getString(it) }
+                        renderText("| $line |")
+                    }
+                }
+                return@forEach
+            }
+            val prefix = when (block.type) { "bullet" -> "•  "; "numbered" -> "1. "; else -> "" }
+            renderText("$prefix$content")
         }
-        val prefix = when (block.type) { "bullet" -> "•  "; "numbered" -> "1. "; else -> "" }
-        renderText("$prefix$content")
+        pdfDoc.finishPage(page)
+        pdfDoc.writeTo(outputStream)
+    } finally {
+        pdfDoc.close()
     }
-
-    pdfDoc.finishPage(page)
-
-    val safeTitle = title.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").take(50).ifEmpty { "document" }
-    val file = File(context.cacheDir, "$safeTitle.pdf")
-    FileOutputStream(file).use { pdfDoc.writeTo(it) }
-    pdfDoc.close()
-    shareFile(file, "application/pdf", "Export as PDF", context)
 }
+
+private fun safeFileName(title: String): String =
+    title.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").take(50).ifEmpty { "document" }
 
 private fun shareFile(file: File, mimeType: String, chooserTitle: String, context: Context) {
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)

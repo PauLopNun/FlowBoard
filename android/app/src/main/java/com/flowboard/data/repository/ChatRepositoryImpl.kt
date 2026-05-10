@@ -3,11 +3,15 @@ package com.flowboard.data.repository
 import com.flowboard.data.local.dao.ChatDao
 import com.flowboard.data.local.entities.*
 import com.flowboard.data.remote.api.ChatApiService
+import com.flowboard.data.remote.api.ChatParticipantDto
 import com.flowboard.domain.model.*
 import com.flowboard.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,11 +26,11 @@ class ChatRepositoryImpl @Inject constructor(
     override fun getAllChatRooms(): Flow<List<ChatRoom>> {
         return combine(
             chatDao.getAllChatRooms(),
-            chatDao.getAllChatRooms().map { it.map { room -> room.id } }
-        ) { rooms, ids ->
+            chatDao.getAllParticipants()
+        ) { rooms, participants ->
+            val participantsByRoom = participants.groupBy { it.chatRoomId }
             rooms.map { roomEntity ->
-                val participants = chatDao.getChatParticipantsSync(roomEntity.id)
-                roomEntity.toChatRoom(participants)
+                roomEntity.toChatRoom(participantsByRoom[roomEntity.id].orEmpty())
             }
         }
     }
@@ -41,10 +45,13 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override fun getArchivedChatRooms(): Flow<List<ChatRoom>> {
-        return chatDao.getArchivedChatRooms().map { rooms ->
+        return combine(
+            chatDao.getArchivedChatRooms(),
+            chatDao.getAllParticipants()
+        ) { rooms, participants ->
+            val participantsByRoom = participants.groupBy { it.chatRoomId }
             rooms.map { roomEntity ->
-                val participants = chatDao.getChatParticipantsSync(roomEntity.id)
-                roomEntity.toChatRoom(participants)
+                roomEntity.toChatRoom(participantsByRoom[roomEntity.id].orEmpty())
             }
         }
     }
@@ -69,18 +76,31 @@ class ChatRepositoryImpl @Inject constructor(
             resourceType = resourceType?.name?.lowercase()
         )
         val entity = dto.toEntity()
+        val participants = dto.participants.map { it.toEntity(dto.id) }
         chatDao.insertChatRoom(entity)
-        entity.toChatRoom(emptyList())
+        chatDao.removeAllParticipants(entity.id)
+        if (participants.isNotEmpty()) {
+            chatDao.insertParticipants(participants)
+        }
+        entity.toChatRoom(participants)
     }
 
     suspend fun refreshChatRooms() {
         val rooms = chatApiService.getChatRooms()
-        rooms.forEach { chatDao.insertChatRoom(it.toEntity()) }
+        val roomEntities = rooms.map { it.toEntity() }
+        val participantEntities = rooms.flatMap { dto ->
+            dto.participants.map { it.toEntity(dto.id) }
+        }
+        chatDao.replaceChatRooms(roomEntities, participantEntities)
     }
 
     suspend fun refreshMessages(chatRoomId: String) {
         val messages = chatApiService.getMessages(chatRoomId)
         messages.forEach { chatDao.insertMessage(it.toMessageEntity()) }
+    }
+
+    suspend fun updateOwnParticipantAvatar(userId: String, avatarUrl: String?) {
+        chatDao.updateParticipantAvatar(userId, avatarUrl)
     }
 
     override suspend fun archiveChatRoom(chatRoomId: String, isArchived: Boolean) {
@@ -327,18 +347,29 @@ private fun com.flowboard.data.remote.api.ChatRoomDto.toEntity() = ChatRoomEntit
     type = type,
     name = name,
     description = description,
-    participantIds = participantIds,
+    participantIds = participantIds.ifEmpty { participants.map { it.userId } },
     resourceId = resourceId,
     resourceType = resourceType,
     lastMessageId = null,
-    lastMessagePreview = lastMessagePreview,
-    lastMessageTimestamp = lastMessageTimestamp,
+    lastMessagePreview = lastMessagePreview ?: lastMessage?.content,
+    lastMessageTimestamp = lastMessageTimestamp ?: lastMessage?.createdAt?.toEpochMillis(),
     unreadCount = unreadCount,
     createdBy = createdBy,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
+    createdAt = createdAt.toEpochMillis(),
+    updatedAt = updatedAt.toEpochMillis(),
     isArchived = isArchived,
     isMuted = isMuted
+)
+
+private fun ChatParticipantDto.toEntity(chatRoomId: String) = ChatParticipantEntity(
+    chatRoomId = chatRoomId,
+    userId = userId,
+    userName = userName,
+    email = email,
+    avatarUrl = avatarUrl,
+    role = role,
+    joinedAt = joinedAt.toEpochMillis(),
+    lastSeen = lastSeen?.toEpochMillis()
 )
 
 private fun com.flowboard.data.remote.api.MessageDto.toMessageEntity() = MessageEntity(
@@ -352,8 +383,11 @@ private fun com.flowboard.data.remote.api.MessageDto.toMessageEntity() = Message
     mentions = mentions,
     replyToId = replyToId,
     isEdited = isEdited,
-    editedAt = editedAt,
-    createdAt = createdAt,
-    deliveredAt = deliveredAt,
-    readAt = readAt
+    editedAt = editedAt?.toEpochMillis(),
+    createdAt = createdAt.toEpochMillis(),
+    deliveredAt = deliveredAt?.toEpochMillis(),
+    readAt = readAt?.toEpochMillis()
 )
+
+private fun LocalDateTime.toEpochMillis(): Long =
+    toInstant(TimeZone.UTC).toEpochMilliseconds()

@@ -14,7 +14,8 @@ import kotlinx.serialization.json.jsonPrimitive
 @Serializable
 data class AiChatRequest(
     val prompt: String,
-    val documentContext: String? = null
+    val documentContext: String? = null,
+    val structuredJson: Boolean = false
 )
 
 @Serializable
@@ -27,7 +28,8 @@ class AiApiService(private val httpClient: HttpClient) {
     suspend fun ask(
         prompt: String,
         documentContext: String? = null,
-        token: String
+        token: String,
+        structuredJson: Boolean = false
     ): Result<String> = runCatching {
         // Strip JSON-invalid control characters that document blocks may contain
         val safeContext = documentContext
@@ -36,7 +38,13 @@ class AiApiService(private val httpClient: HttpClient) {
         val response = httpClient.post("${ApiConfig.API_BASE_URL}/ai/ask") {
             header(HttpHeaders.Authorization, "Bearer $token")
             contentType(ContentType.Application.Json)
-            setBody(AiChatRequest(prompt = prompt, documentContext = safeContext))
+            setBody(
+                AiChatRequest(
+                    prompt = prompt,
+                    documentContext = safeContext,
+                    structuredJson = structuredJson
+                )
+            )
         }
 
         if (!response.status.isSuccess()) {

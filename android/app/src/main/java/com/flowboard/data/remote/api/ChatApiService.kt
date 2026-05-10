@@ -6,6 +6,7 @@ import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,16 +18,31 @@ data class ChatRoomDto(
     val name: String? = null,
     val description: String? = null,
     val participantIds: List<String> = emptyList(),
+    val participants: List<ChatParticipantDto> = emptyList(),
     val resourceId: String? = null,
     val resourceType: String? = null,
+    val lastMessage: MessageDto? = null,
     val lastMessagePreview: String? = null,
     val lastMessageTimestamp: Long? = null,
     val unreadCount: Int = 0,
     val createdBy: String,
-    val createdAt: Long,
-    val updatedAt: Long,
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime,
     val isArchived: Boolean = false,
     val isMuted: Boolean = false
+)
+
+@Serializable
+data class ChatParticipantDto(
+    val userId: String,
+    val userName: String,
+    val email: String,
+    val avatarUrl: String? = null,
+    val role: String = "MEMBER",
+    val isOnline: Boolean = false,
+    val joinedAt: LocalDateTime,
+    val isMuted: Boolean = false,
+    val lastSeen: LocalDateTime? = null
 )
 
 @Serializable
@@ -41,10 +57,10 @@ data class MessageDto(
     val mentions: List<String> = emptyList(),
     val replyToId: String? = null,
     val isEdited: Boolean = false,
-    val editedAt: Long? = null,
-    val createdAt: Long,
-    val deliveredAt: Long? = null,
-    val readAt: Long? = null
+    val editedAt: LocalDateTime? = null,
+    val createdAt: LocalDateTime,
+    val deliveredAt: LocalDateTime? = null,
+    val readAt: LocalDateTime? = null
 )
 
 @Serializable

@@ -9,6 +9,7 @@ data class WorkspaceEntity(
     val id: String,
     val name: String,
     val description: String? = null,
+    val imageUrl: String? = null,
     val ownerId: String,
     val ownerName: String? = null,
     val inviteCode: String,

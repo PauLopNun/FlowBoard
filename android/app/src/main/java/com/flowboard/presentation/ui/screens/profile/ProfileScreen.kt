@@ -29,7 +29,12 @@ import com.flowboard.presentation.viewmodel.ProfileViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
+import com.flowboard.presentation.ui.util.CloudinaryUploader
+import com.flowboard.presentation.ui.util.imageUriToCompressedDataUrl
 import com.flowboard.presentation.viewmodel.ProfileUiState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +58,17 @@ fun ProfileScreen(
     LaunchedEffect(user) {
         user?.let {
             fullName = it.fullName
-            profileImageUrl = it.profileImageUrl ?: ""
+            val savedImageUrl = it.profileImageUrl.orEmpty()
+            profileImageUrl = savedImageUrl
+            if (savedImageUrl.startsWith("content://")) {
+                val convertedImageUrl = withContext(Dispatchers.IO) {
+                    imageUriToCompressedDataUrl(context, Uri.parse(savedImageUrl))
+                }
+                if (convertedImageUrl != null) {
+                    profileImageUrl = convertedImageUrl
+                    viewModel.updateProfile(it.fullName, convertedImageUrl)
+                }
+            }
         }
     }
 
@@ -366,11 +381,33 @@ fun AvatarUrlDialog(
 ) {
     var url by remember { mutableStateOf(currentUrl) }
     var showUrlField by remember { mutableStateOf(false) }
+    var isProcessingImage by remember { mutableStateOf(false) }
+    var imageError by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        uri?.let { onConfirm(it.toString()) }
+        uri?.let { selectedUri ->
+            imageError = null
+            isProcessingImage = true
+            scope.launch {
+                val imageData = withContext(Dispatchers.IO) {
+                    if (CloudinaryUploader.isConfigured) {
+                        CloudinaryUploader.uploadImage(context, selectedUri)
+                    } else {
+                        imageUriToCompressedDataUrl(context, selectedUri)
+                    }
+                }
+                isProcessingImage = false
+                if (imageData != null) {
+                    onConfirm(imageData)
+                } else {
+                    imageError = "Could not upload image. Check your connection and try again."
+                }
+            }
+        }
     }
 
     AlertDialog(
@@ -384,11 +421,23 @@ fun AvatarUrlDialog(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isProcessingImage
                 ) {
-                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                    if (isProcessingImage) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
                     Spacer(Modifier.width(8.dp))
-                    Text("Choose from gallery")
+                    Text(if (isProcessingImage) "Processing..." else "Choose from gallery")
+                }
+                imageError?.let { error ->
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
                 TextButton(
                     onClick = { showUrlField = !showUrlField },

@@ -1,5 +1,12 @@
 package com.flowboard.presentation.ui.screens.workspace
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,13 +18,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.flowboard.data.local.entities.WorkspaceEntity
+import com.flowboard.presentation.ui.util.CloudinaryUploader
+import com.flowboard.presentation.ui.util.imageUriToCompressedDataUrl
 import com.flowboard.presentation.viewmodel.WorkspaceViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,6 +44,7 @@ fun WorkspaceScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
     var showJoinDialog by remember { mutableStateOf(false) }
     var inviteWorkspaceId by remember { mutableStateOf<String?>(null) }
+    var editWorkspace by remember { mutableStateOf<WorkspaceEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.message) {
@@ -91,6 +105,7 @@ fun WorkspaceScreen(
                     WorkspaceCard(
                         workspace = workspace,
                         onClick = { onWorkspaceClick(workspace.id) },
+                        onEdit = { editWorkspace = workspace },
                         onInvite = { inviteWorkspaceId = workspace.id },
                         onDelete = { viewModel.deleteWorkspace(workspace.id) }
                     )
@@ -102,8 +117,8 @@ fun WorkspaceScreen(
     if (showCreateDialog) {
         CreateWorkspaceDialog(
             onDismiss = { showCreateDialog = false },
-            onCreate = { name, desc ->
-                viewModel.createWorkspace(name, desc)
+            onCreate = { name, desc, imageUrl ->
+                viewModel.createWorkspace(name, desc, imageUrl)
                 showCreateDialog = false
             }
         )
@@ -128,12 +143,24 @@ fun WorkspaceScreen(
             }
         )
     }
+
+    editWorkspace?.let { workspace ->
+        EditWorkspaceDialog(
+            workspace = workspace,
+            onDismiss = { editWorkspace = null },
+            onSave = { name, description, imageUrl ->
+                viewModel.updateWorkspace(workspace.id, name, description, imageUrl)
+                editWorkspace = null
+            }
+        )
+    }
 }
 
 @Composable
 private fun WorkspaceCard(
     workspace: WorkspaceEntity,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
     onInvite: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -155,12 +182,21 @@ private fun WorkspaceCard(
                 modifier = Modifier.size(48.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        workspace.name.take(1).uppercase(),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    if (!workspace.imageUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = workspace.imageUrl,
+                            contentDescription = workspace.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            workspace.name.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                 }
             }
             Spacer(Modifier.width(16.dp))
@@ -180,6 +216,14 @@ private fun WorkspaceCard(
                     Icon(Icons.Default.MoreVert, null)
                 }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Edit details") },
+                        leadingIcon = { Icon(Icons.Default.Edit, null) },
+                        onClick = {
+                            showMenu = false
+                            onEdit()
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("Invite by email") },
                         leadingIcon = { Icon(Icons.Default.PersonAdd, null) },
@@ -236,9 +280,65 @@ private fun InviteMemberDialog(onDismiss: () -> Unit, onInvite: (String) -> Unit
 }
 
 @Composable
-private fun CreateWorkspaceDialog(onDismiss: () -> Unit, onCreate: (String, String?) -> Unit) {
+private fun EditWorkspaceDialog(
+    workspace: WorkspaceEntity,
+    onDismiss: () -> Unit,
+    onSave: (String, String?, String?) -> Unit
+) {
+    var name by remember(workspace.id) { mutableStateOf(workspace.name) }
+    var description by remember(workspace.id) { mutableStateOf(workspace.description.orEmpty()) }
+    var imageUrl by remember(workspace.id) { mutableStateOf(workspace.imageUrl.orEmpty()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit workspace") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    maxLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                WorkspacePhotoField(
+                    imageUrl = imageUrl,
+                    fallbackLabel = name,
+                    onImageUrlChange = { imageUrl = it }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        name.trim(),
+                        description.trim().ifBlank { null },
+                        imageUrl.trim().ifBlank { null }
+                    )
+                },
+                enabled = name.isNotBlank()
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun CreateWorkspaceDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String, String?, String?) -> Unit
+) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var imageUrl by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -255,16 +355,142 @@ private fun CreateWorkspaceDialog(onDismiss: () -> Unit, onCreate: (String, Stri
                     label = { Text("Description (optional)") }, maxLines = 2,
                     modifier = Modifier.fillMaxWidth()
                 )
+                WorkspacePhotoField(
+                    imageUrl = imageUrl,
+                    fallbackLabel = name,
+                    onImageUrlChange = { imageUrl = it }
+                )
             }
         },
         confirmButton = {
             Button(
-                onClick = { if (name.isNotBlank()) onCreate(name.trim(), description.trim().ifBlank { null }) },
+                onClick = {
+                    if (name.isNotBlank()) {
+                        onCreate(
+                            name.trim(),
+                            description.trim().ifBlank { null },
+                            imageUrl.trim().ifBlank { null }
+                        )
+                    }
+                },
                 enabled = name.isNotBlank()
             ) { Text("Create") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+
+@Composable
+private fun WorkspacePhotoField(
+    imageUrl: String,
+    fallbackLabel: String,
+    onImageUrlChange: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var showUrlField by remember { mutableStateOf(false) }
+    var isProcessing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val photoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        uri ?: return@rememberLauncherForActivityResult
+        isProcessing = true
+        scope.launch {
+            val imageData = withContext(Dispatchers.IO) {
+                if (CloudinaryUploader.isConfigured) {
+                    CloudinaryUploader.uploadImage(context, uri)
+                } else {
+                    imageUriToCompressedDataUrl(context, uri)
+                }
+            }
+            isProcessing = false
+            if (imageData != null) onImageUrlChange(imageData)
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            WorkspaceImagePreview(
+                imageUrl = imageUrl,
+                fallbackLabel = fallbackLabel,
+                modifier = Modifier.size(64.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        photoLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    enabled = !isProcessing
+                ) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isProcessing) "Processing..." else "Choose photo")
+                }
+                if (imageUrl.isNotBlank()) {
+                    TextButton(onClick = { onImageUrlChange("") }) {
+                        Text("Remove photo")
+                    }
+                }
+            }
+        }
+
+        TextButton(
+            onClick = { showUrlField = !showUrlField },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (showUrlField) "Hide image URL" else "Use image URL")
+        }
+
+        if (showUrlField) {
+            OutlinedTextField(
+                value = imageUrl,
+                onValueChange = onImageUrlChange,
+                label = { Text("Image URL") },
+                placeholder = { Text("https://...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceImagePreview(
+    imageUrl: String?,
+    fallbackLabel: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = modifier
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (!imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = fallbackLabel.ifBlank { "Workspace photo" },
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
+                )
+            } else {
+                Text(
+                    fallbackLabel.take(1).uppercase().ifBlank { "W" },
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+    }
 }
 
 @Composable

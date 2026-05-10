@@ -157,6 +157,7 @@ class NotificationRepositoryImpl @Inject constructor(
             type = type.lowercase(),
             priority = when (type.uppercase()) {
                 "DOCUMENT_SHARED", "WORKSPACE_INVITATION" -> NotificationPriority.HIGH.name.lowercase()
+                "CHAT_MESSAGE" -> NotificationPriority.MEDIUM.name.lowercase()
                 else -> NotificationPriority.MEDIUM.name.lowercase()
             },
             title = title,

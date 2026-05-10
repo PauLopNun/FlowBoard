@@ -2,9 +2,11 @@ package com.flowboard.presentation.ui.screens.notifications
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -34,7 +36,8 @@ fun NotificationCenterScreen(
     onNavigateBack: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    var filterType by remember { mutableStateOf<NotificationType?>(null) }
+    var filter by remember { mutableStateOf(NotificationFilter.ALL) }
+    val regularUnreadCount = notifications.count { !it.isRead && !it.isActionableInvitation() }
 
     Scaffold(
         topBar = {
@@ -57,9 +60,14 @@ fun NotificationCenterScreen(
                     }
                 },
                 actions = {
-                    // Mark all as read
-                    if (unreadCount > 0) {
-                        IconButton(onClick = onMarkAllAsRead) {
+                    if (regularUnreadCount > 0) {
+                        IconButton(
+                            onClick = {
+                                notifications
+                                    .filter { !it.isRead && !it.isActionableInvitation() }
+                                    .forEach { onMarkAsRead(it.id) }
+                            }
+                        ) {
                             Icon(Icons.Default.DoneAll, "Mark all as read")
                         }
                     }
@@ -96,23 +104,18 @@ fun NotificationCenterScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Filter chips
             FilterChips(
-                selectedType = filterType,
-                onFilterChange = { filterType = it }
+                selectedFilter = filter,
+                notifications = notifications,
+                onFilterChange = { filter = it }
             )
 
-            Divider()
+            HorizontalDivider()
 
-            // Notifications list
-            val filteredNotifications = if (filterType != null) {
-                notifications.filter { it.type == filterType }
-            } else {
-                notifications
-            }
+            val filteredNotifications = notifications.filter { filter.matches(it) }
 
             if (filteredNotifications.isEmpty()) {
-                EmptyState(hasFilter = filterType != null)
+                EmptyState(filter = filter)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -126,7 +129,7 @@ fun NotificationCenterScreen(
                         NotificationItem(
                             notification = notification,
                             onClick = {
-                                if (!notification.isRead) {
+                                if (!notification.isRead && !notification.isActionableInvitation()) {
                                     onMarkAsRead(notification.id)
                                 }
                                 onNotificationClick(notification)
@@ -144,33 +147,31 @@ fun NotificationCenterScreen(
 
 @Composable
 private fun FilterChips(
-    selectedType: NotificationType?,
-    onFilterChange: (NotificationType?) -> Unit
+    selectedFilter: NotificationFilter,
+    notifications: List<Notification>,
+    onFilterChange: (NotificationFilter) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // All filter
-        FilterChip(
-            selected = selectedType == null,
-            onClick = { onFilterChange(null) },
-            label = { Text("All") }
-        )
-
-        // Type filters
-        listOf(
-            NotificationType.TASK_ASSIGNED to "Tasks",
-            NotificationType.COMMENT_MENTION to "Comments",
-            NotificationType.DOCUMENT_SHARED to "Documents",
-            NotificationType.WORKSPACE_INVITATION to "Workspaces"
-        ).forEach { (type, label) ->
+        NotificationFilter.values().forEach { filter ->
+            val count = notifications.count { filter.matches(it) }
             FilterChip(
-                selected = selectedType == type,
-                onClick = { onFilterChange(type) },
-                label = { Text(label) }
+                selected = selectedFilter == filter,
+                onClick = { onFilterChange(filter) },
+                label = {
+                    Text(
+                        if (count > 0 && filter != NotificationFilter.ALL) {
+                            "${filter.label} $count"
+                        } else {
+                            filter.label
+                        }
+                    )
+                }
             )
         }
     }
@@ -185,9 +186,7 @@ private fun NotificationItem(
     onDeclineInvitation: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val isInvitation = notification.type == NotificationType.WORKSPACE_INVITATION ||
-        (notification.type == NotificationType.DOCUMENT_SHARED &&
-            notification.title.contains("invitation", ignoreCase = true))
+    val isInvitation = notification.isActionableInvitation()
 
     Card(
         modifier = Modifier
@@ -325,6 +324,7 @@ private fun NotificationIcon(type: NotificationType, priority: NotificationPrior
         NotificationType.TASK_OVERDUE -> Icons.Default.Warning to MaterialTheme.colorScheme.error
         NotificationType.COMMENT_MENTION -> Icons.Default.AlternateEmail to MaterialTheme.colorScheme.primary
         NotificationType.COMMENT_REPLY -> Icons.Default.Reply to MaterialTheme.colorScheme.primary
+        NotificationType.CHAT_MESSAGE -> Icons.Default.Chat to MaterialTheme.colorScheme.primary
         NotificationType.PERMISSION_GRANTED -> Icons.Default.Lock to MaterialTheme.colorScheme.tertiary
         NotificationType.DOCUMENT_SHARED -> Icons.Default.Share to MaterialTheme.colorScheme.primary
         NotificationType.WORKSPACE_INVITATION -> Icons.Default.GroupAdd to MaterialTheme.colorScheme.secondary
@@ -349,7 +349,7 @@ private fun NotificationIcon(type: NotificationType, priority: NotificationPrior
 }
 
 @Composable
-private fun EmptyState(hasFilter: Boolean) {
+private fun EmptyState(filter: NotificationFilter) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -365,17 +365,49 @@ private fun EmptyState(hasFilter: Boolean) {
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             )
             Text(
-                text = if (hasFilter) "No notifications of this type" else "No notifications",
+                text = if (filter == NotificationFilter.ALL) "No notifications" else "No ${filter.label.lowercase()}",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = if (hasFilter) "Try changing the filter" else "You're all caught up!",
+                text = if (filter == NotificationFilter.ALL) "You're all caught up!" else "Try changing the filter",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
     }
+}
+
+private enum class NotificationFilter(val label: String) {
+    ALL("All"),
+    INVITATIONS("Invites"),
+    MESSAGES("Messages"),
+    DOCUMENTS("Documents"),
+    TASKS("Tasks")
+}
+
+private fun NotificationFilter.matches(notification: Notification): Boolean {
+    return when (this) {
+        NotificationFilter.ALL -> true
+        NotificationFilter.INVITATIONS -> notification.isActionableInvitation()
+        NotificationFilter.MESSAGES -> notification.type == NotificationType.CHAT_MESSAGE ||
+            notification.type == NotificationType.COMMENT_MENTION ||
+            notification.type == NotificationType.COMMENT_REPLY
+        NotificationFilter.DOCUMENTS -> notification.type == NotificationType.DOCUMENT_SHARED ||
+            notification.type == NotificationType.DOCUMENT_UPDATED ||
+            notification.type == NotificationType.PERMISSION_GRANTED ||
+            notification.type == NotificationType.PERMISSION_REVOKED
+        NotificationFilter.TASKS -> notification.type == NotificationType.TASK_ASSIGNED ||
+            notification.type == NotificationType.TASK_COMPLETED ||
+            notification.type == NotificationType.TASK_DUE_SOON ||
+            notification.type == NotificationType.TASK_OVERDUE ||
+            notification.type == NotificationType.DEADLINE_REMINDER
+    }
+}
+
+private fun Notification.isActionableInvitation(): Boolean {
+    return type == NotificationType.WORKSPACE_INVITATION ||
+        (type == NotificationType.DOCUMENT_SHARED && title.contains("invitation", ignoreCase = true))
 }
 
 private fun formatTimestamp(timestamp: Long): String {

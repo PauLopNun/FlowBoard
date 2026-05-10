@@ -46,7 +46,7 @@ class DocumentPersistenceService {
                 it[Documents.content] = content
                 it[Documents.ownerId] = UUID.fromString(ownerId)
                 it[Documents.parentId] = parentId?.let { p -> UUID.fromString(p) }
-                it[Documents.isPublic] = isPublic
+                it[Documents.isPublic] = false
                 it[Documents.visibility] = visibility
                 it[Documents.workspaceId] = workspaceId?.let { w -> UUID.fromString(w) }
                 it[Documents.createdAt] = now
@@ -157,6 +157,12 @@ class DocumentPersistenceService {
         workspaceId: String? = null
     ): Document? {
         val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+        val isOwner = dbQuery {
+            Documents.select {
+                (Documents.id eq UUID.fromString(documentId)) and
+                    (Documents.ownerId eq UUID.fromString(userId))
+            }.count() > 0
+        }
 
         val hasPermission = dbQuery {
             val directPermission = DocumentPermissions
@@ -181,7 +187,8 @@ class DocumentPersistenceService {
             }
         }
 
-        if (!hasPermission) return null
+        if ((visibility != null || workspaceId != null) && !isOwner) return null
+        if (!hasPermission && !isOwner) return null
 
         dbQuery {
             val nextWorkspaceId = when {
@@ -209,7 +216,7 @@ class DocumentPersistenceService {
             Documents.update({ Documents.id eq UUID.fromString(documentId) }) {
                 if (title != null) it[Documents.title] = title
                 if (content != null) it[Documents.content] = content
-                if (isPublic != null) it[Documents.isPublic] = isPublic
+                if (isPublic != null) it[Documents.isPublic] = false
                 if (visibility != null) it[Documents.visibility] = visibility
                 if (visibility != null || workspaceId != null) it[Documents.workspaceId] = nextWorkspaceId
                 it[Documents.updatedAt] = now
@@ -280,10 +287,33 @@ class DocumentPersistenceService {
     suspend fun getUserDocuments(userId: String): DocumentListResponse {
         return dbQuery {
             // Get owned documents
-            val owned = Documents
+            val ownedRaw = Documents
                 .leftJoin(Users, { Documents.ownerId }, { Users.id })
-                .select { Documents.ownerId eq UUID.fromString(userId) }
+                .select {
+                    (Documents.ownerId eq UUID.fromString(userId)) and
+                    (Documents.visibility neq "workspace")
+                }
                 .map { row -> row.toDocument() }
+
+            val ownedDocumentIds = ownedRaw.map { UUID.fromString(it.id) }
+            val sharedOwnedDocumentIds = if (ownedDocumentIds.isEmpty()) {
+                emptySet()
+            } else {
+                DocumentPermissions
+                    .select {
+                        (DocumentPermissions.documentId inList ownedDocumentIds) and
+                        (DocumentPermissions.role neq "owner")
+                    }
+                    .map { row -> row[DocumentPermissions.documentId].toString() }
+                    .toSet()
+            }
+            val owned = ownedRaw.map { document ->
+                if (document.id in sharedOwnedDocumentIds && document.visibility == "private") {
+                    document.copy(visibility = "shared")
+                } else {
+                    document
+                }
+            }
 
             // Get shared documents (explicit permission grant, not workspace)
             val shared = DocumentPermissions
@@ -297,7 +327,8 @@ class DocumentPersistenceService {
                 .select {
                     (DocumentPermissions.userId eq UUID.fromString(userId)) and
                     (Documents.ownerId neq UUID.fromString(userId)) and
-                    (DocumentPermissions.role neq "owner")
+                    (DocumentPermissions.role neq "owner") and
+                    (Documents.visibility neq "workspace")
                 }
                 .map { row -> row.toDocument() }
 
@@ -356,6 +387,12 @@ class DocumentPersistenceService {
                 DocumentPermissions.update({ DocumentPermissions.id eq permissionId }) {
                     it[DocumentPermissions.role] = role
                     it[DocumentPermissions.grantedAt] = now
+                }
+                Documents.update({
+                    (Documents.id eq UUID.fromString(documentId)) and
+                    (Documents.visibility neq "workspace")
+                }) {
+                    it[Documents.visibility] = "shared"
                 }
 
                 val permission = DocumentPermissionResponse(
@@ -455,15 +492,35 @@ class DocumentPersistenceService {
                 it[DocumentPermissions.grantedAt] = Clock.System.now().toLocalDateTime(TimeZone.UTC)
             }
 
+            if (updated > 0) {
+                Documents.update({
+                    (Documents.id eq UUID.fromString(documentId)) and
+                    (Documents.visibility neq "workspace")
+                }) {
+                    it[Documents.visibility] = "shared"
+                }
+            }
+
             updated > 0
         }
     }
 
-    suspend fun getChildDocuments(parentId: String): List<Document> {
+    suspend fun getChildDocuments(parentId: String, requesterId: String): List<Document> {
+        val parent = getDocumentById(parentId, requesterId) ?: return emptyList()
+        val parentWorkspaceId = parent.workspaceId?.let { UUID.fromString(it) }
         return dbQuery {
             Documents
                 .leftJoin(Users, { Documents.ownerId }, { Users.id })
-                .select { Documents.parentId eq UUID.fromString(parentId) }
+                .select {
+                    val base = Documents.parentId eq UUID.fromString(parentId)
+                    val ownerAccess = Documents.ownerId eq UUID.fromString(requesterId)
+                    val workspaceAccess = if (parentWorkspaceId != null) {
+                        (Documents.workspaceId eq parentWorkspaceId) and (Documents.visibility eq "workspace")
+                    } else {
+                        Op.FALSE
+                    }
+                    base and (ownerAccess or workspaceAccess)
+                }
                 .map { row -> row.toDocument() }
         }
     }
@@ -492,10 +549,28 @@ class DocumentPersistenceService {
                 return@dbQuery false
             }
 
-            DocumentPermissions.deleteWhere {
+            val removed = DocumentPermissions.deleteWhere {
                 (DocumentPermissions.documentId eq UUID.fromString(documentId)) and
                 (DocumentPermissions.userId eq UUID.fromString(targetUserId))
             } > 0
+
+            if (removed) {
+                val remainingShares = DocumentPermissions.select {
+                    (DocumentPermissions.documentId eq UUID.fromString(documentId)) and
+                    (DocumentPermissions.role neq "owner")
+                }.count()
+
+                if (remainingShares == 0L) {
+                    Documents.update({
+                        (Documents.id eq UUID.fromString(documentId)) and
+                        (Documents.visibility neq "workspace")
+                    }) {
+                        it[Documents.visibility] = "private"
+                    }
+                }
+            }
+
+            removed
         }
     }
 }

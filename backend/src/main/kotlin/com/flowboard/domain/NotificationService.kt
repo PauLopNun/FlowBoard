@@ -2,6 +2,7 @@ package com.flowboard.domain
 
 import com.flowboard.data.database.DatabaseFactory.dbQuery
 import com.flowboard.data.database.DocumentPermissions
+import com.flowboard.data.database.Documents
 import com.flowboard.data.database.WorkspaceMembers
 import com.flowboard.data.database.Notifications
 import com.flowboard.data.models.Notification
@@ -297,6 +298,12 @@ class NotificationService {
                             it[DocumentPermissions.grantedBy] = inviterId
                             it[DocumentPermissions.grantedAt] = now
                         }
+                    }
+                    Documents.update({
+                        (Documents.id eq resourceId) and
+                        (Documents.visibility neq "workspace")
+                    }) {
+                        it[Documents.visibility] = "shared"
                     }
                 }
                 "WORKSPACE_INVITATION" -> {

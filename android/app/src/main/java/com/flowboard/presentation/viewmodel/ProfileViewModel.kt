@@ -3,6 +3,7 @@ package com.flowboard.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.flowboard.data.repository.AuthRepository
+import com.flowboard.data.repository.ChatRepositoryImpl
 import com.flowboard.domain.model.User
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,8 @@ data class ProfileUiState(
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val chatRepository: ChatRepositoryImpl
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -55,6 +57,8 @@ class ProfileViewModel @Inject constructor(
                 val updatedUser = authRepository.updateProfile(fullName, profileImageUrl)
                 if (updatedUser != null) {
                     _user.value = updatedUser
+                    // Update own avatar in all chat rooms immediately (local cache)
+                    chatRepository.updateOwnParticipantAvatar(updatedUser.id, updatedUser.profileImageUrl)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         successMessage = "Profile updated successfully"
@@ -66,6 +70,7 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ProfileViewModel", "updateProfile exception", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Failed to update profile"

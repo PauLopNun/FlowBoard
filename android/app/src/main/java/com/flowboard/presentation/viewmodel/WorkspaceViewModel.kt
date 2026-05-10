@@ -42,10 +42,15 @@ class WorkspaceViewModel @Inject constructor(
         }
     }
 
-    fun createWorkspace(name: String, description: String?, onSuccess: (WorkspaceEntity) -> Unit = {}) {
+    fun createWorkspace(
+        name: String,
+        description: String?,
+        imageUrl: String? = null,
+        onSuccess: (WorkspaceEntity) -> Unit = {}
+    ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            workspaceRepository.createWorkspace(name, description)
+            workspaceRepository.createWorkspace(name, description, imageUrl)
                 .onSuccess { ws ->
                     _uiState.update { it.copy(isLoading = false, message = "Workspace created!") }
                     onSuccess(ws)
@@ -71,6 +76,21 @@ class WorkspaceViewModel @Inject constructor(
             workspaceRepository.inviteMember(workspaceId, email)
                 .onSuccess { message -> _uiState.update { it.copy(message = message) } }
                 .onFailure { e -> _uiState.update { it.copy(error = e.message) } }
+        }
+    }
+
+    fun updateWorkspace(id: String, name: String, description: String?, imageUrl: String?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            workspaceRepository.updateWorkspace(id, name, description, imageUrl)
+                .onSuccess {
+                    _uiState.update { state ->
+                        state.copy(isLoading = false, message = "Workspace updated")
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
         }
     }
 

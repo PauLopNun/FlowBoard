@@ -25,6 +25,7 @@ data class ChatParticipant(
     val userId: String,
     val userName: String,
     val email: String,
+    val avatarUrl: String? = null,
     val role: String = "MEMBER", // OWNER, ADMIN, MEMBER
     val isOnline: Boolean = false,
     val joinedAt: LocalDateTime,

@@ -151,7 +151,10 @@ object DatabaseFactory {
         exec("ALTER TABLE documents ADD COLUMN IF NOT EXISTS visibility VARCHAR(20) NOT NULL DEFAULT 'private'")
         exec("ALTER TABLE documents ADD COLUMN IF NOT EXISTS workspace_id UUID")
         exec("ALTER TABLE documents ADD COLUMN IF NOT EXISTS last_edited_by UUID")
-        exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_url VARCHAR(500)")
+        exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_url TEXT")
+        exec("ALTER TABLE users ALTER COLUMN profile_image_url TYPE TEXT")
+        exec("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS image_url TEXT")
+        exec("ALTER TABLE workspaces ALTER COLUMN image_url TYPE TEXT")
         exec("ALTER TABLE document_permissions ADD COLUMN IF NOT EXISTS role VARCHAR(50) NOT NULL DEFAULT 'viewer'")
         exec("ALTER TABLE document_permissions ADD COLUMN IF NOT EXISTS granted_by UUID")
         exec(

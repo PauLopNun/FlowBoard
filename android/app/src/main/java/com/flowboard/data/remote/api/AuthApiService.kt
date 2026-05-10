@@ -213,13 +213,25 @@ class AuthApiService @Inject constructor(
      */
     suspend fun updateProfile(token: String, request: UpdateProfileRequest): Result<UserData> {
         return try {
-            val response: UserData = httpClient.put("${ApiConfig.API_BASE_URL}/users/me") {
+            val imagePreview = request.profileImageUrl?.let {
+                if (it.length > 60) "${it.take(60)}… (${it.length} chars)" else it
+            }
+            Log.d(TAG, "updateProfile → fullName=${request.fullName}, imageUrl=$imagePreview")
+            val httpResponse = httpClient.put("${ApiConfig.API_BASE_URL}/users/me") {
                 header("Authorization", "Bearer $token")
                 contentType(ContentType.Application.Json)
                 setBody(request)
-            }.body()
-            Result.success(response)
+            }
+            Log.d(TAG, "updateProfile ← status=${httpResponse.status}")
+            if (httpResponse.status.isSuccess()) {
+                Result.success(httpResponse.body())
+            } else {
+                val errorBody = try { httpResponse.body<String>() } catch (_: Exception) { "" }
+                Log.e(TAG, "updateProfile failed ${httpResponse.status.value}: $errorBody")
+                Result.failure(Exception("Server error ${httpResponse.status.value}: ${errorBody.take(120)}"))
+            }
         } catch (e: Exception) {
+            Log.e(TAG, "updateProfile exception: ${e.javaClass.simpleName}: ${e.message}", e)
             Result.failure(e)
         }
     }

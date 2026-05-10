@@ -3,6 +3,7 @@ package com.flowboard.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.flowboard.data.local.entities.DocumentEntity
+import com.flowboard.data.local.entities.WorkspaceEntity
 import com.flowboard.data.local.dao.DocumentDao
 import com.flowboard.data.local.dao.WorkspaceDao
 import com.flowboard.data.repository.DocumentRepositoryImpl
@@ -13,7 +14,9 @@ import javax.inject.Inject
 
 data class WorkspaceDocumentsUiState(
     val documents: List<DocumentEntity> = emptyList(),
+    val workspaces: List<WorkspaceEntity> = emptyList(),
     val workspaceName: String = "",
+    val workspaceImageUrl: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -30,6 +33,21 @@ class WorkspaceDocumentsViewModel @Inject constructor(
 
     private var currentWorkspaceId: String? = null
 
+    init {
+        viewModelScope.launch {
+            workspaceDao.getAllWorkspaces().collect { workspaces ->
+                _uiState.update { state ->
+                    val currentWorkspace = currentWorkspaceId?.let { id -> workspaces.firstOrNull { it.id == id } }
+                    state.copy(
+                        workspaces = workspaces,
+                        workspaceName = currentWorkspace?.name ?: state.workspaceName,
+                        workspaceImageUrl = currentWorkspace?.imageUrl ?: state.workspaceImageUrl
+                    )
+                }
+            }
+        }
+    }
+
     fun load(workspaceId: String) {
         if (currentWorkspaceId == workspaceId) return
         currentWorkspaceId = workspaceId
@@ -37,7 +55,7 @@ class WorkspaceDocumentsViewModel @Inject constructor(
         // Load workspace name
         viewModelScope.launch {
             workspaceDao.getById(workspaceId)?.let { ws ->
-                _uiState.update { it.copy(workspaceName = ws.name) }
+                _uiState.update { it.copy(workspaceName = ws.name, workspaceImageUrl = ws.imageUrl) }
             }
         }
 
@@ -58,7 +76,7 @@ class WorkspaceDocumentsViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             documentRepository.fetchWorkspaceDocuments(workspaceId)
                 .onSuccess { docs ->
-                    // Upsert into local DB so the Flow above emits
+                    documentDao.deleteWorkspaceDocuments(workspaceId)
                     docs.forEach { documentDao.insertDocument(it.copy(workspaceId = workspaceId, visibility = "workspace")) }
                     _uiState.update { it.copy(isLoading = false, error = null) }
                 }
@@ -75,6 +93,23 @@ class WorkspaceDocumentsViewModel @Inject constructor(
                     documentDao.insertDocument(updated)
                     _uiState.update { state ->
                         state.copy(documents = state.documents.filter { it.id != documentId })
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Failed to move document") }
+                }
+        }
+    }
+
+    fun moveToWorkspace(documentId: String, targetWorkspaceId: String) {
+        viewModelScope.launch {
+            documentRepository.updateDocumentVisibility(documentId, "workspace", targetWorkspaceId)
+                .onSuccess { updated ->
+                    documentDao.insertDocument(updated)
+                    if (targetWorkspaceId != currentWorkspaceId) {
+                        _uiState.update { state ->
+                            state.copy(documents = state.documents.filter { it.id != documentId })
+                        }
                     }
                 }
                 .onFailure { e ->

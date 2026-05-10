@@ -16,6 +16,7 @@ class WorkspaceRepositoryImpl @Inject constructor(
 
     suspend fun fetchWorkspaces(): Result<List<WorkspaceEntity>> {
         return try {
+            workspaceDao.deleteAll()
             val response = workspaceApiService.getWorkspaces()
             val all = (response.owned + response.member).map { it.toEntity() }
             workspaceDao.insertAll(all)
@@ -25,9 +26,20 @@ class WorkspaceRepositoryImpl @Inject constructor(
         }
     }
 
-    suspend fun createWorkspace(name: String, description: String?): Result<WorkspaceEntity> {
+    suspend fun createWorkspace(name: String, description: String?, imageUrl: String? = null): Result<WorkspaceEntity> {
         return try {
-            val dto = workspaceApiService.createWorkspace(name, description)
+            val dto = workspaceApiService.createWorkspace(name, description, imageUrl)
+            val entity = dto.toEntity()
+            workspaceDao.insert(entity)
+            Result.success(entity)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateWorkspace(id: String, name: String?, description: String?, imageUrl: String?): Result<WorkspaceEntity> {
+        return try {
+            val dto = workspaceApiService.updateWorkspace(id, name, description, imageUrl)
             val entity = dto.toEntity()
             workspaceDao.insert(entity)
             Result.success(entity)

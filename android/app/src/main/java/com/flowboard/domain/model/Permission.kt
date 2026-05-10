@@ -35,6 +35,7 @@ enum class ResourceType {
     DOCUMENT,
     TASK,
     PROJECT,
+    CHAT,
     WORKSPACE,
     BOARD
 }

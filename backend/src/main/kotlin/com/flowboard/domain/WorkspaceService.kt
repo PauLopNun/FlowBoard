@@ -19,7 +19,7 @@ class WorkspaceService {
         return (1..8).map { chars[chars.indices.random()] }.joinToString("")
     }
 
-    suspend fun createWorkspace(name: String, description: String?, ownerId: String): Workspace {
+    suspend fun createWorkspace(name: String, description: String?, imageUrl: String?, ownerId: String): Workspace {
         val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
         val workspaceId = UUID.randomUUID()
         val inviteCode = generateInviteCode()
@@ -29,6 +29,7 @@ class WorkspaceService {
                 it[Workspaces.id] = workspaceId
                 it[Workspaces.name] = name
                 it[Workspaces.description] = description
+                it[Workspaces.imageUrl] = imageUrl
                 it[Workspaces.ownerId] = UUID.fromString(ownerId)
                 it[Workspaces.inviteCode] = inviteCode
                 it[Workspaces.createdAt] = now
@@ -78,6 +79,7 @@ class WorkspaceService {
                 id = row[Workspaces.id].toString(),
                 name = row[Workspaces.name],
                 description = row[Workspaces.description],
+                imageUrl = row[Workspaces.imageUrl],
                 ownerId = row[Workspaces.ownerId].toString(),
                 ownerName = row[Users.username],
                 inviteCode = row[Workspaces.inviteCode],
@@ -94,6 +96,10 @@ class WorkspaceService {
                 .select { WorkspaceMembers.userId eq UUID.fromString(userId) }
                 .map { it[WorkspaceMembers.workspaceId].toString() }
 
+            if (memberWorkspaceIds.isEmpty()) {
+                return@dbQuery WorkspaceListResponse(owned = emptyList(), member = emptyList())
+            }
+
             val allWorkspaces = Workspaces
                 .leftJoin(Users, { Workspaces.ownerId }, { Users.id })
                 .select { Workspaces.id inList memberWorkspaceIds.map { UUID.fromString(it) } }
@@ -102,6 +108,7 @@ class WorkspaceService {
                         id = row[Workspaces.id].toString(),
                         name = row[Workspaces.name],
                         description = row[Workspaces.description],
+                        imageUrl = row[Workspaces.imageUrl],
                         ownerId = row[Workspaces.ownerId].toString(),
                         ownerName = row[Users.username],
                         inviteCode = row[Workspaces.inviteCode],
@@ -143,6 +150,43 @@ class WorkspaceService {
         } ?: return null
 
         return getWorkspaceById(workspaceId, userId)
+    }
+
+    suspend fun updateWorkspace(
+        workspaceId: String,
+        requesterId: String,
+        name: String?,
+        description: String?,
+        imageUrl: String?
+    ): Workspace? {
+        val now = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+
+        val canEdit = dbQuery {
+            val workspace = Workspaces
+                .select { Workspaces.id eq UUID.fromString(workspaceId) }
+                .singleOrNull() ?: return@dbQuery false
+
+            val membership = WorkspaceMembers.select {
+                (WorkspaceMembers.workspaceId eq UUID.fromString(workspaceId)) and
+                (WorkspaceMembers.userId eq UUID.fromString(requesterId))
+            }.singleOrNull()
+
+            workspace[Workspaces.ownerId].toString() == requesterId ||
+                membership?.get(WorkspaceMembers.role) in listOf("OWNER", "ADMIN")
+        }
+
+        if (!canEdit) return null
+
+        dbQuery {
+            Workspaces.update({ Workspaces.id eq UUID.fromString(workspaceId) }) {
+                if (!name.isNullOrBlank()) it[Workspaces.name] = name
+                if (description != null) it[Workspaces.description] = description.ifBlank { null }
+                if (imageUrl != null) it[Workspaces.imageUrl] = imageUrl.ifBlank { null }
+                it[Workspaces.updatedAt] = now
+            }
+        }
+
+        return getWorkspaceById(workspaceId, requesterId)
     }
 
     suspend fun inviteMember(workspaceId: String, inviterId: String, targetEmail: String): InviteWorkspaceResponse {

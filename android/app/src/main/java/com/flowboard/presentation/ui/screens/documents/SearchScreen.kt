@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.flowboard.data.local.entities.DocumentEntity
+import com.flowboard.presentation.ui.util.formatRelativeDate
 import com.flowboard.presentation.viewmodel.DocumentViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.serialization.json.Json
@@ -159,7 +160,7 @@ private fun SearchResultItem(doc: DocumentEntity, highlight: String, onClick: ()
                 modifier = Modifier.size(20.dp))
         },
         trailingContent = {
-            Text(doc.updatedAt.take(10),
+            Text(formatRelativeDate(doc.updatedAt),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
         },

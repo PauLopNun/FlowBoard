@@ -16,6 +16,15 @@ interface WorkspaceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(workspaces: List<WorkspaceEntity>)
 
+    @Query("DELETE FROM workspaces")
+    suspend fun deleteAll()
+
+    @Transaction
+    suspend fun replaceAll(workspaces: List<WorkspaceEntity>) {
+        deleteAll()
+        insertAll(workspaces)
+    }
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(workspace: WorkspaceEntity)
 

@@ -15,6 +15,9 @@ interface ChatDao {
     @Query("SELECT * FROM chat_rooms WHERE isArchived = 0 ORDER BY updatedAt DESC")
     fun getAllChatRooms(): Flow<List<ChatRoomEntity>>
 
+    @Query("SELECT * FROM chat_participants")
+    fun getAllParticipants(): Flow<List<ChatParticipantEntity>>
+
     @Query("SELECT * FROM chat_rooms WHERE id = :chatRoomId")
     fun getChatRoom(chatRoomId: String): Flow<ChatRoomEntity?>
 
@@ -32,6 +35,9 @@ interface ChatDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChatRooms(chatRooms: List<ChatRoomEntity>)
+
+    @Query("DELETE FROM chat_rooms")
+    suspend fun clearChatRooms()
 
     @Update
     suspend fun updateChatRoom(chatRoom: ChatRoomEntity)
@@ -86,6 +92,9 @@ interface ChatDao {
     @Query("DELETE FROM messages WHERE chatRoomId = :chatRoomId")
     suspend fun deleteAllMessages(chatRoomId: String)
 
+    @Query("DELETE FROM messages")
+    suspend fun clearMessages()
+
     // ==================== Participants ====================
 
     @Query("SELECT * FROM chat_participants WHERE chatRoomId = :chatRoomId")
@@ -106,6 +115,25 @@ interface ChatDao {
     @Query("DELETE FROM chat_participants WHERE chatRoomId = :chatRoomId")
     suspend fun removeAllParticipants(chatRoomId: String)
 
+    @Query("DELETE FROM chat_participants")
+    suspend fun clearParticipants()
+
+    @Transaction
+    suspend fun replaceChatRooms(
+        rooms: List<ChatRoomEntity>,
+        participants: List<ChatParticipantEntity>
+    ) {
+        clearChatRooms()
+        clearParticipants()
+        clearMessages()
+        if (rooms.isNotEmpty()) {
+            insertChatRooms(rooms)
+        }
+        if (participants.isNotEmpty()) {
+            insertParticipants(participants)
+        }
+    }
+
     // ==================== Typing Indicators ====================
 
     @Query("SELECT * FROM typing_indicators WHERE chatRoomId = :chatRoomId AND isTyping = 1")
@@ -113,6 +141,9 @@ interface ChatDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTypingIndicator(indicator: TypingIndicatorEntity)
+
+    @Query("UPDATE chat_participants SET avatarUrl = :avatarUrl WHERE userId = :userId")
+    suspend fun updateParticipantAvatar(userId: String, avatarUrl: String?)
 
     @Query("DELETE FROM typing_indicators WHERE chatRoomId = :chatRoomId AND userId = :userId")
     suspend fun removeTypingIndicator(chatRoomId: String, userId: String)
