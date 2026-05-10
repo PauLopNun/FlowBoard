@@ -289,7 +289,16 @@ class ChatRepositoryImpl @Inject constructor(
             participants = participants.map { it.toParticipant() },
             resourceId = resourceId,
             resourceType = resourceType?.let { ResourceType.valueOf(it.uppercase()) },
-            lastMessage = null, // TODO: Load from lastMessageId
+            lastMessage = if (!lastMessagePreview.isNullOrBlank()) Message(
+                id = lastMessageId ?: "",
+                chatRoomId = id,
+                senderId = "",
+                senderName = "",
+                type = MessageType.TEXT,
+                content = lastMessagePreview,
+                status = MessageStatus.SENT,
+                createdAt = lastMessageTimestamp ?: updatedAt
+            ) else null,
             unreadCount = unreadCount,
             createdBy = createdBy,
             createdAt = createdAt,

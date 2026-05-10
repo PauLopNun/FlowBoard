@@ -52,11 +52,14 @@ import com.flowboard.data.models.crdt.ContentBlock
 import com.flowboard.data.remote.websocket.ConnectionState
 import com.flowboard.presentation.ui.components.CollaboratorRole
 import com.flowboard.presentation.ui.components.ShareDocumentDialog
+import com.flowboard.presentation.ui.util.CloudinaryUploader
 import com.flowboard.presentation.viewmodel.AiEditProposal
 import com.flowboard.presentation.viewmodel.AiEditTarget
 import com.flowboard.presentation.viewmodel.AiProposedBlock
 import com.flowboard.presentation.viewmodel.CollaborativeDocumentViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -96,6 +99,7 @@ fun CollaborativeDocumentScreenV2(
     var subPageTitle by remember { mutableStateOf("") }
     var showCoverPicker by remember { mutableStateOf(false) }
     var showCoverImageDialog by remember { mutableStateOf(false) }
+    var isCoverUploading by remember { mutableStateOf(false) }
     var showAiPanel by remember { mutableStateOf(false) }
     var blockMenuBlockId by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -104,6 +108,17 @@ fun CollaborativeDocumentScreenV2(
 
     val blocks = document?.blocks ?: emptyList()
     val coroutineScope = rememberCoroutineScope()
+    val coverGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        isCoverUploading = true
+        coroutineScope.launch {
+            val url = withContext(Dispatchers.IO) { CloudinaryUploader.uploadImage(context, uri, maxSide = 1280, quality = 85) }
+            isCoverUploading = false
+            if (url != null) viewModel.updateCoverColor(url)
+        }
+    }
     val savePdfLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri ->
@@ -479,6 +494,24 @@ fun CollaborativeDocumentScreenV2(
                                     Text("Change cover", style = MaterialTheme.typography.labelSmall)
                                 }
                                 FilledTonalButton(
+                                    onClick = {
+                                        coverGalleryLauncher.launch(
+                                            androidx.activity.result.PickVisualMediaRequest(
+                                                ActivityResultContracts.PickVisualMedia.ImageOnly
+                                            )
+                                        )
+                                    },
+                                    modifier = Modifier.height(28.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                    enabled = !isCoverUploading
+                                ) {
+                                    if (isCoverUploading) {
+                                        CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        Text("From gallery", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                FilledTonalButton(
                                     onClick = { showCoverImageDialog = true },
                                     modifier = Modifier.height(28.dp),
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
@@ -519,6 +552,27 @@ fun CollaborativeDocumentScreenV2(
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                         Spacer(Modifier.width(4.dp))
                                         Text("Add cover", style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            coverGalleryLauncher.launch(
+                                                androidx.activity.result.PickVisualMediaRequest(
+                                                    ActivityResultContracts.PickVisualMedia.ImageOnly
+                                                )
+                                            )
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        enabled = !isCoverUploading
+                                    ) {
+                                        if (isCoverUploading) {
+                                            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                        }
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("From gallery", style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                     }
                                     TextButton(

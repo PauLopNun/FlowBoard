@@ -144,10 +144,29 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
+            val currentUserId = authRepository.getUserId()
             val searchResult = authRepository.searchUserByEmail(email)
 
             searchResult.fold(
                 onSuccess = { userData ->
+                    if (userData.id == currentUserId) {
+                        _uiState.update { it.copy(isLoading = false) }
+                        onError("You can't start a chat with yourself")
+                        return@fold
+                    }
+
+                    // Reuse existing direct chat with this user instead of creating a duplicate
+                    val existing = chatRooms.value.firstOrNull { room ->
+                        room.type == ChatType.DIRECT &&
+                        room.participants.any { it.userId == userData.id }
+                    }
+                    if (existing != null) {
+                        _activeChatId.value = existing.id
+                        _uiState.update { it.copy(isLoading = false) }
+                        onSuccess()
+                        return@fold
+                    }
+
                     val chatResult = chatRepository.createChatRoom(
                         type = ChatType.DIRECT,
                         name = userData.fullName.ifBlank { userData.username },
@@ -167,7 +186,7 @@ class ChatViewModel @Inject constructor(
                         }
                     )
                 },
-                onFailure = { error ->
+                onFailure = { _ ->
                     _uiState.update { it.copy(isLoading = false) }
                     onError("User not found for \"$email\"")
                 }
