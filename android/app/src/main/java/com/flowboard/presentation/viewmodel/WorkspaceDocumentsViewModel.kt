@@ -10,6 +10,9 @@ import com.flowboard.data.repository.DocumentRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
 data class WorkspaceDocumentsUiState(
@@ -120,8 +123,7 @@ class WorkspaceDocumentsViewModel @Inject constructor(
 
     fun deleteDocument(documentId: String) {
         viewModelScope.launch {
-            val now = kotlinx.datetime.Clock.System.now()
-                .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).toString()
+            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).toString()
             documentDao.softDeleteDocument(documentId, now)
             _uiState.update { state ->
                 state.copy(documents = state.documents.filter { it.id != documentId })
