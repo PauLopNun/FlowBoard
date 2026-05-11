@@ -699,20 +699,6 @@ fun DashboardContent(
                 if (trashedDocuments.isEmpty()) {
                     item { EmptyState("Trash is empty") }
                 } else {
-                    item {
-                        FilledTonalButton(
-                            onClick = onEmptyTrash,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        ) {
-                            Icon(Icons.Outlined.DeleteForever, null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Empty trash")
-                        }
-                    }
                     items(trashedDocuments) { doc ->
                         TrashDocumentItem(
                             title = doc.title,
@@ -840,11 +826,11 @@ private fun buildDocumentTree(documents: List<DocumentEntity>): List<DocumentTre
 
 @Composable
 fun RecentPageCard(title: String, updatedAt: String, onClick: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp), modifier = Modifier.width(150.dp).clickable(onClick = onClick)) {
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp), modifier = Modifier.width(150.dp).height(100.dp).clickable(onClick = onClick)) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text("📄", fontSize = 28.sp)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(title.ifBlank { "Untitled" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title.ifBlank { "Untitled" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(formatRelativeDate(updatedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), maxLines = 1)
         }
     }

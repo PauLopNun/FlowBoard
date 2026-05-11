@@ -53,7 +53,8 @@
       "Bash(gh pr create --title 'feat: visual polish, Kanban view, and project cleanup' --body ':*)",
       "Bash(where gh:*)",
       "Bash(winget list:*)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(python -m json.tool)"
     ],
     "deny": [],
     "ask": []
