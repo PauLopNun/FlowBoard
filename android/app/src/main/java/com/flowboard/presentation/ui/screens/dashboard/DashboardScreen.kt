@@ -468,10 +468,20 @@ fun DashboardSidebar(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("PERSONAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp).clickable { onNavigate(DashboardView.MY_DOCUMENTS) },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "PRIVATE",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (currentView == DashboardView.MY_DOCUMENTS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onCreateDocument, modifier = Modifier.size(20.dp)) {
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            NavigationItem(Icons.Outlined.Folder, "My Pages", currentView == DashboardView.MY_DOCUMENTS, onClick = { onNavigate(DashboardView.MY_DOCUMENTS) })
             val personalDocs = documents
                 .filter { it.visibility != "workspace" }
                 .distinctBy { it.id }
@@ -490,10 +500,17 @@ fun DashboardSidebar(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("SHARED WITH ME", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp).clickable { onNavigate(DashboardView.SHARED_WITH_ME) },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "SHARED WITH ME",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (currentView == DashboardView.SHARED_WITH_ME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
             }
-            NavigationItem(Icons.Outlined.Group, "Shared with me", currentView == DashboardView.SHARED_WITH_ME, onClick = { onNavigate(DashboardView.SHARED_WITH_ME) })
             val sharedPages = sharedDocuments
                 .filter { it.visibility != "workspace" }
                 .distinctBy { it.id }
