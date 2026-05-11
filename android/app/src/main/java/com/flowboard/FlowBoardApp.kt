@@ -248,6 +248,7 @@ fun FlowBoardApp(
                     onTasksClick = { navController.navigate("tasks") },
                     onCalendarClick = { navController.navigate("calendar") },
                     onWorkspaceClick = { navController.navigate("workspaces") },
+                    onCreateWorkspace = { navController.navigate("workspaces?create=true") },
                     onWorkspaceSelected = { workspaceId -> navController.navigate("workspace_docs/$workspaceId") },
                     onCreateWorkspaceDocument = { workspaceId -> navController.navigate("document_new?workspaceId=$workspaceId") },
                     onEditorDemoClick = { navController.navigate("my_documents") },
@@ -642,10 +643,15 @@ fun FlowBoardApp(
                 )
             }
 
-            composable("workspaces") {
+            composable(
+                route = "workspaces?create={create}",
+                arguments = listOf(navArgument("create") { type = NavType.BoolType; defaultValue = false })
+            ) { backStackEntry ->
+                val startCreating = backStackEntry.arguments?.getBoolean("create") ?: false
                 WorkspaceScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    onWorkspaceClick = { navController.navigate("workspace_docs/$it") }
+                    onWorkspaceClick = { navController.navigate("workspace_docs/$it") },
+                    startCreating = startCreating
                 )
             }
 
@@ -817,7 +823,7 @@ private fun SplashScreen() {
             Image(
                 painter = painterResource(id = com.flowboard.R.drawable.app_logo),
                 contentDescription = "FlowBoard Logo",
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
     }

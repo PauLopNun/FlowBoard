@@ -38,10 +38,11 @@ import com.flowboard.presentation.viewmodel.WorkspaceViewModel
 fun WorkspaceScreen(
     onNavigateBack: () -> Unit,
     onWorkspaceClick: (String) -> Unit = {},
+    startCreating: Boolean = false,
     viewModel: WorkspaceViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showCreateDialog by remember { mutableStateOf(false) }
+    var showCreateDialog by remember { mutableStateOf(startCreating) }
     var showJoinDialog by remember { mutableStateOf(false) }
     var inviteWorkspaceId by remember { mutableStateOf<String?>(null) }
     var editWorkspace by remember { mutableStateOf<WorkspaceEntity?>(null) }

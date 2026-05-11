@@ -63,6 +63,7 @@ fun DashboardScreen(
     onTasksClick: () -> Unit = {},
     onCalendarClick: () -> Unit = {},
     onWorkspaceClick: () -> Unit = {},
+    onCreateWorkspace: () -> Unit = {},
     onWorkspaceSelected: (String) -> Unit = {},
     onCreateWorkspaceDocument: (String) -> Unit = {},
     onViewAllDocuments: () -> Unit = {},
@@ -118,6 +119,7 @@ fun DashboardScreen(
                     onChatNavigate = { scope.launch { drawerState.close() }; onChatClick() },
                     onCalendarNavigate = { scope.launch { drawerState.close() }; onCalendarClick() },
                     onWorkspaceNavigate = { scope.launch { drawerState.close() }; onWorkspaceClick() },
+                    onCreateWorkspace = { scope.launch { drawerState.close() }; onCreateWorkspace() },
                     onWorkspaceSelected = { workspaceId ->
                         scope.launch { drawerState.close() }
                         onWorkspaceSelected(workspaceId)
@@ -314,6 +316,7 @@ fun DashboardSidebar(
     onChatNavigate: () -> Unit,
     onCalendarNavigate: () -> Unit,
     onWorkspaceNavigate: () -> Unit,
+    onCreateWorkspace: () -> Unit,
     onWorkspaceSelected: (String) -> Unit,
     onCreateWorkspaceDocument: (String) -> Unit,
     onCreateDocument: () -> Unit,
@@ -449,7 +452,7 @@ fun DashboardSidebar(
                 onToggle = { workspacesExpanded = !workspacesExpanded },
                 onLabelClick = onWorkspaceNavigate,
                 isSelected = false,
-                onAdd = onWorkspaceNavigate
+                onAdd = onCreateWorkspace
             )
             if (workspacesExpanded) {
                 if (workspaces.isEmpty()) {

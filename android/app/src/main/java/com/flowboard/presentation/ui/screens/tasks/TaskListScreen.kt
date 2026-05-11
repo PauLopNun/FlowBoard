@@ -166,7 +166,8 @@ fun TaskListScreen(
                 // Filter Tabs with count badges
                 ScrollableTabRow(
                     selectedTabIndex = selectedFilter.ordinal,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    edgePadding = 0.dp
                 ) {
                     TaskFilter.entries.forEach { filter ->
                         val count = when (filter) {
