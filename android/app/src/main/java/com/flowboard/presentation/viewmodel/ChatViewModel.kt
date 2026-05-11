@@ -40,14 +40,29 @@ class ChatViewModel @Inject constructor(
     private val _activeChatId = MutableStateFlow<String?>(null)
     val activeChatId: StateFlow<String?> = _activeChatId.asStateFlow()
 
-    // Chat rooms — deduplicate direct chats by participant pair (keep most recent)
-    val chatRooms: StateFlow<List<ChatRoom>> = chatRepository.getAllChatRooms()
-        .map { rooms ->
-            val direct = rooms.filter { it.type == ChatType.DIRECT }
-                .groupBy { room -> room.participants.map { it.userId }.sorted().joinToString(",") }
-                .values.map { dupes -> dupes.maxByOrNull { it.updatedAt } ?: dupes.first() }
-            rooms.filter { it.type != ChatType.DIRECT } + direct
-        }
+    // IDs hidden by the user this session (backend may still return them)
+    private val _hiddenRoomIds = MutableStateFlow<Set<String>>(emptySet())
+
+    // Chat rooms — filter self-chats, duplicates and locally-deleted rooms
+    val chatRooms: StateFlow<List<ChatRoom>> = combine(
+        chatRepository.getAllChatRooms(),
+        _currentUserId,
+        _hiddenRoomIds
+    ) { rooms, userId, hidden ->
+        rooms
+            .filter { it.id !in hidden }
+            .filter { room ->
+                // Remove self-chats: DIRECT where every participant is the current user
+                if (room.type != ChatType.DIRECT || userId == null) return@filter true
+                room.participants.any { it.userId != userId }
+            }
+            .let { filtered ->
+                val direct = filtered.filter { it.type == ChatType.DIRECT }
+                    .groupBy { room -> room.participants.map { it.userId }.sorted().joinToString(",") }
+                    .values.map { dupes -> dupes.maxByOrNull { it.updatedAt } ?: dupes.first() }
+                filtered.filter { it.type != ChatType.DIRECT } + direct
+            }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -436,14 +451,12 @@ class ChatViewModel @Inject constructor(
     }
 
     fun deleteChat(chatRoomId: String) {
+        // Hide immediately so it doesn't reappear after backend refresh
+        _hiddenRoomIds.update { it + chatRoomId }
         viewModelScope.launch {
             chatRepository.deleteChatRoom(chatRoomId)
-            if (_activeChatId.value == chatRoomId) {
-                _activeChatId.value = null
-            }
-            _uiState.update {
-                it.copy(successMessage = "Chat deleted")
-            }
+            if (_activeChatId.value == chatRoomId) _activeChatId.value = null
+            _uiState.update { it.copy(successMessage = "Chat deleted") }
         }
     }
 
