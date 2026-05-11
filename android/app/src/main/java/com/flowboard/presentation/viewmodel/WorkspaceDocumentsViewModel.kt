@@ -118,5 +118,16 @@ class WorkspaceDocumentsViewModel @Inject constructor(
         }
     }
 
+    fun deleteDocument(documentId: String) {
+        viewModelScope.launch {
+            val now = kotlinx.datetime.Clock.System.now()
+                .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).toString()
+            documentDao.softDeleteDocument(documentId, now)
+            _uiState.update { state ->
+                state.copy(documents = state.documents.filter { it.id != documentId })
+            }
+        }
+    }
+
     fun clearError() = _uiState.update { it.copy(error = null) }
 }
