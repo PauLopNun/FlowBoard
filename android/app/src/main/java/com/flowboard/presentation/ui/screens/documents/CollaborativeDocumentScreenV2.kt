@@ -27,9 +27,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import com.flowboard.presentation.ui.components.RemoteCursor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
@@ -84,6 +87,7 @@ fun CollaborativeDocumentScreenV2(
     val document by viewModel.document.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val activeUsers by viewModel.activeUsers.collectAsStateWithLifecycle()
+    val remoteCursors by viewModel.remoteCursors.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isSaving = uiState.isSaving
 
@@ -538,7 +542,26 @@ fun CollaborativeDocumentScreenV2(
                     val isTitle = index == 0 && block.type == "h1"
                     if (isTitle) {
                         // Emoji + title on the same row, with "Add cover" button if no cover
-                        Column(modifier = Modifier.fillMaxWidth().animateItem()) {
+                        val cursorsInTitle = remember(remoteCursors, block.id) {
+                            remoteCursors.values.filter { it.position?.blockId == block.id }
+                        }
+                        Column(modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem()
+                            .then(
+                                if (cursorsInTitle.isNotEmpty()) {
+                                    Modifier.drawBehind {
+                                        cursorsInTitle.forEachIndexed { i, cursor ->
+                                            drawRect(
+                                                color = cursor.color,
+                                                topLeft = Offset(x = (i * 3).dp.toPx(), y = 0f),
+                                                size = size.copy(width = 3.dp.toPx())
+                                            )
+                                        }
+                                    }
+                                } else Modifier
+                            )
+                        ) {
                             if (coverColor.isEmpty()) {
                                 Row(
                                     modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
@@ -635,6 +658,26 @@ fun CollaborativeDocumentScreenV2(
                         } // end Column wrapper
                     } else {
                         ReorderableItem(reorderState, key = block.id) { isDragging ->
+                            val cursorsInBlock = remember(remoteCursors, block.id) {
+                                remoteCursors.values.filter { it.position?.blockId == block.id }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .then(
+                                        if (cursorsInBlock.isNotEmpty()) {
+                                            Modifier.drawBehind {
+                                                cursorsInBlock.forEachIndexed { i, cursor ->
+                                                    drawRect(
+                                                        color = cursor.color,
+                                                        topLeft = Offset(x = (i * 3).dp.toPx(), y = 0f),
+                                                        size = size.copy(width = 3.dp.toPx())
+                                                    )
+                                                }
+                                            }
+                                        } else Modifier
+                                    )
+                            ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -765,6 +808,33 @@ fun CollaborativeDocumentScreenV2(
                                     modifier = Modifier.weight(1f)
                                 )
                             }
+                            // User name badges — float top-right of the block
+                            if (cursorsInBlock.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(end = 4.dp, top = 2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    cursorsInBlock.take(3).forEach { cursor ->
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = cursor.color,
+                                            shadowElevation = 2.dp
+                                        ) {
+                                            Text(
+                                                text = cursor.userName.take(10),
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontSize = 9.sp,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            } // end Box
                         }
                     }
                 }
