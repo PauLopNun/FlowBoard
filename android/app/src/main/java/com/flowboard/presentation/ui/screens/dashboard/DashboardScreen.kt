@@ -472,12 +472,12 @@ fun DashboardSidebar(
             Spacer(modifier = Modifier.height(16.dp))
             // PRIVATE section — collapsible
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.weight(1f).clickable { privateExpanded = !privateExpanded },
-                    verticalAlignment = Alignment.CenterVertically
+                IconButton(
+                    onClick = { privateExpanded = !privateExpanded },
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         if (privateExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
@@ -485,14 +485,16 @@ fun DashboardSidebar(
                         modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.width(2.dp))
-                    Text(
-                        "PRIVATE",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (currentView == DashboardView.MY_DOCUMENTS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.clickable { onNavigate(DashboardView.MY_DOCUMENTS) }
-                    )
                 }
+                Text(
+                    "PRIVATE",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (currentView == DashboardView.MY_DOCUMENTS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onNavigate(DashboardView.MY_DOCUMENTS) }
+                        .padding(vertical = 8.dp)
+                )
                 IconButton(onClick = onCreateDocument, modifier = Modifier.size(20.dp)) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -519,12 +521,12 @@ fun DashboardSidebar(
             Spacer(modifier = Modifier.height(16.dp))
             // SHARED WITH ME section — collapsible
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.weight(1f).clickable { sharedExpanded = !sharedExpanded },
-                    verticalAlignment = Alignment.CenterVertically
+                IconButton(
+                    onClick = { sharedExpanded = !sharedExpanded },
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         if (sharedExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
@@ -532,14 +534,16 @@ fun DashboardSidebar(
                         modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.width(2.dp))
-                    Text(
-                        "SHARED WITH ME",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (currentView == DashboardView.SHARED_WITH_ME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.clickable { onNavigate(DashboardView.SHARED_WITH_ME) }
-                    )
                 }
+                Text(
+                    "SHARED WITH ME",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (currentView == DashboardView.SHARED_WITH_ME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onNavigate(DashboardView.SHARED_WITH_ME) }
+                        .padding(vertical = 8.dp)
+                )
             }
             val sharedPages = sharedDocuments
                 .filter { it.visibility != "workspace" }
