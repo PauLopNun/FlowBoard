@@ -634,6 +634,11 @@ fun CollaborativeDocumentScreenV2(
                                 onCursorChange = { pos -> viewModel.updateCursorPosition(block.id, pos) },
                                 onEnterPressed = {
                                     viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
+                                    coroutineScope.launch {
+                                        kotlinx.coroutines.delay(80)
+                                        val coverOffset = if (coverColor.isNotEmpty()) 1 else 0
+                                        listState.animateScrollToItem(1 + coverOffset)
+                                    }
                                 },
                                 onDeleteBlock = { if (blocks.size > 1) viewModel.deleteBlock(block.id) },
                                 onDuplicateBlock = { viewModel.duplicateBlock(block.id) },
@@ -787,6 +792,11 @@ fun CollaborativeDocumentScreenV2(
                                     onCursorChange = { pos -> viewModel.updateCursorPosition(block.id, pos) },
                                     onEnterPressed = {
                                         viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
+                                        coroutineScope.launch {
+                                            kotlinx.coroutines.delay(80)
+                                            val coverOffset = if (coverColor.isNotEmpty()) 1 else 0
+                                            listState.animateScrollToItem(index + 1 + coverOffset)
+                                        }
                                     },
                                     onDeleteBlock = { if (localBlocks.size > 1) viewModel.deleteBlock(block.id) },
                                     onDuplicateBlock = { viewModel.duplicateBlock(block.id) },
