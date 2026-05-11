@@ -121,9 +121,15 @@ class LoginViewModel @Inject constructor(
                             msg == "UserCancelled" -> {
                                 Log.d(TAG, "Google Sign-In cancelled by user")
                             }
+                            // SHA-1 not registered in Google Cloud Console — common with CI-built APKs
+                            msg == "SHA1NotRegistered" -> {
+                                Log.w(TAG, "Google Sign-In: SHA-1 fingerprint not registered")
+                                _googleSignInError.value =
+                                    "Esta versión de la app no está autorizada para Google Sign-In. Si usas el APK de la pipeline, añade la huella SHA-1 del keystore de CI en Google Cloud Console."
+                            }
                             // No Google account configured on device / Credential Manager couldn't get credentials
+                            msg == "NoCredential" ||
                             msg.contains("No credential", ignoreCase = true) ||
-                            msg.contains("no credential", ignoreCase = true) ||
                             msg.contains("no accounts", ignoreCase = true) -> {
                                 Log.w(TAG, "Google Sign-In: no credentials available")
                                 _googleSignInError.value =

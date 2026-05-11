@@ -125,6 +125,7 @@ fun DashboardScreen(
                         onCreateWorkspaceDocument(workspaceId)
                     },
                     onCreateDocument = { scope.launch { drawerState.close() }; onCreateDocument() },
+                    currentUser = currentUser,
                     onProfileClick = onProfileClick,
                     onSettingsClick = onSettingsClick,
                     onLogout = { scope.launch { drawerState.close() }; onLogout() },
@@ -324,7 +325,8 @@ fun DashboardSidebar(
     unreadChats: Int,
     onDocumentClick: (String) -> Unit,
     onCreateSharedDocument: () -> Unit,
-    onCreateSubPage: ((String, String) -> Unit)?
+    onCreateSubPage: ((String, String) -> Unit)?,
+    currentUser: com.flowboard.domain.model.User? = null
 ) {
     var createSubPageParentId by remember { mutableStateOf<String?>(null) }
     var createSubPageTitle by remember { mutableStateOf("") }
@@ -354,8 +356,70 @@ fun DashboardSidebar(
             }
         )
     }
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 16.dp)) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // User header
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onProfileClick)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    if (currentUser?.profileImageUrl != null) {
+                        AsyncImage(
+                            model = currentUser.profileImageUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Text(
+                                text = (currentUser?.fullName?.takeIf { it.isNotBlank() }
+                                    ?: currentUser?.username ?: "?")
+                                    .first().uppercaseChar().toString(),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = currentUser?.fullName?.takeIf { it.isNotBlank() }
+                            ?: currentUser?.username ?: "FlowBoard",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (currentUser?.email != null) {
+                        Text(
+                            text = currentUser.email,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Icon(
+                    Icons.Outlined.Settings,
+                    contentDescription = "Settings",
+                    modifier = Modifier.size(18.dp).clickable(onClick = onSettingsClick),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             NavigationItem(Icons.Outlined.Home, "Home", currentView == DashboardView.HOME, onClick = { onNavigate(DashboardView.HOME) })
             NavigationItem(Icons.Outlined.Notifications, "Notifications", false, onNotificationsNavigate, unreadNotifications)
             NavigationItem(Icons.Outlined.CheckCircle, "Tasks", false, onTasksNavigate)
@@ -443,14 +507,12 @@ fun DashboardSidebar(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-        HorizontalDivider()
-        Column(modifier = Modifier.padding(bottom = 8.dp)) {
-            NavigationItem(Icons.Outlined.Person, "Profile", false, onProfileClick)
-            NavigationItem(Icons.Outlined.Settings, "Settings", false, onSettingsClick)
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             NavigationItem(Icons.Outlined.Delete, "Trash", currentView == DashboardView.TRASH, onClick = { onNavigate(DashboardView.TRASH) })
             NavigationItem(Icons.AutoMirrored.Filled.Logout, "Logout", false, onLogout)
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
