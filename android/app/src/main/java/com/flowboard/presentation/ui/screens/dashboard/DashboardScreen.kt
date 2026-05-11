@@ -358,67 +358,70 @@ fun DashboardSidebar(
     }
     Column(modifier = Modifier.fillMaxSize()) {
         // User header
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onProfileClick)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable(onClick = onProfileClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(38.dp)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    if (currentUser?.profileImageUrl != null) {
-                        AsyncImage(
-                            model = currentUser.profileImageUrl,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                if (currentUser?.profileImageUrl != null) {
+                    AsyncImage(
+                        model = currentUser.profileImageUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Text(
+                            text = (currentUser?.fullName?.takeIf { it.isNotBlank() }
+                                ?: currentUser?.username ?: "?")
+                                .first().uppercaseChar().toString(),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Bold
                         )
-                    } else {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Text(
-                                text = (currentUser?.fullName?.takeIf { it.isNotBlank() }
-                                    ?: currentUser?.username ?: "?")
-                                    .first().uppercaseChar().toString(),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = currentUser?.fullName?.takeIf { it.isNotBlank() }
+                        ?: currentUser?.username ?: "Mi cuenta",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (currentUser?.email != null) {
                     Text(
-                        text = currentUser?.fullName?.takeIf { it.isNotBlank() }
-                            ?: currentUser?.username ?: "FlowBoard",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        text = currentUser.email,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (currentUser?.email != null) {
-                        Text(
-                            text = currentUser.email,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                 }
+            }
+            IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
                 Icon(
                     Icons.Outlined.Settings,
                     contentDescription = "Settings",
-                    modifier = Modifier.size(18.dp).clickable(onClick = onSettingsClick),
+                    modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
+        HorizontalDivider()
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             NavigationItem(Icons.Outlined.Home, "Home", currentView == DashboardView.HOME, onClick = { onNavigate(DashboardView.HOME) })
             NavigationItem(Icons.Outlined.Notifications, "Notifications", false, onNotificationsNavigate, unreadNotifications)
@@ -465,10 +468,20 @@ fun DashboardSidebar(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("PERSONAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp).clickable { onNavigate(DashboardView.MY_DOCUMENTS) },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "PRIVATE",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (currentView == DashboardView.MY_DOCUMENTS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onCreateDocument, modifier = Modifier.size(20.dp)) {
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            NavigationItem(Icons.Outlined.Folder, "My Pages", currentView == DashboardView.MY_DOCUMENTS, onClick = { onNavigate(DashboardView.MY_DOCUMENTS) })
             val personalDocs = documents
                 .filter { it.visibility != "workspace" }
                 .distinctBy { it.id }
@@ -487,10 +500,17 @@ fun DashboardSidebar(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("SHARED WITH ME", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp).clickable { onNavigate(DashboardView.SHARED_WITH_ME) },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "SHARED WITH ME",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (currentView == DashboardView.SHARED_WITH_ME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
             }
-            NavigationItem(Icons.Outlined.Group, "Shared with me", currentView == DashboardView.SHARED_WITH_ME, onClick = { onNavigate(DashboardView.SHARED_WITH_ME) })
             val sharedPages = sharedDocuments
                 .filter { it.visibility != "workspace" }
                 .distinctBy { it.id }
