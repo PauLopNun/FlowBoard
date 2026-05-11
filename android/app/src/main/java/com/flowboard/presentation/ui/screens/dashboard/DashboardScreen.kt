@@ -330,6 +330,8 @@ fun DashboardSidebar(
 ) {
     var createSubPageParentId by remember { mutableStateOf<String?>(null) }
     var createSubPageTitle by remember { mutableStateOf("") }
+    var privateExpanded by remember { mutableStateOf(false) }
+    var sharedExpanded by remember { mutableStateOf(false) }
 
     if (createSubPageParentId != null) {
         AlertDialog(
@@ -468,16 +470,29 @@ fun DashboardSidebar(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
+            // PRIVATE section — collapsible
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp).clickable { onNavigate(DashboardView.MY_DOCUMENTS) },
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "PRIVATE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (currentView == DashboardView.MY_DOCUMENTS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.weight(1f).clickable { privateExpanded = !privateExpanded },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (privateExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Text(
+                        "PRIVATE",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (currentView == DashboardView.MY_DOCUMENTS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable { onNavigate(DashboardView.MY_DOCUMENTS) }
+                    )
+                }
                 IconButton(onClick = onCreateDocument, modifier = Modifier.size(20.dp)) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -485,46 +500,63 @@ fun DashboardSidebar(
             val personalDocs = documents
                 .filter { it.visibility != "workspace" }
                 .distinctBy { it.id }
-            val rootDocs = personalDocs.filter { doc -> doc.parentId == null || personalDocs.none { it.id == doc.parentId } }
-            if (rootDocs.isEmpty()) {
-                Text("No pages yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.padding(start = 12.dp, top = 4.dp))
-            } else {
-                rootDocs.take(8).forEach { doc ->
-                    PageTreeItem(
-                        doc = doc,
-                        allDocuments = personalDocs,
-                        onDocumentClick = onDocumentClick,
-                        onCreateSubPage = { createSubPageParentId = it },
-                        badgeTextForDocument = { if (it.visibility == "shared") "Shared" else null }
-                    )
+            if (privateExpanded) {
+                val rootDocs = personalDocs.filter { it.parentId == null }
+                if (rootDocs.isEmpty()) {
+                    Text("No pages yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.padding(start = 24.dp, top = 4.dp))
+                } else {
+                    rootDocs.forEach { doc ->
+                        PageTreeItem(
+                            doc = doc,
+                            allDocuments = personalDocs,
+                            onDocumentClick = onDocumentClick,
+                            onCreateSubPage = { createSubPageParentId = it },
+                            badgeTextForDocument = { if (it.visibility == "shared") "Shared" else null }
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
+            // SHARED WITH ME section — collapsible
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp).clickable { onNavigate(DashboardView.SHARED_WITH_ME) },
+                modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "SHARED WITH ME",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (currentView == DashboardView.SHARED_WITH_ME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.weight(1f).clickable { sharedExpanded = !sharedExpanded },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (sharedExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Text(
+                        "SHARED WITH ME",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (currentView == DashboardView.SHARED_WITH_ME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable { onNavigate(DashboardView.SHARED_WITH_ME) }
+                    )
+                }
             }
             val sharedPages = sharedDocuments
                 .filter { it.visibility != "workspace" }
                 .distinctBy { it.id }
-            val rootSharedPages = sharedPages.filter { doc -> doc.parentId == null || sharedPages.none { it.id == doc.parentId } }
-            if (rootSharedPages.isEmpty()) {
-                Text("No shared pages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.padding(start = 12.dp, top = 4.dp))
-            } else {
-                rootSharedPages.take(8).forEach { doc ->
-                    PageTreeItem(
-                        doc = doc,
-                        allDocuments = sharedPages,
-                        onDocumentClick = onDocumentClick,
-                        badgeTextForDocument = { sharedDoc -> sharedDoc.ownerName?.takeIf { it.isNotBlank() } ?: "Shared" }
-                    )
+            if (sharedExpanded) {
+                val rootSharedPages = sharedPages.filter { it.parentId == null }
+                if (rootSharedPages.isEmpty()) {
+                    Text("No shared pages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.padding(start = 24.dp, top = 4.dp))
+                } else {
+                    rootSharedPages.forEach { doc ->
+                        PageTreeItem(
+                            doc = doc,
+                            allDocuments = sharedPages,
+                            onDocumentClick = onDocumentClick,
+                            badgeTextForDocument = { sharedDoc -> sharedDoc.ownerName?.takeIf { it.isNotBlank() } ?: "Shared" }
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
