@@ -817,7 +817,7 @@ private fun SplashScreen() {
             Image(
                 painter = painterResource(id = com.flowboard.R.drawable.app_logo),
                 contentDescription = "FlowBoard Logo",
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(36.dp)
             )
         }
     }
