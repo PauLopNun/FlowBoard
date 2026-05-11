@@ -330,6 +330,7 @@ fun DashboardSidebar(
 ) {
     var createSubPageParentId by remember { mutableStateOf<String?>(null) }
     var createSubPageTitle by remember { mutableStateOf("") }
+    var workspacesExpanded by remember { mutableStateOf(true) }
     var privateExpanded by remember { mutableStateOf(false) }
     var sharedExpanded by remember { mutableStateOf(false) }
 
@@ -432,80 +433,65 @@ fun DashboardSidebar(
             NavigationItem(Icons.Outlined.CalendarMonth, "Calendar", false, onCalendarNavigate)
             NavigationItem(Icons.Outlined.Group, "Workspaces", false, onWorkspaceNavigate)
             NavigationItem(Icons.Outlined.Search, "Search", currentView == DashboardView.SEARCH, onClick = { onNavigate(DashboardView.SEARCH) })
-            Spacer(modifier = Modifier.height(12.dp))
-            NavigationItem(Icons.Default.Add, "New Page", false, onCreateDocument)
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             val workspaceDocs = (sharedDocuments + documents)
                 .filter { it.visibility == "workspace" }
                 .distinctBy { it.id }
             val workspaceDocsById = workspaceDocs.groupBy { it.workspaceId }
-            Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("WORKSPACES", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                IconButton(onClick = onWorkspaceNavigate, modifier = Modifier.size(20.dp)) {
-                    Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // WORKSPACES section — collapsible
+            SidebarSectionHeader(
+                label = "WORKSPACES",
+                expanded = workspacesExpanded,
+                onToggle = { workspacesExpanded = !workspacesExpanded },
+                onLabelClick = onWorkspaceNavigate,
+                isSelected = false,
+                onAdd = onWorkspaceNavigate
+            )
+            if (workspacesExpanded) {
+                if (workspaces.isEmpty()) {
+                    Text("No workspaces yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.padding(start = 40.dp, top = 4.dp, bottom = 8.dp))
+                } else {
+                    workspaces.take(8).forEach { workspace ->
+                        WorkspaceSidebarItem(
+                            workspace = workspace,
+                            onClick = { onWorkspaceSelected(workspace.id) },
+                            onCreateDocument = { onCreateWorkspaceDocument(workspace.id) }
+                        )
+                        val docsForWorkspace = workspaceDocsById[workspace.id].orEmpty()
+                        docsForWorkspace
+                            .filter { doc -> doc.parentId == null || docsForWorkspace.none { it.id == doc.parentId } }
+                            .take(4)
+                            .forEach { doc ->
+                                PageTreeItem(
+                                    doc = doc,
+                                    allDocuments = docsForWorkspace,
+                                    onDocumentClick = onDocumentClick,
+                                    depth = 1
+                                )
+                            }
+                    }
                 }
             }
-            if (workspaces.isEmpty()) {
-                Text("No workspaces yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 8.dp))
-            } else {
-                workspaces.take(8).forEach { workspace ->
-                    WorkspaceSidebarItem(
-                        workspace = workspace,
-                        onClick = { onWorkspaceSelected(workspace.id) },
-                        onCreateDocument = { onCreateWorkspaceDocument(workspace.id) }
-                    )
-                    val docsForWorkspace = workspaceDocsById[workspace.id].orEmpty()
-                    docsForWorkspace
-                        .filter { doc -> doc.parentId == null || docsForWorkspace.none { it.id == doc.parentId } }
-                        .take(4)
-                        .forEach { doc ->
-                            PageTreeItem(
-                                doc = doc,
-                                allDocuments = docsForWorkspace,
-                                onDocumentClick = onDocumentClick,
-                                depth = 1
-                            )
-                        }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
             // PRIVATE section — collapsible
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { privateExpanded = !privateExpanded },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        if (privateExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Text(
-                    "PRIVATE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (currentView == DashboardView.MY_DOCUMENTS) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onNavigate(DashboardView.MY_DOCUMENTS) }
-                        .padding(vertical = 8.dp)
-                )
-                IconButton(onClick = onCreateDocument, modifier = Modifier.size(20.dp)) {
-                    Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
             val personalDocs = documents
                 .filter { it.visibility != "workspace" }
                 .distinctBy { it.id }
+            SidebarSectionHeader(
+                label = "PRIVATE",
+                expanded = privateExpanded,
+                onToggle = { privateExpanded = !privateExpanded },
+                onLabelClick = { onNavigate(DashboardView.MY_DOCUMENTS) },
+                isSelected = currentView == DashboardView.MY_DOCUMENTS,
+                onAdd = onCreateDocument
+            )
             if (privateExpanded) {
                 val rootDocs = personalDocs.filter { it.parentId == null }
                 if (rootDocs.isEmpty()) {
-                    Text("No pages yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.padding(start = 24.dp, top = 4.dp))
+                    Text("No pages yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.padding(start = 40.dp, top = 4.dp))
                 } else {
                     rootDocs.forEach { doc ->
                         PageTreeItem(
@@ -518,40 +504,24 @@ fun DashboardSidebar(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
             // SHARED WITH ME section — collapsible
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { sharedExpanded = !sharedExpanded },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        if (sharedExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Text(
-                    "SHARED WITH ME",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (currentView == DashboardView.SHARED_WITH_ME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onNavigate(DashboardView.SHARED_WITH_ME) }
-                        .padding(vertical = 8.dp)
-                )
-            }
             val sharedPages = sharedDocuments
                 .filter { it.visibility != "workspace" }
                 .distinctBy { it.id }
+            SidebarSectionHeader(
+                label = "SHARED WITH ME",
+                expanded = sharedExpanded,
+                onToggle = { sharedExpanded = !sharedExpanded },
+                onLabelClick = { onNavigate(DashboardView.SHARED_WITH_ME) },
+                isSelected = currentView == DashboardView.SHARED_WITH_ME,
+                onAdd = null
+            )
             if (sharedExpanded) {
                 val rootSharedPages = sharedPages.filter { it.parentId == null }
                 if (rootSharedPages.isEmpty()) {
-                    Text("No shared pages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.padding(start = 24.dp, top = 4.dp))
+                    Text("No shared pages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.padding(start = 40.dp, top = 4.dp))
                 } else {
                     rootSharedPages.forEach { doc ->
                         PageTreeItem(
@@ -569,6 +539,49 @@ fun DashboardSidebar(
             NavigationItem(Icons.Outlined.Delete, "Trash", currentView == DashboardView.TRASH, onClick = { onNavigate(DashboardView.TRASH) })
             NavigationItem(Icons.AutoMirrored.Filled.Logout, "Logout", false, onLogout)
             Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun SidebarSectionHeader(
+    label: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onLabelClick: () -> Unit,
+    isSelected: Boolean,
+    onAdd: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = 40.dp, height = 44.dp)
+                .clickable(onClick = onToggle),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onLabelClick)
+                .padding(vertical = 14.dp)
+        )
+        if (onAdd != null) {
+            IconButton(onClick = onAdd, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
