@@ -884,25 +884,24 @@ private fun DocumentTreeListItem(
             modifier = Modifier.fillMaxWidth().clickable { onDocumentClick(document.id) }
         ) {
             Row(
-                modifier = Modifier.padding(start = (12 + node.depth * 22).dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+                modifier = Modifier.padding(start = (8 + node.depth * 20).dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (hasChildren) {
                     IconButton(
                         onClick = { expanded = !expanded },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
                             imageVector = if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
                             contentDescription = if (expanded) "Collapse" else "Expand",
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
-                } else {
-                    Spacer(modifier = Modifier.width(28.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                 }
-                Icon(Icons.Outlined.Description, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-                Spacer(modifier = Modifier.width(12.dp))
+                Icon(Icons.Outlined.Description, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(document.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val metadata = listOfNotNull(formatRelativeDate(document.updatedAt).ifBlank { null }?.let { "Edited $it" }, badgeText).joinToString(" | ")
