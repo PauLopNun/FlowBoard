@@ -110,7 +110,28 @@ class InMemoryDocumentService(
                 }
                 document.copy(blocks = newBlocks)
             }
-            else -> document // Ignore other operations (e.g. cursor moves)
+            is MoveBlockOperation -> {
+                val movedBlock = document.blocks.find { it.id == operation.blockId }
+                if (movedBlock == null) {
+                    document
+                } else {
+                    val blocksWithoutMoved = document.blocks.filter { it.id != operation.blockId }
+                    val reorderedBlocks = if (operation.afterBlockId == null) {
+                        listOf(movedBlock) + blocksWithoutMoved
+                    } else {
+                        val insertIndex = blocksWithoutMoved.indexOfFirst { it.id == operation.afterBlockId }
+                        if (insertIndex == -1) {
+                            blocksWithoutMoved + movedBlock
+                        } else {
+                            blocksWithoutMoved.toMutableList().apply {
+                                add(insertIndex + 1, movedBlock)
+                            }
+                        }
+                    }
+                    document.copy(blocks = reorderedBlocks)
+                }
+            }
+            is CursorMoveOperation -> document
         }
         documents[operation.boardId] = updatedDocument
         return updatedDocument

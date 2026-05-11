@@ -125,6 +125,21 @@ data class ToggleTodoOperation(
 ) : DocumentOperation
 
 /**
+ * Moves an existing block to a new position in the document.
+ *
+ * @param blockId The ID of the block to move.
+ * @param afterBlockId The block it should land after. Null moves it to the top.
+ */
+@Serializable
+@SerialName("MOVE_BLOCK")
+data class MoveBlockOperation(
+    override val operationId: String,
+    override val boardId: String,
+    val blockId: String,
+    val afterBlockId: String? = null
+) : DocumentOperation
+
+/**
  * Represents a cursor position change for a user.
  *
  * @param userId The ID of the user whose cursor is moving.
