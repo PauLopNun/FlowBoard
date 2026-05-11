@@ -8,6 +8,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -46,7 +47,15 @@ class GoogleAuthManager @Inject constructor(
         } catch (e: GetCredentialCancellationException) {
             Result.failure(Exception("UserCancelled"))
         } catch (e: NoCredentialException) {
-            Result.failure(Exception("No Google account found on this device"))
+            Result.failure(Exception("NoCredential"))
+        } catch (e: GetCredentialUnknownException) {
+            // Error code 10 = DEVELOPER_ERROR: SHA-1 fingerprint not registered in Google Cloud Console
+            val msg = e.message ?: ""
+            if (msg.contains("10") || msg.contains("developer_error", ignoreCase = true)) {
+                Result.failure(Exception("SHA1NotRegistered"))
+            } else {
+                Result.failure(Exception("Google Sign-In error: $msg"))
+            }
         } catch (e: GetCredentialException) {
             Result.failure(Exception("Google Sign-In error: ${e.message}"))
         } catch (e: Exception) {
