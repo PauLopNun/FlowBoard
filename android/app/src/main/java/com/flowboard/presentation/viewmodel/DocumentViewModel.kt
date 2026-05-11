@@ -508,10 +508,22 @@ class DocumentViewModel @Inject constructor(
             documentRepositoryImpl.updateDocumentVisibility(documentId, "workspace", workspaceId)
                 .onSuccess { updated ->
                     documentDao.insertDocument(updated)
+                    // Cascade to all descendants so they don't become orphaned roots in private
+                    val allOwned = _documentListState.value.ownedDocuments
+                    fun collectDescendants(parentId: String): List<String> {
+                        val children = allOwned.filter { it.parentId == parentId }.map { it.id }
+                        return children + children.flatMap { collectDescendants(it) }
+                    }
+                    val descendantIds = collectDescendants(documentId)
+                    descendantIds.forEach { childId ->
+                        documentRepositoryImpl.updateDocumentVisibility(childId, "workspace", workspaceId)
+                            .onSuccess { documentDao.insertDocument(it) }
+                    }
                     _documentListState.update { state ->
+                        val allMoved = setOf(documentId) + descendantIds
                         state.copy(
-                            ownedDocuments = state.ownedDocuments.filter { it.id != documentId },
-                            sharedWithMe = state.sharedWithMe.filter { it.id != documentId }
+                            ownedDocuments = state.ownedDocuments.filter { it.id !in allMoved },
+                            sharedWithMe = state.sharedWithMe.filter { it.id !in allMoved }
                         )
                     }
                     onSuccess()

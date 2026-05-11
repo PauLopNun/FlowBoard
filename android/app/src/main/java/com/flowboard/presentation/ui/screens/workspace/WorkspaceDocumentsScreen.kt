@@ -176,7 +176,8 @@ fun WorkspaceDocumentsScreen(
                             onClick = { onDocumentClick(doc.id) },
                             hasOtherWorkspaces = uiState.workspaces.any { it.id != workspaceId },
                             onMovePrivate = { viewModel.moveToPrivate(doc.id) },
-                            onMoveWorkspace = { moveToWorkspaceDoc = doc }
+                            onMoveWorkspace = { moveToWorkspaceDoc = doc },
+                            onDelete = { viewModel.deleteDocument(doc.id) }
                         )
                     }
                 }
@@ -203,7 +204,8 @@ private fun WorkspaceDocumentCard(
     onClick: () -> Unit,
     hasOtherWorkspaces: Boolean,
     onMovePrivate: () -> Unit,
-    onMoveWorkspace: () -> Unit
+    onMoveWorkspace: () -> Unit,
+    onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     Card(
@@ -265,6 +267,14 @@ private fun WorkspaceDocumentCard(
                             }
                         )
                     }
+                    DropdownMenuItem(
+                        text = { Text("Move to trash", color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        }
+                    )
                 }
             }
         }
