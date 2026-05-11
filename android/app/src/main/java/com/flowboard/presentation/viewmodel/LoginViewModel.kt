@@ -131,9 +131,9 @@ class LoginViewModel @Inject constructor(
                             msg == "NoCredential" ||
                             msg.contains("No credential", ignoreCase = true) ||
                             msg.contains("no accounts", ignoreCase = true) -> {
-                                Log.w(TAG, "Google Sign-In: no credentials available")
+                                Log.w(TAG, "Google Sign-In: no credentials available — check GCC Android client SHA-1 + package name")
                                 _googleSignInError.value =
-                                    "No se encontró ninguna cuenta de Google en el dispositivo. Asegúrate de tener una cuenta configurada e intenta de nuevo."
+                                    "No se encontró ninguna cuenta de Google. Asegúrate de tener una cuenta de Google configurada en el dispositivo."
                             }
                             // Interrupted / config issue (wrong SHA-1, web client ID, etc.)
                             msg.contains("interrupt", ignoreCase = true) -> {
