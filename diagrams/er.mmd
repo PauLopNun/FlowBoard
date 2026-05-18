@@ -1,0 +1,28 @@
+graph LR
+    U["USERS"]
+    T["TASKS"]
+    P["PROJECTS"]
+    D["DOCUMENTS"]
+    W["WORKSPACES"]
+    CR["CHAT_ROOMS"]
+    M["MESSAGES"]
+    WM["WORKSPACE_MEMBERS"]
+    DP["DOCUMENT_PERMISSIONS"]
+    CP["CHAT_PARTICIPANTS"]
+    N["NOTIFICATIONS"]
+    PRT["PASSWORD_RESET_TOKENS"]
+
+    U -->|"1:N"| T
+    U -->|"1:N"| N
+    U -->|"1:N"| PRT
+    U -->|"1:N"| D
+    P -->|"1:N"| T
+    U -->|"1:N"| W
+    W -->|"1:N"| WM
+    U -->|"1:N"| WM
+    W -->|"1:N"| D
+    D -->|"1:N"| DP
+    U -->|"1:N"| DP
+    U -->|"1:N"| CP
+    CR -->|"1:N"| CP
+    CR -->|"1:N"| M

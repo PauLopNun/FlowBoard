@@ -1,0 +1,15 @@
+graph TD
+    subgraph ANDROID["CLIENTE ANDROID"]
+        P["PRESENTACIÓN\nJetpack Compose · ViewModel · StateFlow"]
+        DO["DOMINIO\nRepositorios interfaces · Modelos de dominio"]
+        DA["DATOS\nRoom · Ktor Client · WebSocket · CRDT Engine"]
+        P --> DO --> DA
+    end
+    DA -->|"HTTPS / WSS"| R
+    subgraph SERVER["SERVIDOR KTOR"]
+        R["RUTAS\nauthRoutes · taskRoutes · documentRoutes · wsRoutes"]
+        S["SERVICIOS\nAuthService · TaskService · DocumentService..."]
+        DL["DATOS\nExposed ORM · HikariCP · DatabaseFactory"]
+        R --> S --> DL
+    end
+    DL -->|"JDBC + SSL"| PG[("PostgreSQL\nRender.com")]

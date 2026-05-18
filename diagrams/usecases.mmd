@@ -1,0 +1,14 @@
+graph LR
+    UA(["Usuario\nNo Autenticado"])
+    AU(["Usuario\nAutenticado"])
+
+    UA --> CU01["CU-01: Registrar usuario"]
+    UA --> CU02["CU-02: Login (email / Google)"]
+    UA --> CU05["CU-05: Recuperar contraseña OTP"]
+
+    AU --> CU03["CU-03: Editar documento colaborativo"]
+    AU --> CU04["CU-04: Gestionar tareas"]
+    AU --> CU06["CU-06: Gestionar proyectos"]
+    AU --> CU07["CU-07: Unirse a workspace"]
+    AU --> CU08["CU-08: Chat directo y grupal"]
+    AU --> CU09["CU-09: Gestionar notificaciones"]

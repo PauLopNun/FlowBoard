@@ -3,6 +3,7 @@ package com.flowboard.presentation.ui.screens.documents
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -35,6 +38,7 @@ import androidx.compose.ui.graphics.SolidColor
 import com.flowboard.presentation.ui.components.RemoteCursor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -44,6 +48,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -94,6 +99,8 @@ fun CollaborativeDocumentScreenV2(
     var showShareDialog by remember { mutableStateOf(false) }
     var showExportMenu by remember { mutableStateOf(false) }
     var focusedBlockId by remember { mutableStateOf<String?>(null) }
+    var pendingFocusBlockId by remember { mutableStateOf<String?>(null) }
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     var selectionBlockId by remember { mutableStateOf<String?>(null) }
     var selectionStart by remember { mutableStateOf(0) }
     var selectionEnd by remember { mutableStateOf(0) }
@@ -267,24 +274,23 @@ fun CollaborativeDocumentScreenV2(
             val docTitle = blocks.firstOrNull { it.type == "h1" }?.content
                 ?: blocks.firstOrNull()?.content
                 ?: "Untitled"
-            Column {
-                DocumentTopBar(
-                    title = docTitle,
-                    connectionState = connectionState,
-                    activeUsers = activeUsers,
-                    breadcrumbs = uiState.breadcrumbs,
-                    visibility = uiState.visibility,
-                    onBack = onNavigateBack,
-                    onSave = { viewModel.saveDocument() },
-                    isSaving = isSaving,
-                    onShare = { showShareDialog = true },
-                    showExportMenu = showExportMenu,
-                    onToggleExportMenu = { showExportMenu = !showExportMenu },
-                    onDismissExportMenu = { showExportMenu = false },
-                    onExportMarkdown = {
-                        showExportMenu = false
-                        exportToMarkdown(blocks, docTitle, context)
-                    },
+            DocumentTopBar(
+                title = docTitle,
+                connectionState = connectionState,
+                activeUsers = activeUsers,
+                breadcrumbs = uiState.breadcrumbs,
+                visibility = uiState.visibility,
+                onBack = onNavigateBack,
+                onSave = { viewModel.saveDocument() },
+                isSaving = isSaving,
+                onShare = { showShareDialog = true },
+                showExportMenu = showExportMenu,
+                onToggleExportMenu = { showExportMenu = !showExportMenu },
+                onDismissExportMenu = { showExportMenu = false },
+                onExportMarkdown = {
+                    showExportMenu = false
+                    exportToMarkdown(blocks, docTitle, context)
+                },
                 onExportPdf = {
                     showExportMenu = false
                     exportToPdf(blocks, docTitle, context)
@@ -294,64 +300,6 @@ fun CollaborativeDocumentScreenV2(
                     savePdfLauncher.launch(suggestedPdfFileName(docTitle))
                 }
             )
-
-                // Formatting toolbar — shown when a block is focused
-                AnimatedVisibility(
-                    visible = focusedBlockId != null,
-                    enter = slideInVertically { -it } + fadeIn(),
-                    exit = slideOutVertically { -it } + fadeOut()
-                ) {
-                    Column {
-                        FormattingToolbar(
-                            currentBlock = focusedBlock,
-                            selectionRange = if (selectionStart != selectionEnd) selectionStart to selectionEnd else null,
-                            onBold = {
-                                focusedBlockId?.let { id ->
-                                    viewModel.updateFormatting(id,
-                                        fontWeight = if (focusedBlock?.fontWeight == "bold") "normal" else "bold")
-                                }
-                            },
-                            onItalic = {
-                                focusedBlockId?.let { id ->
-                                    viewModel.updateFormatting(id,
-                                        fontStyle = if (focusedBlock?.fontStyle == "italic") "normal" else "italic")
-                                }
-                            },
-                            onUnderline = {
-                                focusedBlockId?.let { id ->
-                                    viewModel.updateFormatting(id,
-                                        textDecoration = if (focusedBlock?.textDecoration == "underline") "none" else "underline")
-                                }
-                            },
-                            onBlockType = { type ->
-                                focusedBlockId?.let { id -> viewModel.updateBlockType(id, type) }
-                            },
-                            onColorChange = { color ->
-                                focusedBlockId?.let { id -> viewModel.updateFormatting(id, color = color) }
-                            },
-                            onBgColorChange = { bgColor ->
-                                focusedBlockId?.let { id -> viewModel.updateFormatting(id, backgroundColor = bgColor) }
-                            },
-                            onFontFamilyChange = { fontToken ->
-                                focusedBlockId?.let { id -> viewModel.updateFormatting(id, textAlign = fontToken) }
-                            },
-                            onSpansChange = { spans ->
-                                focusedBlockId?.let { id -> viewModel.updateInlineSpans(id, spans) }
-                            }
-                        )
-                    }
-                }
-            }
-        },
-        bottomBar = {
-            // Typing / presence indicator — shown when others are in the doc
-            AnimatedVisibility(
-                visible = otherActiveUsers.isNotEmpty(),
-                enter = slideInVertically { it } + fadeIn(),
-                exit = slideOutVertically { it } + fadeOut()
-            ) {
-                TypingIndicatorBar(users = otherActiveUsers)
-            }
         }
     ) { padding ->
         // Auto-seed a title/template for new documents.
@@ -450,11 +398,69 @@ fun CollaborativeDocumentScreenV2(
                 }
             }
         } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
+            ) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize().imePadding(),
                 contentPadding = PaddingValues(bottom = 88.dp)
             ) {
+                // "Add cover" buttons — always shown at top when no cover is set
+                if (coverColor.isEmpty()) {
+                    item(key = "cover_buttons") {
+                        Row(
+                            modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            TextButton(
+                                onClick = { showCoverPicker = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Icon(Icons.Default.Image, null, modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Add cover", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                            }
+                            TextButton(
+                                onClick = {
+                                    coverGalleryLauncher.launch(
+                                        androidx.activity.result.PickVisualMediaRequest(
+                                            ActivityResultContracts.PickVisualMedia.ImageOnly
+                                        )
+                                    )
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                enabled = !isCoverUploading
+                            ) {
+                                if (isCoverUploading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                }
+                                Spacer(Modifier.width(4.dp))
+                                Text("From gallery", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                            }
+                            TextButton(
+                                onClick = { showCoverImageDialog = true },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Icon(Icons.Default.Link, null, modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Image URL", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                            }
+                        }
+                    }
+                }
+
                 // Cover image banner (shown only when a cover color is set)
                 if (coverColor.isNotEmpty()) {
                     item(key = "cover") {
@@ -562,54 +568,6 @@ fun CollaborativeDocumentScreenV2(
                                 } else Modifier
                             )
                         ) {
-                            if (coverColor.isEmpty()) {
-                                Row(
-                                    modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    TextButton(
-                                        onClick = { showCoverPicker = true },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                    ) {
-                                        Icon(Icons.Default.Image, null, modifier = Modifier.size(14.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Add cover", style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                    }
-                                    TextButton(
-                                        onClick = {
-                                            coverGalleryLauncher.launch(
-                                                androidx.activity.result.PickVisualMediaRequest(
-                                                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                                                )
-                                            )
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                        enabled = !isCoverUploading
-                                    ) {
-                                        if (isCoverUploading) {
-                                            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
-                                        } else {
-                                            Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(14.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                        }
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("From gallery", style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                    }
-                                    TextButton(
-                                        onClick = { showCoverImageDialog = true },
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                                    ) {
-                                        Icon(Icons.Default.Link, null, modifier = Modifier.size(14.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Image URL", style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                    }
-                                }
-                            }
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -633,11 +591,15 @@ fun CollaborativeDocumentScreenV2(
                                 onToggleTodo = { isChecked -> viewModel.toggleTodo(block.id, isChecked) },
                                 onCursorChange = { pos -> viewModel.updateCursorPosition(block.id, pos) },
                                 onEnterPressed = {
-                                    viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
+                                    val newId = UUID.randomUUID().toString()
+                                    viewModel.addBlock(ContentBlock(id = newId, type = "p", content = ""), block.id)
+                                    focusedBlockId = newId
+                                    pendingFocusBlockId = newId
                                     coroutineScope.launch {
                                         kotlinx.coroutines.delay(80)
                                         val coverOffset = if (coverColor.isNotEmpty()) 1 else 0
                                         listState.animateScrollToItem(1 + coverOffset)
+                                        pendingFocusBlockId = null
                                     }
                                 },
                                 onDeleteBlock = { if (blocks.size > 1) viewModel.deleteBlock(block.id) },
@@ -657,6 +619,7 @@ fun CollaborativeDocumentScreenV2(
                                     selectionEnd = e
                                 },
                                 isTitle = true,
+                                autoFocus = pendingFocusBlockId == block.id,
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -791,11 +754,15 @@ fun CollaborativeDocumentScreenV2(
                                     onToggleTodo = { isChecked -> viewModel.toggleTodo(block.id, isChecked) },
                                     onCursorChange = { pos -> viewModel.updateCursorPosition(block.id, pos) },
                                     onEnterPressed = {
-                                        viewModel.addBlock(ContentBlock(id = UUID.randomUUID().toString(), type = "p", content = ""), block.id)
+                                        val newId = UUID.randomUUID().toString()
+                                        viewModel.addBlock(ContentBlock(id = newId, type = "p", content = ""), block.id)
+                                        focusedBlockId = newId
+                                        pendingFocusBlockId = newId
                                         coroutineScope.launch {
                                             kotlinx.coroutines.delay(80)
                                             val coverOffset = if (coverColor.isNotEmpty()) 1 else 0
                                             listState.animateScrollToItem(index + 1 + coverOffset)
+                                            pendingFocusBlockId = null
                                         }
                                     },
                                     onDeleteBlock = { if (localBlocks.size > 1) viewModel.deleteBlock(block.id) },
@@ -815,6 +782,7 @@ fun CollaborativeDocumentScreenV2(
                                         selectionEnd = e
                                     },
                                     isTitle = false,
+                                    autoFocus = pendingFocusBlockId == block.id,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -885,6 +853,75 @@ fun CollaborativeDocumentScreenV2(
                     }
                 }
             }
+
+                // Typing indicator overlay — above keyboard
+                AnimatedVisibility(
+                    visible = otherActiveUsers.isNotEmpty(),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = slideInVertically { it } + fadeIn(),
+                    exit = slideOutVertically { it } + fadeOut()
+                ) {
+                    TypingIndicatorBar(users = otherActiveUsers)
+                }
+
+                // Formatting toolbar — offset upward by exact keyboard height, hides when keyboard closes
+                val imeBottomPx = WindowInsets.ime.getBottom(LocalDensity.current)
+                val navBarPx = WindowInsets.navigationBars.getBottom(LocalDensity.current)
+                val toolbarOffsetPx = (imeBottomPx - navBarPx).coerceAtLeast(0)
+
+                AnimatedVisibility(
+                    visible = focusedBlockId != null && imeVisible,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .offset { IntOffset(0, -toolbarOffsetPx) },
+                    enter = fadeIn(tween(80)),
+                    exit = fadeOut(tween(80))
+                ) {
+                    FormattingToolbar(
+                        currentBlock = focusedBlock,
+                        selectionRange = if (selectionStart != selectionEnd) selectionStart to selectionEnd else null,
+                        onBold = {
+                            focusedBlockId?.let { id ->
+                                viewModel.updateFormatting(id,
+                                    fontWeight = if (focusedBlock?.fontWeight == "bold") "normal" else "bold")
+                            }
+                        },
+                        onItalic = {
+                            focusedBlockId?.let { id ->
+                                viewModel.updateFormatting(id,
+                                    fontStyle = if (focusedBlock?.fontStyle == "italic") "normal" else "italic")
+                            }
+                        },
+                        onUnderline = {
+                            focusedBlockId?.let { id ->
+                                viewModel.updateFormatting(id,
+                                    textDecoration = if (focusedBlock?.textDecoration == "underline") "none" else "underline")
+                            }
+                        },
+                        onBlockType = { type ->
+                            focusedBlockId?.let { id -> viewModel.updateBlockType(id, type) }
+                        },
+                        onColorChange = { color ->
+                            focusedBlockId?.let { id -> viewModel.updateFormatting(id, color = color) }
+                        },
+                        onBgColorChange = { bgColor ->
+                            focusedBlockId?.let { id -> viewModel.updateFormatting(id, backgroundColor = bgColor) }
+                        },
+                        onFontFamilyChange = { fontToken ->
+                            focusedBlockId?.let { id -> viewModel.updateFormatting(id, textAlign = fontToken) }
+                        },
+                        onSpansChange = { spans ->
+                            focusedBlockId?.let { id -> viewModel.updateInlineSpans(id, spans) }
+                        },
+                        onAddBlock = {
+                            focusedBlockId?.let { id ->
+                                showSlashMenu = true
+                                slashMenuBlockId = id
+                            }
+                        }
+                    )
+                }
+            } // end Box
         }
     }
 
@@ -1610,8 +1647,18 @@ private fun DocumentBlock(
     onTableCellChange: ((row: Int, col: Int, value: String) -> Unit)? = null,
     onSpansChange: ((String) -> Unit)? = null,
     onSelectionChange: ((Int, Int) -> Unit)? = null,
+    autoFocus: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val blockFocusRequester = remember(block.id) { FocusRequester() }
+
+    LaunchedEffect(autoFocus) {
+        if (autoFocus) {
+            kotlinx.coroutines.delay(60)
+            try { blockFocusRequester.requestFocus() } catch (_: Exception) {}
+        }
+    }
+
     var textFieldValue by remember(block.id) {
         mutableStateOf(TextFieldValue(buildAnnotatedString(block.content, block.spans)))
     }
@@ -2105,6 +2152,7 @@ private fun DocumentBlock(
                     textFieldValue = textFieldValue,
                     textStyle = textStyle,
                     placeholder = placeholder,
+                    focusRequester = blockFocusRequester,
                     onFocusChange = onFocusChange,
                     onValueChange = { new -> handleValueChange(new, allowDelete = !isTitle) },
                     onEnterPressed = onEnterPressed
@@ -2174,6 +2222,7 @@ private fun BlockTextField(
     textStyle: TextStyle,
     placeholder: String,
     modifier: Modifier = Modifier,
+    focusRequester: FocusRequester = remember { FocusRequester() },
     onFocusChange: (Boolean) -> Unit,
     onValueChange: (TextFieldValue) -> Unit,
     onEnterPressed: () -> Unit
@@ -2181,10 +2230,9 @@ private fun BlockTextField(
     BasicTextField(
         value = textFieldValue,
         onValueChange = { new ->
-            // Detect Enter press by checking for newline in new text
             if (new.text.contains('\n')) {
                 val trimmed = new.text.replace("\n", "")
-                onValueChange(TextFieldValue(trimmed))
+                onValueChange(TextFieldValue(trimmed, selection = TextRange(trimmed.length)))
                 onEnterPressed()
             } else {
                 onValueChange(new)
@@ -2192,6 +2240,7 @@ private fun BlockTextField(
         },
         modifier = modifier
             .fillMaxWidth()
+            .focusRequester(focusRequester)
             .onFocusChanged { onFocusChange(it.isFocused) },
         textStyle = textStyle,
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -2269,7 +2318,8 @@ private fun FormattingToolbar(
     onColorChange: (String) -> Unit,
     onBgColorChange: (String) -> Unit,
     onFontFamilyChange: (String) -> Unit,
-    onSpansChange: ((String) -> Unit)? = null
+    onSpansChange: ((String) -> Unit)? = null,
+    onAddBlock: (() -> Unit)? = null
 ) {
     val hasSelection = selectionRange != null && selectionRange.first != selectionRange.second
     val textColors = listOf(
@@ -2338,6 +2388,25 @@ private fun FormattingToolbar(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // + button — opens block type picker (same as / command)
+            if (onAddBlock != null) {
+                IconButton(
+                    onClick = onAddBlock,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Add block",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Box(
+                    Modifier.height(24.dp).width(1.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+            }
+
             // Block type chips
             BlockTypeChip("T", currentBlock?.type == "p",
                 onClick = { onBlockType("p") })

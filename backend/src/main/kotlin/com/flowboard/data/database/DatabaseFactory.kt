@@ -178,6 +178,32 @@ object DatabaseFactory {
         )
         exec("UPDATE document_permissions SET granted_at = NOW() WHERE granted_at IS NULL")
         exec("ALTER TABLE document_permissions ALTER COLUMN granted_at SET NOT NULL")
+
+        exec("""
+            CREATE OR REPLACE FUNCTION set_updated_at()
+            RETURNS TRIGGER AS ${'$'}${'$'}
+            BEGIN
+                NEW.updated_at = NOW();
+                RETURN NEW;
+            END;
+            ${'$'}${'$'} LANGUAGE plpgsql
+        """.trimIndent())
+
+        exec("DROP TRIGGER IF EXISTS tasks_set_updated_at ON tasks")
+        exec("""
+            CREATE TRIGGER tasks_set_updated_at
+                BEFORE UPDATE ON tasks
+                FOR EACH ROW
+                EXECUTE FUNCTION set_updated_at()
+        """.trimIndent())
+
+        exec("DROP TRIGGER IF EXISTS documents_set_updated_at ON documents")
+        exec("""
+            CREATE TRIGGER documents_set_updated_at
+                BEFORE UPDATE ON documents
+                FOR EACH ROW
+                EXECUTE FUNCTION set_updated_at()
+        """.trimIndent())
     }
     
     suspend fun <T> dbQuery(block: suspend () -> T): T =
