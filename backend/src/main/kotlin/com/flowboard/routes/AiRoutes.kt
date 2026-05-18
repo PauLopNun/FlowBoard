@@ -57,12 +57,16 @@ fun Route.aiRoutes() {
 
             val request = call.receive<AiRequest>()
 
+            val markdownInstruction = "Always respond in plain Markdown format. " +
+                "Use # for H1, ## for H2, ### for H3, - for bullet lists, 1. for numbered lists, > for quotes, and plain text for paragraphs. " +
+                "Never return JSON, XML, or any structured data format. Never wrap your response in code fences unless the user explicitly asks for a code block."
+
             val systemPrompt = if (!request.documentContext.isNullOrBlank())
                 "You are a helpful writing assistant integrated in FlowBoard, a Notion-like app. " +
                 "The user is working on a document with the following content:\n\n${request.documentContext.take(3000)}\n\n" +
-                "Help them with their request. Be concise and direct."
+                "Help them with their request. Be concise and direct. $markdownInstruction"
             else
-                "You are a helpful writing assistant integrated in FlowBoard, a Notion-like app. Be concise and direct."
+                "You are a helpful writing assistant integrated in FlowBoard, a Notion-like app. Be concise and direct. $markdownInstruction"
 
             val promptText = "$systemPrompt\n\nUser request:\n${request.prompt}"
 
