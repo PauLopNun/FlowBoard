@@ -559,20 +559,51 @@ class DocumentViewModel @Inject constructor(
     }
 
     /**
-     * Permanently delete a document (from Trash): removes locally and on server
+     * Remove a shared document from this user's list (soft-delete locally only).
+     * The document is not deleted on the server; the owner keeps their copy.
+     */
+    fun removeSharedDocument(documentId: String) {
+        viewModelScope.launch {
+            val docEntity = _documentListState.value.sharedWithMe.find { it.id == documentId }
+            if (docEntity != null) {
+                documentDao.insertDocument(docEntity)
+            }
+            val now = Clock.System.now().toEpochMilliseconds().toString()
+            documentDao.softDeleteDocument(documentId, now)
+            _documentListState.update { state ->
+                state.copy(sharedWithMe = state.sharedWithMe.filter { it.id != documentId })
+            }
+        }
+    }
+
+    /**
+     * Permanently delete a document: removes from UI immediately, then deletes locally and on server.
      */
     fun permanentlyDeleteDocument(documentId: String) {
         viewModelScope.launch {
+            _documentListState.update { state ->
+                state.copy(
+                    ownedDocuments = state.ownedDocuments.filter { it.id != documentId },
+                    sharedWithMe = state.sharedWithMe.filter { it.id != documentId }
+                )
+            }
             documentDao.deleteDocumentById(documentId)
-            documentRepositoryImpl.deleteDocument(documentId) // best-effort server delete
+            documentRepositoryImpl.deleteDocument(documentId)
         }
     }
 
     fun permanentlyDeleteDocuments(documentIds: List<String>) {
         viewModelScope.launch {
-            documentIds.distinct().forEach { documentId ->
+            val ids = documentIds.distinct().toSet()
+            _documentListState.update { state ->
+                state.copy(
+                    ownedDocuments = state.ownedDocuments.filter { it.id !in ids },
+                    sharedWithMe = state.sharedWithMe.filter { it.id !in ids }
+                )
+            }
+            ids.forEach { documentId ->
                 documentDao.deleteDocumentById(documentId)
-                documentRepositoryImpl.deleteDocument(documentId) // best-effort server delete
+                documentRepositoryImpl.deleteDocument(documentId)
             }
         }
     }

@@ -7,6 +7,7 @@ import com.flowboard.data.repository.AuthRepository
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -72,8 +73,12 @@ class WorkspaceApiService @Inject constructor(
     }
 
     suspend fun deleteWorkspace(id: String) {
-        httpClient.delete("$endpoint/$id") {
+        val response = httpClient.delete("$endpoint/$id") {
             header(HttpHeaders.Authorization, "Bearer ${token()}")
+        }
+        if (!response.status.isSuccess()) {
+            val body = try { response.body<String>() } catch (_: Exception) { "" }
+            throw Exception("Delete failed (${response.status.value}): ${body.take(200)}")
         }
     }
 

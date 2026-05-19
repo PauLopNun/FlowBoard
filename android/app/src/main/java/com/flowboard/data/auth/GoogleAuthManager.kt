@@ -12,6 +12,7 @@ import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -32,33 +33,24 @@ class GoogleAuthManager @Inject constructor(
     suspend fun signInWithGoogle(activity: Activity): Result<GoogleSignInResult> = withContext(Dispatchers.Main) {
         val credentialManager = CredentialManager.create(activity)
 
-        // Step 1: try accounts already authorized with this app (fast path for returning users).
-        // If none are authorized, step 2 will show the full account picker.
-        val authorizedResult = tryGetCredential(
-            credentialManager, activity,
-            filterByAuthorizedAccounts = true
-        )
-
+        // Step 1: fast path — auto-select if the user already authorized this app.
+        val authorizedResult = tryGoogleIdOption(credentialManager, activity)
         if (authorizedResult != null) return@withContext authorizedResult
 
-        // Step 2: show full account picker (new users, or no prior authorized account).
-        return@withContext tryGetCredential(
-            credentialManager, activity,
-            filterByAuthorizedAccounts = false
-        ) ?: Result.failure(Exception("NoCredential"))
+        // Step 2: full account picker via GetSignInWithGoogleOption.
+        // More reliable on physical devices than GetGoogleIdOption(filterAuthorized=false).
+        return@withContext trySignInWithGoogle(credentialManager, activity)
     }
 
-    private suspend fun tryGetCredential(
+    private suspend fun tryGoogleIdOption(
         credentialManager: CredentialManager,
-        activity: Activity,
-        filterByAuthorizedAccounts: Boolean
+        activity: Activity
     ): Result<GoogleSignInResult>? {
-        val nonce = generateNonce()
         val googleIdOption = GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(filterByAuthorizedAccounts)
+            .setFilterByAuthorizedAccounts(true)
             .setServerClientId(webClientId)
-            .setAutoSelectEnabled(filterByAuthorizedAccounts) // auto-select only for returning users
-            .setNonce(nonce)
+            .setAutoSelectEnabled(true)
+            .setNonce(generateNonce())
             .build()
 
         val request = GetCredentialRequest.Builder()
@@ -68,16 +60,38 @@ class GoogleAuthManager @Inject constructor(
         return try {
             val response = credentialManager.getCredential(context = activity, request = request)
             handleSignInResult(response)
+        } catch (e: Exception) {
+            // Any failure in the fast path (including cancellation from bottom-sheet interaction
+            // on some devices) falls through to the full GetSignInWithGoogleOption picker.
+            Log.d(tag, "Fast path failed (${e.javaClass.simpleName}: ${e.message}), using full picker")
+            null
+        }
+    }
+
+    private suspend fun trySignInWithGoogle(
+        credentialManager: CredentialManager,
+        activity: Activity
+    ): Result<GoogleSignInResult> {
+        val signInOption = GetSignInWithGoogleOption.Builder(webClientId)
+            .setNonce(generateNonce())
+            .build()
+
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(signInOption)
+            .build()
+
+        return try {
+            val response = credentialManager.getCredential(context = activity, request = request)
+            handleSignInResult(response)
         } catch (e: GetCredentialCancellationException) {
-            Log.d(tag, "Sign-in cancelled by user (filterAuthorized=$filterByAuthorizedAccounts)")
+            Log.w(tag, "GetCredentialCancellationException — cause: ${e.cause?.javaClass?.simpleName} msg: ${e.message}")
             Result.failure(Exception("UserCancelled"))
         } catch (e: NoCredentialException) {
-            Log.w(tag, "NoCredentialException (filterAuthorized=$filterByAuthorizedAccounts): ${e.message}")
-            // Return null to allow caller to try next option; only the second call returns this as failure.
-            if (filterByAuthorizedAccounts) null else Result.failure(Exception("NoCredential"))
+            Log.w(tag, "NoCredentialException in full picker: ${e.message}")
+            Result.failure(Exception("NoCredential"))
         } catch (e: GetCredentialUnknownException) {
             val msg = e.message ?: ""
-            Log.e(tag, "GetCredentialUnknownException (filterAuthorized=$filterByAuthorizedAccounts): $msg")
+            Log.e(tag, "GetCredentialUnknownException: $msg")
             if (msg.contains("10") || msg.contains("developer_error", ignoreCase = true)) {
                 Result.failure(Exception("SHA1NotRegistered"))
             } else {
@@ -85,18 +99,15 @@ class GoogleAuthManager @Inject constructor(
             }
         } catch (e: GetCredentialException) {
             val msg = e.message ?: ""
-            Log.e(tag, "GetCredentialException type=${e.javaClass.simpleName} (filterAuthorized=$filterByAuthorizedAccounts): $msg")
-            // DEVELOPER_ERROR manifests as GetCredentialException with "10" in some GPS versions
+            Log.e(tag, "GetCredentialException type=${e.javaClass.simpleName}: $msg")
             if (msg.contains("10") || msg.contains("developer_error", ignoreCase = true)) {
                 Result.failure(Exception("SHA1NotRegistered"))
-            } else if (filterByAuthorizedAccounts) {
-                null // fall through to full picker
             } else {
                 Result.failure(Exception("Google Sign-In error: $msg"))
             }
         } catch (e: Exception) {
-            Log.e(tag, "Unexpected exception (filterAuthorized=$filterByAuthorizedAccounts): ${e.javaClass.simpleName}: ${e.message}")
-            if (filterByAuthorizedAccounts) null else Result.failure(e)
+            Log.e(tag, "Unexpected exception: ${e.javaClass.simpleName}: ${e.message}")
+            Result.failure(e)
         }
     }
 

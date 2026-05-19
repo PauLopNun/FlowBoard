@@ -218,8 +218,8 @@ fun MyDocumentsScreen(
                             title = doc.title,
                             subtitle = "Shared by ${doc.ownerName ?: "someone"} • ${formatDate(doc.updatedAt)}",
                             onClick = { onDocumentClick(doc.id) },
-                            onDelete = null,
-                            showDelete = false,
+                            onDelete = { showDeleteDialog = doc.id },
+                            showDelete = true,
                             isStarred = doc.isStarred,
                             onToggleStar = { onToggleStar(doc.id) },
                             onDuplicate = null
@@ -231,18 +231,33 @@ fun MyDocumentsScreen(
 
         // Diálogo de confirmación de eliminación
         showDeleteDialog?.let { documentId ->
+            val isShared = sharedDocs.any { it.id == documentId }
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = null },
-                title = { Text("Delete Document?") },
-                text = { Text("This action cannot be undone.") },
+                title = { Text(if (isShared) "Remove Document?" else "Delete Document?") },
+                text = {
+                    Text(
+                        if (isShared)
+                            "This will remove it from your account. The owner keeps their copy."
+                        else
+                            "This action cannot be undone."
+                    )
+                },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            viewModel.deleteDocumentViaApi(documentId)
+                            if (isShared) {
+                                viewModel.removeSharedDocument(documentId)
+                            } else {
+                                viewModel.permanentlyDeleteDocument(documentId)
+                            }
                             showDeleteDialog = null
                         }
                     ) {
-                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                        Text(
+                            if (isShared) "Remove" else "Delete",
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 },
                 dismissButton = {

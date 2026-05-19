@@ -48,7 +48,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -864,16 +863,12 @@ fun CollaborativeDocumentScreenV2(
                     TypingIndicatorBar(users = otherActiveUsers)
                 }
 
-                // Formatting toolbar — offset upward by exact keyboard height, hides when keyboard closes
-                val imeBottomPx = WindowInsets.ime.getBottom(LocalDensity.current)
-                val navBarPx = WindowInsets.navigationBars.getBottom(LocalDensity.current)
-                val toolbarOffsetPx = (imeBottomPx - navBarPx).coerceAtLeast(0)
-
+                // Formatting toolbar — sits just above the keyboard using imePadding
                 AnimatedVisibility(
                     visible = focusedBlockId != null && imeVisible,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .offset { IntOffset(0, -toolbarOffsetPx) },
+                        .imePadding(),
                     enter = fadeIn(tween(80)),
                     exit = fadeOut(tween(80))
                 ) {
