@@ -38,9 +38,10 @@ object RepositoryModule {
     fun provideChatRepository(
         chatDao: ChatDao,
         authRepository: AuthRepository,
-        chatApiService: ChatApiService
+        chatApiService: ChatApiService,
+        dataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>
     ): ChatRepository {
-        return ChatRepositoryImpl(chatDao, authRepository, chatApiService)
+        return ChatRepositoryImpl(chatDao, authRepository, chatApiService, dataStore)
     }
 
     @Provides

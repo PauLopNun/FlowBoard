@@ -1,13 +1,20 @@
 package com.flowboard.data.repository
 
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.flowboard.data.local.dao.ChatDao
 import com.flowboard.data.local.entities.*
 import com.flowboard.data.remote.api.ChatApiService
 import com.flowboard.data.remote.api.ChatParticipantDto
 import com.flowboard.domain.model.*
 import com.flowboard.domain.repository.ChatRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -20,8 +27,23 @@ import javax.inject.Singleton
 class ChatRepositoryImpl @Inject constructor(
     private val chatDao: ChatDao,
     private val authRepository: AuthRepository,
-    private val chatApiService: ChatApiService
+    private val chatApiService: ChatApiService,
+    private val dataStore: DataStore<Preferences>
 ) : ChatRepository {
+
+    companion object {
+        private val DELETED_CHAT_IDS = stringSetPreferencesKey("deleted_chat_room_ids")
+    }
+
+    private suspend fun deletedIds(): Set<String> =
+        dataStore.data.first()[DELETED_CHAT_IDS] ?: emptySet()
+
+    private suspend fun markDeleted(chatRoomId: String) {
+        dataStore.edit { prefs ->
+            val current = prefs[DELETED_CHAT_IDS] ?: emptySet()
+            prefs[DELETED_CHAT_IDS] = current + chatRoomId
+        }
+    }
 
     override fun getAllChatRooms(): Flow<List<ChatRoom>> {
         return combine(
@@ -86,7 +108,8 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     suspend fun refreshChatRooms() {
-        val rooms = chatApiService.getChatRooms()
+        val deleted = deletedIds()
+        val rooms = chatApiService.getChatRooms().filter { it.id !in deleted }
         val roomEntities = rooms.map { it.toEntity() }
         val participantEntities = rooms.flatMap { dto ->
             dto.participants.map { it.toEntity(dto.id) }
@@ -116,6 +139,7 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteChatRoom(chatRoomId: String) {
+        markDeleted(chatRoomId)
         chatDao.getChatRoomSync(chatRoomId)?.let {
             chatDao.deleteChatRoom(it)
             chatDao.deleteAllMessages(chatRoomId)

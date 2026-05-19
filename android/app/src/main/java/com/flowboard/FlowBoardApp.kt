@@ -331,7 +331,7 @@ fun FlowBoardApp(
                             ?.takeIf { it.isNotBlank() }
                     val isPdf = isPdfUri(context, uri, displayName)
                     val rawText = if (isPdf) {
-                        readPdfTextFromUri(context, uri).trim()
+                        pdfTextToMarkdown(readPdfTextFromUri(context, uri).trim())
                     } else {
                         readTextFromUri(context, uri).trim()
                     }
@@ -736,6 +736,49 @@ private fun displayNameFromUri(context: Context, uri: Uri): String? {
 private fun isPdfUri(context: Context, uri: Uri, displayName: String?): Boolean {
     val mimeType = runCatching { context.contentResolver.getType(uri) }.getOrNull()
     return mimeType == "application/pdf" || displayName?.endsWith(".pdf", ignoreCase = true) == true
+}
+
+private fun pdfTextToMarkdown(rawText: String): String {
+    val lines = rawText.replace("\r\n", "\n").split("\n")
+    val sb = StringBuilder()
+    var prevBlank = true
+
+    for (i in lines.indices) {
+        val line = lines[i].trimEnd()
+        val trimmed = line.trim()
+
+        if (trimmed.isBlank()) {
+            if (!prevBlank) sb.appendLine()
+            prevBlank = true
+            continue
+        }
+
+        val nextNonBlank = lines.drop(i + 1).firstOrNull { it.isNotBlank() }?.trim()
+
+        val converted = when {
+            trimmed.startsWith("• ") || trimmed.startsWith("· ") ||
+            trimmed.startsWith("▪ ") || trimmed.startsWith("● ") ->
+                "- ${trimmed.drop(2).trim()}"
+            trimmed.startsWith("# ") || trimmed.startsWith("## ") ||
+            trimmed.startsWith("### ") || trimmed.startsWith("- ") ||
+            trimmed.startsWith("* ") -> trimmed
+            Regex("""^\d+\.\s""").containsMatchIn(trimmed) -> trimmed
+            // ALL CAPS short line → section heading
+            trimmed == trimmed.uppercase() && trimmed.length in 3..80 &&
+            trimmed.any { it.isLetter() } && !trimmed.endsWith(".") ->
+                "## $trimmed"
+            // Short title-case line not ending in punctuation, followed by longer text → subheading
+            trimmed.length <= 70 && !trimmed.endsWith(".") && !trimmed.endsWith(",") &&
+            !trimmed.endsWith(";") &&
+            nextNonBlank != null && nextNonBlank.length > trimmed.length + 20 ->
+                "### $trimmed"
+            else -> trimmed
+        }
+
+        sb.appendLine(converted)
+        prevBlank = false
+    }
+    return sb.toString()
 }
 
 private fun pdfFallbackContent(title: String, fileName: String): String {
