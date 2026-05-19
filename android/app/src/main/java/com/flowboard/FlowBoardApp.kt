@@ -51,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -118,7 +119,7 @@ fun FlowBoardApp(
         val documentViewModel: DocumentViewModel = hiltViewModel()
         val currentRoute by navController.currentBackStackEntryAsState()
 
-        var splashVisible by remember { mutableStateOf(true) }
+        var splashVisible by rememberSaveable { mutableStateOf(true) }
         LaunchedEffect(Unit) {
             delay(1_400)
             splashVisible = false

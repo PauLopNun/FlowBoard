@@ -144,20 +144,38 @@ fun GroupChatForm(
 ) {
     var groupName by remember { mutableStateOf("") }
     val uiState by viewModel.uiState.collectAsState()
+    var localError by remember { mutableStateOf<String?>(null) }
+
+    // Observe ViewModel error messages
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
+            localError = it
+            viewModel.clearError()
+        }
+    }
+    // Navigate away on success
+    LaunchedEffect(uiState.successMessage) {
+        if (uiState.successMessage == "Group created successfully") {
+            viewModel.clearSuccess()
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         OutlinedTextField(
             value = groupName,
-            onValueChange = { groupName = it },
-            label = { Text("Group name") },
-            leadingIcon = {
-                Icon(Icons.Default.Group, contentDescription = null)
+            onValueChange = {
+                groupName = it
+                localError = null
             },
+            label = { Text("Group name") },
+            leadingIcon = { Icon(Icons.Default.Group, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            isError = localError != null,
+            supportingText = localError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } }
         )
 
         Text(
@@ -171,15 +189,12 @@ fun GroupChatForm(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-
+            TextButton(onClick = onDismiss) { Text("Cancel") }
             Spacer(modifier = Modifier.width(8.dp))
-
             Button(
                 onClick = {
-                    viewModel.createGroupChat(groupName, emptyList()) { chatId ->
+                    localError = null
+                    viewModel.createGroupChat(groupName.trim(), emptyList()) { chatId ->
                         onChatCreated(chatId)
                         onDismiss()
                     }
@@ -187,10 +202,7 @@ fun GroupChatForm(
                 enabled = groupName.isNotBlank() && !uiState.isLoading
             ) {
                 if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 } else {
                     Text("Create Group")
                 }
