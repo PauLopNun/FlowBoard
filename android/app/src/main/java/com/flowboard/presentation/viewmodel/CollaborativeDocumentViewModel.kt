@@ -179,9 +179,29 @@ class CollaborativeDocumentViewModel @Inject constructor(
                     currentId = entity.parentId
                 }
 
-                _uiState.update { it.copy(breadcrumbs = chain) }
+                _uiState.update { state ->
+                    state.copy(
+                        breadcrumbs = chain,
+                        documentTitle = chain.lastOrNull()?.second ?: state.documentTitle
+                    )
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Could not load breadcrumbs: ${e.message}")
+            }
+        }
+    }
+
+    fun renameDocument(newTitle: String) {
+        val documentId = _uiState.value.currentDocumentId ?: return
+        val trimmed = newTitle.trim().ifBlank { return }
+        _uiState.update { it.copy(documentTitle = trimmed) }
+        viewModelScope.launch {
+            try {
+                documentApiService.updateDocument(documentId, title = trimmed)
+                val cached = documentDao.getDocumentById(documentId)
+                if (cached != null) documentDao.insertDocument(cached.copy(title = trimmed))
+            } catch (e: Exception) {
+                Log.e(TAG, "Rename failed: ${e.message}")
             }
         }
     }
@@ -651,9 +671,7 @@ class CollaborativeDocumentViewModel @Inject constructor(
         val documentId = _uiState.value.currentDocumentId ?: return
         val blocks = document.value?.blocks ?: return
 
-        val title = blocks.firstOrNull { it.type == "h1" }?.content
-            ?: blocks.firstOrNull()?.content
-            ?: "Untitled"
+        val title = _uiState.value.documentTitle
         val content = Json { encodeDefaults = true }.encodeToString(blocks)
 
         viewModelScope.launch {
@@ -775,5 +793,7 @@ data class CollaborativeDocumentUiState(
     val coverColor: String = "",
     /** Document visibility: "private", "shared", or "workspace" */
     val visibility: String = "private",
-    val workspaceId: String? = null
+    val workspaceId: String? = null,
+    /** Metadata title — separate from H1 block content */
+    val documentTitle: String = "Untitled"
 )

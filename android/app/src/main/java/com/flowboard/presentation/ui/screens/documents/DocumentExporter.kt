@@ -60,6 +60,40 @@ fun exportToMarkdown(blocks: List<ContentBlock>, title: String, context: Context
     shareFile(file, "text/markdown", "Export as Markdown", context)
 }
 
+fun saveMarkdownToUri(blocks: List<ContentBlock>, context: Context, uri: Uri): Boolean {
+    val sb = StringBuilder()
+    blocks.forEach { block ->
+        val content = block.content
+        when (block.type) {
+            "h1" -> sb.appendLine("# $content\n")
+            "h2" -> sb.appendLine("## $content\n")
+            "h3" -> sb.appendLine("### $content\n")
+            "bullet" -> sb.appendLine("- $content")
+            "numbered" -> sb.appendLine("1. $content")
+            "code" -> sb.appendLine("```\n$content\n```\n")
+            "table" -> {
+                runCatching {
+                    val obj = org.json.JSONObject(content)
+                    val jsonCells = obj.getJSONArray("cells")
+                    for (r in 0 until jsonCells.length()) {
+                        val row = jsonCells.getJSONArray(r)
+                        val cells = (0 until row.length()).map { row.getString(it) }
+                        sb.append("| "); sb.append(cells.joinToString(" | ")); sb.appendLine(" |")
+                        if (r == 0) { sb.append("| "); sb.append(cells.joinToString(" | ") { "---" }); sb.appendLine(" |") }
+                    }
+                    sb.appendLine()
+                }
+            }
+            else -> { if (content.isBlank()) return@forEach; var t = content; if (block.fontWeight == "bold") t = "**$t**"; if (block.fontStyle == "italic") t = "_${t}_"; sb.appendLine("$t\n") }
+        }
+    }
+    return runCatching {
+        context.contentResolver.openOutputStream(uri)?.use { it.write(sb.toString().toByteArray()) }
+    }.isSuccess
+}
+
+fun suggestedMdFileName(title: String): String = "${safeFileName(title)}.md"
+
 fun exportToPdf(blocks: List<ContentBlock>, title: String, context: Context) {
     val file = File(context.cacheDir, suggestedPdfFileName(title))
     FileOutputStream(file).use { writePdfToStream(blocks, it) }

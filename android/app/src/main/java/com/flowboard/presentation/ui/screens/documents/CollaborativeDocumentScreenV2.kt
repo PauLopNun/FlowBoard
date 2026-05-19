@@ -140,6 +140,18 @@ fun CollaborativeDocumentScreenV2(
             )
         }
     }
+    val saveMdLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/markdown")
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        val saved = saveMarkdownToUri(blocks, context, uri)
+        coroutineScope.launch {
+            snackbarHostState.showSnackbar(
+                if (saved) "Markdown saved to device" else "Could not save Markdown"
+            )
+        }
+    }
+    var showRenameDialog by remember { mutableStateOf(false) }
     val focusedBlock = blocks.find { it.id == focusedBlockId }
     val focusedSelectionRange = remember(focusedBlockId, selectionBlockId, selectionStart, selectionEnd, focusedBlock?.content) {
         val blockText = focusedBlock?.content ?: return@remember null
@@ -270,9 +282,7 @@ fun CollaborativeDocumentScreenV2(
             }
         },
         topBar = {
-            val docTitle = blocks.firstOrNull { it.type == "h1" }?.content
-                ?: blocks.firstOrNull()?.content
-                ?: "Untitled"
+            val docTitle = uiState.documentTitle
             DocumentTopBar(
                 title = docTitle,
                 connectionState = connectionState,
@@ -297,6 +307,14 @@ fun CollaborativeDocumentScreenV2(
                 onSavePdfToDevice = {
                     showExportMenu = false
                     savePdfLauncher.launch(suggestedPdfFileName(docTitle))
+                },
+                onSaveMdToDevice = {
+                    showExportMenu = false
+                    saveMdLauncher.launch(suggestedMdFileName(docTitle))
+                },
+                onRename = {
+                    showExportMenu = false
+                    showRenameDialog = true
                 }
             )
         }
@@ -1018,10 +1036,37 @@ fun CollaborativeDocumentScreenV2(
         )
     }
 
+    // Rename dialog
+    if (showRenameDialog) {
+        var renameText by remember { mutableStateOf(uiState.documentTitle) }
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename document") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    label = { Text("Title") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.renameDocument(renameText)
+                    showRenameDialog = false
+                }) { Text("Rename") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     // Share dialog
     if (showShareDialog) {
         ShareDocumentDialog(
-            documentTitle = blocks.firstOrNull()?.content ?: "Untitled",
+            documentTitle = uiState.documentTitle,
             currentCollaborators = emptyList(),
             onInviteUser = { email, role ->
                 val roleStr = when (role) {
@@ -1441,7 +1486,9 @@ private fun DocumentTopBar(
     onDismissExportMenu: () -> Unit,
     onExportMarkdown: () -> Unit,
     onExportPdf: () -> Unit,
-    onSavePdfToDevice: () -> Unit
+    onSavePdfToDevice: () -> Unit,
+    onSaveMdToDevice: () -> Unit,
+    onRename: () -> Unit
 ) {
     TopAppBar(
         title = {
@@ -1550,10 +1597,22 @@ private fun DocumentTopBar(
                     onDismissRequest = onDismissExportMenu
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Export as Markdown") },
+                        text = { Text("Rename") },
+                        leadingIcon = { Icon(Icons.Default.Edit, null) },
+                        onClick = onRename
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("Share Markdown") },
                         leadingIcon = { Icon(Icons.Default.Code, null) },
                         onClick = onExportMarkdown
                     )
+                    DropdownMenuItem(
+                        text = { Text("Save Markdown to device") },
+                        leadingIcon = { Icon(Icons.Default.Download, null) },
+                        onClick = onSaveMdToDevice
+                    )
+                    HorizontalDivider()
                     DropdownMenuItem(
                         text = { Text("Share PDF") },
                         leadingIcon = { Icon(Icons.Default.PictureAsPdf, null) },
